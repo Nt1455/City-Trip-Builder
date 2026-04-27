@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v1.2 - 26/04/2026 -->
+<!-- City Trip Builder Claude - v1.3 - 27/04/2026 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -76,8 +76,8 @@ textarea{min-height:68px;resize:vertical}
 .rec-link.booking{background:#e8f0fe;color:#1a56db;border-color:#1a56db}
 .rec-link.tripadvisor{background:#fff8e1;color:#b7700c;border-color:#b7700c}
 .rec-link.viator{background:#e8f5e9;color:#2e7d32;border-color:#2e7d32}
-.rec-link.gyg{background:#fff3e0;color:#e65100;border-color:#e65100}
-.result-footer{padding:.75rem 1.25rem;border-top:1px solid var(--border);text-align:center}
+.rec-link.gyg{background:#fff3e0;color:#e65100;border-color:#e65100}.rec-link.wa{background:#e8f5e9;color:#25d366;border-color:#25d366}
+.result-footer{padding:.75rem 1.25rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .btn-new{font-family:'Heebo',sans-serif;font-size:13px;padding:6px 18px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
 .btn-new:hover{background:var(--bg)}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.field.full{grid-column:1}header h1{font-size:22px}}
@@ -281,8 +281,17 @@ textarea{min-height:68px;resize:vertical}
   </div>
   <div class="result-body" id="result-body"></div>
   <div class="rec-body" id="rec-body" style="display:none"></div>
+  <div class="edit-section" id="edit-section" style="display:none;padding:1rem 1.25rem;border-top:1px solid var(--border)">
+    <div style="font-size:13px;font-weight:500;color:var(--muted);margin-bottom:6px">בקשת עריכה</div>
+    <textarea id="edit-request" placeholder="לדוגמה: הזז את הביקור במוזיאון ליום 2 בשעה 14:00 / החלף את המסעדה בצהריים ביום 1..." style="min-height:72px;margin-bottom:8px"></textarea>
+    <button class="btn-build" style="margin:0" onclick="editItinerary()">עדכן מסלול</button>
+  </div>
   <div class="result-footer">
-    <button class="btn-new" onclick="resetForm()">סיור חדש</button>
+    <span id="version-tag" style="font-size:11px;color:var(--muted)">גרסה 1</span>
+    <div style="display:flex;gap:8px">
+      <button class="btn-new" onclick="toggleEdit()">✏️ ערוך מסלול</button>
+      <button class="btn-new" onclick="resetForm()">סיור חדש</button>
+    </div>
   </div>
 </div>
 
@@ -369,6 +378,8 @@ async function buildTrip() {
 - ממליץ על אוכל ספציפי לפי ההעדפות
 - מוסיף טיפ insider לכל אתר
 - לא ממציא מקומות שלא קיימים
+- כשממליץ על מסעדות - ממליץ רק על מסעדות שניתן להגיע אליהן ללא הזמנה מראש של יותר משבוע, אלא אם המשתמש ציין שיש לו הזמנה
+- לצד כל המלצת מסעדה - ציין בסוגריים אם נדרשת הזמנה מראש
 - בביקור חוזר - לא מציע אטרקציות תיירותיות ראשיות
 - כותב בעברית בלבד`;
 
@@ -533,6 +544,69 @@ function buildRec() {
     </div>`;
 }
 
+let itineraryVersion = 1;
+
+function toggleEdit() {
+  const section = document.getElementById('edit-section');
+  section.style.display = section.style.display === 'none' ? 'block' : 'none';
+  if (section.style.display === 'block') {
+    document.getElementById('edit-request').focus();
+  }
+}
+
+async function editItinerary() {
+  const request = document.getElementById('edit-request').value.trim();
+  if (!request) { alert('יש לכתוב בקשת עריכה'); return; }
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { alert('יש להזין API Key'); return; }
+
+  const currentItinerary = document.getElementById('result-body').textContent;
+  const dest = document.getElementById('destination').value.trim();
+
+  document.getElementById('edit-section').style.display = 'none';
+  setLoading(true);
+
+  const system = `אתה מדריך סיורים מקצועי. קיבלת מסלול קיים ובקשת עריכה ספציפית. תפקידך לעדכן את המסלול בהתאם לבקשה בלבד - אל תשנה שום דבר אחר. החזר את המסלול המלא המעודכן בעברית.`;
+
+  const prompt = `המסלול הנוכחי:
+${currentItinerary}
+
+בקשת העריכה: ${request}
+
+החזר את המסלול המלא עם השינוי הנדרש בלבד.`;
+
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        temperature: 0.3,
+        system,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!res.ok) throw new Error('שגיאת שרת: ' + res.status);
+    const data = await res.json();
+    const text = data.content?.map(b => b.text || '').join('') || '';
+    if (!text) throw new Error('לא התקבלה תשובה');
+
+    document.getElementById('result-body').innerHTML = renderMarkdown(text);
+    document.getElementById('edit-request').value = '';
+    itineraryVersion++;
+    document.getElementById('version-tag').textContent = 'גרסה ' + itineraryVersion;
+  } catch(e) {
+    showError('שגיאה: ' + e.message);
+  }
+  setLoading(false);
+}
+
 function resetForm() {
   document.getElementById('result-card').classList.remove('visible');
   document.getElementById('destination').value='';
@@ -553,6 +627,9 @@ function resetForm() {
   document.getElementById('rec-body').style.display='none';
   document.getElementById('result-body').style.display='block';
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===0));
+  itineraryVersion = 1;
+  document.getElementById('version-tag').textContent = 'גרסה 1';
+  document.getElementById('edit-section').style.display = 'none';
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
