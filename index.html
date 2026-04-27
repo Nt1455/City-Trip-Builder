@@ -1,3 +1,4 @@
+<!-- City Trip Builder Claude - v1.2 - 26/04/2026 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -149,7 +150,7 @@ textarea{min-height:68px;resize:vertical}
           </select>
         </div>
         <div style="flex:1;display:flex;flex-direction:column;gap:5px">
-          <label>כמות</label>
+          <label>מספר אנשים</label>
           <input type="number" id="num-people" min="1" max="50" value="2" />
         </div>
       </div>
@@ -483,6 +484,7 @@ function buildRec() {
         <div class="search-btns">
           <a class="rec-link booking" href="https://www.booking.com/search.html?ss=${enc(dest)}" target="_blank">Booking.com</a>
           <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(budgetTag+'hotel '+dest)}" target="_blank">Google Maps</a>
+          <a class="rec-link wa" href="https://wa.me/?text=${enc('🏨 לינה ב-'+dest+':\nBooking: https://www.booking.com/search.html?ss='+dest+'\nGoogle Maps: https://www.google.com/maps/search/hotel+'+dest)}" target="_blank">📱 שתף</a>
         </div>
       </div>
     </div>
@@ -496,6 +498,7 @@ function buildRec() {
         <div class="search-btns">
           <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(foodQ)}" target="_blank">Google Maps</a>
           <a class="rec-link tripadvisor" href="https://www.tripadvisor.com/Search?q=${enc(foodQ)}" target="_blank">TripAdvisor</a>
+          <a class="rec-link wa" href="https://wa.me/?text=${enc('🍽 מסעדות ב-'+dest+':\nGoogle Maps: https://www.google.com/maps/search/'+foodQ+'\nTripAdvisor: https://www.tripadvisor.com/Search?q='+foodQ)}" target="_blank">📱 שתף</a>
         </div>
       </div>
       ${food==='כשר'?`<div class="search-card"><div class="search-info"><div class="search-label">כשרות בלבד</div></div><div class="search-btns"><a class="rec-link maps" href="https://www.google.com/maps/search/${enc('kosher restaurant '+dest)}" target="_blank">Google Maps</a></div></div>`:''}
@@ -510,6 +513,7 @@ function buildRec() {
         <div class="search-btns">
           <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(attrQ)}" target="_blank">Google Maps</a>
           <a class="rec-link tripadvisor" href="https://www.tripadvisor.com/Search?q=${enc(attrQ)}" target="_blank">TripAdvisor</a>
+          <a class="rec-link wa" href="https://wa.me/?text=${enc('🎯 אטרקציות ב-'+dest+':\nGoogle Maps: https://www.google.com/maps/search/'+attrQ+'\nTripAdvisor: https://www.tripadvisor.com/Search?q='+attrQ)}" target="_blank">📱 שתף</a>
         </div>
       </div>
     </div>
@@ -523,6 +527,7 @@ function buildRec() {
         <div class="search-btns">
           <a class="rec-link viator" href="https://www.viator.com/search/${enc(dest)}" target="_blank">Viator</a>
           <a class="rec-link gyg" href="https://www.getyourguide.com/s/?q=${enc(dest)}" target="_blank">GetYourGuide</a>
+          <a class="rec-link wa" href="https://wa.me/?text=${enc('🎟 כרטיסים ב-'+dest+':\nViator: https://www.viator.com/search/'+dest+'\nGetYourGuide: https://www.getyourguide.com/s/?q='+dest)}" target="_blank">📱 שתף</a>
         </div>
       </div>
     </div>`;
