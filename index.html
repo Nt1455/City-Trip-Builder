@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v1.3 - 27/04/2026 -->
+<!-- City Trip Builder Claude - v1.4 - 28/04/2026 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -40,6 +40,8 @@ textarea{min-height:68px;resize:vertical}
 .result-title{font-size:14px;font-weight:600;color:var(--accent)}
 .result-btns{display:flex;gap:6px;flex-wrap:wrap}
 .rbtn{font-family:'Heebo',sans-serif;font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .15s;border:1px solid}
+.rbtn-maps{background:transparent;color:#1967d2;border-color:#1967d2}
+.rbtn-maps:hover{background:#1967d2;color:#fff}
 .rbtn-copy{background:transparent;color:var(--accent);border-color:var(--accent)}
 .rbtn-copy:hover{background:var(--accent);color:#fff}
 .rbtn-wa{background:transparent;color:#25d366;border-color:#25d366}
@@ -102,7 +104,16 @@ textarea{min-height:68px;resize:vertical}
 <header>
   <h1>City Trip Builder Claude</h1>
   <p>מלא את הפרטים - קבל מסלול מפורט לפי שעות</p>
+  <button onclick="toggleHistory()" style="margin-top:8px;font-family:'Heebo',sans-serif;font-size:12px;padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer">📂 מסלולים שמורים</button>
 </header>
+
+<div id="history-panel" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <span style="font-size:14px;font-weight:600">מסלולים שמורים</span>
+    <button onclick="toggleHistory()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px">&times;</button>
+  </div>
+  <div id="history-list" style="font-size:14px;color:var(--muted)">אין מסלולים שמורים עדיין</div>
+</div>
 
 <div class="card" id="api-card">
   <div class="card-title">הגדרות</div>
@@ -270,9 +281,10 @@ textarea{min-height:68px;resize:vertical}
   <div class="result-header">
     <span class="result-title" id="result-title">המסלול שלך</span>
     <div class="result-btns">
-      <button class="rbtn rbtn-wa" onclick="sendWhatsApp()">📱 שלח בוואטסאפ</button>
-      <button class="rbtn rbtn-pdf" onclick="window.print()">🖨 שמור PDF</button>
-      <button class="rbtn rbtn-copy" onclick="copyResult()">העתק הכל</button>
+      <button class="rbtn rbtn-maps" onclick="openInMaps()">🗺 Google Maps</button>
+      <button class="rbtn rbtn-wa" onclick="sendWhatsApp()">📱 וואטסאפ</button>
+      <button class="rbtn rbtn-pdf" onclick="window.print()">🖨 PDF</button>
+      <button class="rbtn rbtn-copy" onclick="copyResult()">העתק</button>
     </div>
   </div>
   <div class="tabs">
@@ -289,7 +301,8 @@ textarea{min-height:68px;resize:vertical}
   <div class="result-footer">
     <span id="version-tag" style="font-size:11px;color:var(--muted)">גרסה 1</span>
     <div style="display:flex;gap:8px">
-      <button class="btn-new" onclick="toggleEdit()">✏️ ערוך מסלול</button>
+      <button class="btn-new" onclick="saveItinerary()">💾 שמור מסלול</button>
+      <button class="btn-new" onclick="toggleEdit()">✏️ ערוך</button>
       <button class="btn-new" onclick="resetForm()">סיור חדש</button>
     </div>
   </div>
@@ -380,6 +393,7 @@ async function buildTrip() {
 - לא ממציא מקומות שלא קיימים
 - כשממליץ על מסעדות - ממליץ רק על מסעדות שניתן להגיע אליהן ללא הזמנה מראש של יותר משבוע, אלא אם המשתמש ציין שיש לו הזמנה
 - לצד כל המלצת מסעדה - ציין בסוגריים אם נדרשת הזמנה מראש
+- לכל ארוחה (בוקר/צהריים/ערב) הצע 2-3 אפשרויות שונות ברמות תקציב/סגנון שונים
 - בביקור חוזר - לא מציע אטרקציות תיירותיות ראשיות
 - כותב בעברית בלבד`;
 
@@ -417,7 +431,13 @@ async function buildTrip() {
         messages: [{ role: 'user', content: prompt }]
       })
     });
-    if (!res.ok) throw new Error('שגיאת שרת: '+res.status);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = errData?.error?.message || 'שגיאת שרת ' + res.status;
+      if (res.status === 401) throw new Error('API Key שגוי או פג תוקף - בדוק את המפתח');
+      if (res.status === 429) throw new Error('חריגה ממגבלת שימוש - נסה שוב בעוד דקה');
+      throw new Error(msg);
+    }
     const data = await res.json();
     const text = data.content?.map(b=>b.text||'').join('')||'';
     if (!text) throw new Error('לא התקבלה תשובה');
@@ -545,6 +565,110 @@ function buildRec() {
 }
 
 let itineraryVersion = 1;
+
+// Google Maps - extract places and open
+function openInMaps() {
+  const text = document.getElementById('result-body').textContent;
+  const dest = document.getElementById('destination').value.trim();
+  
+  // Extract place names from table rows (format: HH:MM | Place Name | action)
+  const lines = text.split('\n');
+  const places = [];
+  for (const line of lines) {
+    const parts = line.split('|');
+    if (parts.length >= 2) {
+      const place = parts[1].trim();
+      if (place && place.length > 2 && place.length < 60 && !place.includes('מקום') && !place.includes('שעה')) {
+        places.push(place + ' ' + dest);
+      }
+    }
+  }
+  
+  if (places.length === 0) {
+    // Fallback - search destination
+    window.open('https://www.google.com/maps/search/' + encodeURIComponent(dest), '_blank');
+    return;
+  }
+  
+  // Open first place + show all as search
+  const query = places.slice(0, 5).join(' / ');
+  window.open('https://www.google.com/maps/search/' + encodeURIComponent(places[0]), '_blank');
+}
+
+// Save itinerary to localStorage
+function saveItinerary() {
+  const dest = document.getElementById('destination').value.trim();
+  const text = document.getElementById('result-body').innerHTML;
+  if (!text || !dest) return;
+  
+  const name = prompt('שם המסלול:', dest + ' - ' + new Date().toLocaleDateString('he-IL'));
+  if (!name) return;
+  
+  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  saved.unshift({ name, dest, html: text, date: new Date().toLocaleDateString('he-IL'), version: itineraryVersion });
+  if (saved.length > 10) saved.pop(); // max 10
+  localStorage.setItem('ctb_history', JSON.stringify(saved));
+  
+  const btn = document.querySelector('[onclick="saveItinerary()"]');
+  btn.textContent = '✓ נשמר!';
+  setTimeout(() => btn.textContent = '💾 שמור מסלול', 2000);
+  renderHistory();
+}
+
+// Toggle history panel
+function toggleHistory() {
+  const panel = document.getElementById('history-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (panel.style.display === 'block') renderHistory();
+}
+
+// Render history list
+function renderHistory() {
+  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  const list = document.getElementById('history-list');
+  
+  if (saved.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px">אין מסלולים שמורים עדיין</div>';
+    return;
+  }
+  
+  list.innerHTML = saved.map((item, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--border)">
+      <div>
+        <div style="font-size:14px;font-weight:500">${item.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${item.date}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="loadItinerary(${i})" style="font-family:'Heebo',sans-serif;font-size:12px;padding:4px 12px;border:1px solid var(--accent);border-radius:6px;background:transparent;color:var(--accent);cursor:pointer">פתח</button>
+        <button onclick="deleteItinerary(${i})" style="font-family:'Heebo',sans-serif;font-size:12px;padding:4px 8px;border:1px solid #fca5a5;border-radius:6px;background:transparent;color:#991b1b;cursor:pointer">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Load saved itinerary
+function loadItinerary(index) {
+  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  const item = saved[index];
+  if (!item) return;
+  
+  document.getElementById('destination').value = item.dest;
+  document.getElementById('result-body').innerHTML = item.html;
+  document.getElementById('result-title').textContent = 'מסלול: ' + item.dest;
+  document.getElementById('result-card').classList.add('visible');
+  document.getElementById('history-panel').style.display = 'none';
+  document.getElementById('result-card').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// Delete saved itinerary
+function deleteItinerary(index) {
+  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  saved.splice(index, 1);
+  localStorage.setItem('ctb_history', JSON.stringify(saved));
+  renderHistory();
+}
+
+
 
 function toggleEdit() {
   const section = document.getElementById('edit-section');
