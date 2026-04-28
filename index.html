@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v1.9 - 29/04/2026 -->
+<!-- City Trip Builder Claude - v2.1 - 29/04/2026 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -42,6 +42,10 @@ textarea{min-height:68px;resize:vertical}
 .rbtn{font-family:'Heebo',sans-serif;font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .15s;border:1px solid}
 .rbtn-maps{background:transparent;color:#1967d2;border-color:#1967d2}
 .rbtn-maps:hover{background:#1967d2;color:#fff}
+.rbtn-day{font-family:'Heebo',sans-serif;font-size:11px;padding:4px 10px;border:1px solid #1967d2;border-radius:5px;background:transparent;color:#1967d2;cursor:pointer;white-space:nowrap}
+.rbtn-day:hover{background:#1967d2;color:#fff}
+.rbtn-park{background:transparent;color:#2d5a27;border-color:#2d5a27}
+.rbtn-park:hover{background:#2d5a27;color:#fff}
 .rbtn-copy{background:transparent;color:var(--accent);border-color:var(--accent)}
 .rbtn-copy:hover{background:var(--accent);color:#fff}
 .rbtn-wa{background:transparent;color:#25d366;border-color:#25d366}
@@ -281,12 +285,14 @@ textarea{min-height:68px;resize:vertical}
   <div class="result-header">
     <span class="result-title" id="result-title">המסלול שלך</span>
     <div class="result-btns">
-      <button class="rbtn rbtn-maps" onclick="openInMaps()">🗺 Google Maps</button>
+      <button class="rbtn rbtn-maps" onclick="openInMaps()">🗺 כל המסלול</button>
+      <button class="rbtn rbtn-park" id="btn-parking" onclick="openParking()" style="display:none">🅿 חניונים</button>
       <button class="rbtn rbtn-wa" onclick="sendWhatsApp()">📱 וואטסאפ</button>
       <button class="rbtn rbtn-pdf" onclick="window.print()">🖨 PDF</button>
       <button class="rbtn rbtn-copy" onclick="copyResult()">העתק</button>
     </div>
   </div>
+  <div id="day-maps-row" style="display:none;padding:6px 1.25rem;background:var(--accent-light);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;"></div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('itinerary')">מסלול</button>
     <button class="tab" onclick="switchTab('recommendations')">המלצות - לינה / אוכל / אטרקציות</button>
@@ -452,6 +458,7 @@ async function buildTrip() {
     document.getElementById('result-body').innerHTML = renderMarkdown(text);
     document.getElementById('result-title').textContent = 'מסלול: '+fields.dest;
     document.getElementById('result-card').classList.add('visible');
+    buildDayMapButtons();
     document.getElementById('result-card').scrollIntoView({behavior:'smooth',block:'start'});
   } catch(e) {
     showError('שגיאה: '+e.message);
@@ -575,38 +582,33 @@ function buildRec() {
 let itineraryVersion = 1;
 
 // Google Maps - extract places and open
-function openInMaps() {
-  const dest = document.getElementById('destination').value.trim();
-  const resultBody = document.getElementById('result-body');
-  const skipWords = ['נסיעה','מעבר','הליכה','הזמנה','מנוחה','ארוחת בוקר','ארוחת צהריים','ארוחת ערב','חזרה','סיום','שעה','מקום','פעולה','מיקום','זמן חופשי'];
-
-  // Extract from table cells (2nd column = location)
+function extractPlacesFromTable(tableEl, dest) {
+  const skipWords = ['נסיעה','מעבר','הליכה','הזמנה','מנוחה','ארוחת בוקר','ארוחת צהריים','ארוחת ערב','חזרה','סיום','זמן חופשי','ראו המלצות'];
   const places = [];
-  // Try table cells first
-  const rows = resultBody.querySelectorAll('tr');
-  rows.forEach(row => {
+  tableEl.querySelectorAll('tr').forEach(row => {
     const cells = row.querySelectorAll('td');
     if (cells.length >= 2) {
-      const text = cells[1].textContent.trim();
-      if (!text || text.length < 5 || text.length > 150) return;
-      const skip = skipWords.some(w => text.includes(w));
-      if (skip) return;
+      let text = cells[1].textContent.trim();
+      if (!text || text.length < 4 || text.length > 150) return;
+      if (skipWords.some(w => text.includes(w))) return;
+      if (!text.includes(dest)) text = text + ', ' + dest;
       if (!places.includes(text)) places.push(text);
     }
   });
-  
-  // If no places found from tables, try all text content
-  if (places.length === 0) {
-    const allText = resultBody.textContent;
-    const lines = allText.split('\n');
-    lines.forEach(line => {
-      line = line.trim();
-      if (line.length < 5 || line.length > 150) return;
-      const hasAddress = line.includes('רח') || line.includes('שד ') || line.includes('כיכר') || line.includes('שוק');
-      if (!hasAddress) return;
-      const skip = skipWords.some(w => line.includes(w));
-      if (skip) return;
-      if (!places.includes(line)) places.push(line);
+  return places;
+}
+
+function openInMaps(dayIndex) {
+  const dest = document.getElementById('destination').value.trim();
+  const resultBody = document.getElementById('result-body');
+  let places = [];
+  const tables = resultBody.querySelectorAll('table');
+
+  if (dayIndex !== undefined && tables[dayIndex]) {
+    places = extractPlacesFromTable(tables[dayIndex], dest);
+  } else {
+    tables.forEach(t => {
+      extractPlacesFromTable(t, dest).forEach(p => { if (!places.includes(p)) places.push(p); });
     });
   }
 
@@ -614,9 +616,52 @@ function openInMaps() {
     window.open('https://www.google.com/maps/search/' + encodeURIComponent(dest), '_blank');
     return;
   }
+  window.open('https://www.google.com/maps/dir/' + places.slice(0,10).map(p => encodeURIComponent(p)).join('/'), '_blank');
+}
 
-  const waypoints = places.slice(0, 10).map(p => encodeURIComponent(p)).join('/');
-  window.open('https://www.google.com/maps/dir/' + waypoints, '_blank');
+function openParking() {
+  const dest = document.getElementById('destination').value.trim();
+  const resultBody = document.getElementById('result-body');
+  const text = resultBody.textContent;
+  const lines = text.split('\n');
+  const parking = [];
+  lines.forEach(line => {
+    line = line.trim();
+    if (line.includes('חניון') && (line.includes('רח') || line.includes(',') || line.includes('שד'))) {
+      // Extract just the address part
+      if (line.length > 5 && line.length < 200) {
+        const withDest = line.includes(dest) ? line : line + ', ' + dest;
+        if (!parking.includes(withDest)) parking.push(withDest);
+      }
+    }
+  });
+  if (parking.length === 0) {
+    window.open('https://www.google.com/maps/search/חניון+' + encodeURIComponent(dest), '_blank');
+    return;
+  }
+  window.open('https://www.google.com/maps/dir/' + parking.slice(0,5).map(p => encodeURIComponent(p)).join('/'), '_blank');
+}
+
+function buildDayMapButtons() {
+  const resultBody = document.getElementById('result-body');
+  const dayRow = document.getElementById('day-maps-row');
+  const tables = resultBody.querySelectorAll('table');
+  
+  // Show parking button only if parking info exists
+  const hasParking = resultBody.textContent.includes('חניון');
+  document.getElementById('btn-parking').style.display = hasParking ? 'inline-block' : 'none';
+  if (tables.length <= 1) { dayRow.style.display = 'none'; return; }
+  dayRow.style.display = 'flex';
+  dayRow.innerHTML = '<span style="font-size:12px;color:var(--muted);align-self:center;margin-left:6px">📍 מפה ליום:</span>';
+  const headings = Array.from(resultBody.querySelectorAll('h3,h2')).filter(h => h.textContent.includes('יום') || h.textContent.match(/\d{2}\/\d{2}/));
+  tables.forEach((t, i) => {
+    const label = headings[i] ? headings[i].textContent.trim().substring(0,20) : 'יום ' + (i+1);
+    const btn = document.createElement('button');
+    btn.className = 'rbtn-day';
+    btn.textContent = '📍 ' + label;
+    btn.onclick = () => openInMaps(i);
+    dayRow.appendChild(btn);
+  });
 }
 
 // Save itinerary to localStorage
