@@ -576,35 +576,33 @@ let itineraryVersion = 1;
 
 // Google Maps - extract places and open
 function openInMaps() {
-  const text = document.getElementById('result-body').textContent;
   const dest = document.getElementById('destination').value.trim();
+  const resultBody = document.getElementById('result-body');
+  const skipWords = ['נסיעה','מעבר','הליכה','הזמנה','מנוחה','ארוחת בוקר','ארוחת צהריים','ארוחת ערב','חזרה','סיום','שעה','מקום','פעולה','מיקום','זמן חופשי'];
 
-  // Words that indicate non-place rows - skip these
-  const skipWords = ['נסיעה','מעבר','הליכה','הזמנה קיימת','מנוחה','מלון','חזרה','סיום','שעה','מקום','פעולה'];
-
-  const lines = text.split('\n');
+  // Extract from table cells (2nd column = location)
   const places = [];
-  for (const line of lines) {
-    const parts = line.split('|');
-    if (parts.length >= 3) {
-      const place = parts[1].trim();
-      if (!place || place.length < 5 || place.length > 120) continue;
-      // Skip non-place rows
-      const skip = skipWords.some(w => place.includes(w));
-      if (skip) continue;
-      // Must contain a street indicator or comma (means it has an address)
-      const hasAddress = place.includes('רח') || place.includes(',') || place.includes('שד') || place.includes('כיכר') || place.includes('שוק');
-      if (!hasAddress) continue;
-      places.push(place);
+  const rows = resultBody.querySelectorAll('tr');
+  rows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 2) {
+      // Try 2nd cell (index 1) - location column
+      const cell = cells[1] || cells[0];
+      const text = cell.textContent.trim();
+      if (!text || text.length < 5 || text.length > 150) return;
+      const skip = skipWords.some(w => text.includes(w));
+      if (skip) return;
+      const hasAddress = text.includes('רח') || text.includes(',') || text.includes('שד') || text.includes('כיכר') || text.includes('שוק') || text.includes('גן ') || text.includes('מוזיאון') || text.includes('שכונת');
+      if (!hasAddress) return;
+      if (!places.includes(text)) places.push(text);
     }
-  }
+  });
 
   if (places.length === 0) {
     window.open('https://www.google.com/maps/search/' + encodeURIComponent(dest), '_blank');
     return;
   }
 
-  // Build directions URL with all waypoints (max 10)
   const waypoints = places.slice(0, 10).map(p => encodeURIComponent(p)).join('/');
   window.open('https://www.google.com/maps/dir/' + waypoints, '_blank');
 }
