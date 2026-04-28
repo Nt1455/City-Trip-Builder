@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v1.8 - 28/04/2026 -->
+<!-- City Trip Builder Claude - v1.9 - 29/04/2026 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -582,21 +582,33 @@ function openInMaps() {
 
   // Extract from table cells (2nd column = location)
   const places = [];
+  // Try table cells first
   const rows = resultBody.querySelectorAll('tr');
   rows.forEach(row => {
     const cells = row.querySelectorAll('td');
     if (cells.length >= 2) {
-      // Try 2nd cell (index 1) - location column
-      const cell = cells[1] || cells[0];
-      const text = cell.textContent.trim();
+      const text = cells[1].textContent.trim();
       if (!text || text.length < 5 || text.length > 150) return;
       const skip = skipWords.some(w => text.includes(w));
       if (skip) return;
-      const hasAddress = text.includes('רח') || text.includes(',') || text.includes('שד') || text.includes('כיכר') || text.includes('שוק') || text.includes('גן ') || text.includes('מוזיאון') || text.includes('שכונת');
-      if (!hasAddress) return;
       if (!places.includes(text)) places.push(text);
     }
   });
+  
+  // If no places found from tables, try all text content
+  if (places.length === 0) {
+    const allText = resultBody.textContent;
+    const lines = allText.split('\n');
+    lines.forEach(line => {
+      line = line.trim();
+      if (line.length < 5 || line.length > 150) return;
+      const hasAddress = line.includes('רח') || line.includes('שד ') || line.includes('כיכר') || line.includes('שוק');
+      if (!hasAddress) return;
+      const skip = skipWords.some(w => line.includes(w));
+      if (skip) return;
+      if (!places.includes(line)) places.push(line);
+    });
+  }
 
   if (places.length === 0) {
     window.open('https://www.google.com/maps/search/' + encodeURIComponent(dest), '_blank');
