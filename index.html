@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v1.5 - 28/04/2026 -->
+<!-- City Trip Builder Claude - v1.8 - 28/04/2026 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -579,15 +579,23 @@ function openInMaps() {
   const text = document.getElementById('result-body').textContent;
   const dest = document.getElementById('destination').value.trim();
 
+  // Words that indicate non-place rows - skip these
+  const skipWords = ['נסיעה','מעבר','הליכה','הזמנה קיימת','מנוחה','מלון','חזרה','סיום','שעה','מקום','פעולה'];
+
   const lines = text.split('\n');
   const places = [];
   for (const line of lines) {
     const parts = line.split('|');
-    if (parts.length >= 2) {
+    if (parts.length >= 3) {
       const place = parts[1].trim();
-      if (place && place.length > 2 && place.length < 60 && !place.includes('מקום') && !place.includes('שעה')) {
-        places.push(place + ' ' + dest);
-      }
+      if (!place || place.length < 5 || place.length > 120) continue;
+      // Skip non-place rows
+      const skip = skipWords.some(w => place.includes(w));
+      if (skip) continue;
+      // Must contain a street indicator or comma (means it has an address)
+      const hasAddress = place.includes('רח') || place.includes(',') || place.includes('שד') || place.includes('כיכר') || place.includes('שוק');
+      if (!hasAddress) continue;
+      places.push(place);
     }
   }
 
