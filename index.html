@@ -1,3 +1,4 @@
+<!-- City Trip Builder Claude - v1.5 - 28/04/2026 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -5,719 +6,448 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>City Trip Builder Claude</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600&display=swap');
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #f7f5f0;
-    --surface: #ffffff;
-    --border: #e2ddd6;
-    --text: #1a1814;
-    --muted: #6b6560;
-    --accent: #2d5a27;
-    --accent-light: #eaf3e8;
-    --radius: 10px;
-  }
-
-  body {
-    font-family: 'Heebo', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 2rem 1rem;
-  }
-
-  .container {
-    max-width: 720px;
-    margin: 0 auto;
-  }
-
-  header {
-    text-align: center;
-    margin-bottom: 2.5rem;
-  }
-
-  header h1 {
-    font-size: 28px;
-    font-weight: 600;
-    letter-spacing: -0.5px;
-    margin-bottom: 6px;
-  }
-
-  header p {
-    font-size: 14px;
-    color: var(--muted);
-  }
-
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1.75rem;
-    margin-bottom: 1rem;
-  }
-
-  .card-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    margin-bottom: 1.25rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-  }
-
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-
-  .field.full { grid-column: 1 / -1; }
-
-  label {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--muted);
-  }
-
-  input, select, textarea {
-    font-family: 'Heebo', sans-serif;
-    font-size: 14px;
-    padding: 9px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #faf9f7;
-    color: var(--text);
-    outline: none;
-    transition: border-color 0.15s, background 0.15s;
-    width: 100%;
-  }
-
-  input:focus, select:focus, textarea:focus {
-    border-color: var(--accent);
-    background: #fff;
-  }
-
-  textarea { min-height: 72px; resize: vertical; }
-
-  .btn {
-    display: block;
-    width: 100%;
-    padding: 13px;
-    font-family: 'Heebo', sans-serif;
-    font-size: 15px;
-    font-weight: 600;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius);
-    cursor: pointer;
-    transition: opacity 0.15s, transform 0.1s;
-    margin-bottom: 1.5rem;
-  }
-
-  .btn:hover { opacity: 0.9; }
-  .btn:active { transform: scale(0.99); }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .loading {
-    display: none;
-    text-align: center;
-    padding: 1.5rem;
-    color: var(--muted);
-    font-size: 14px;
-  }
-
-  .loading.visible { display: block; }
-
-  .spinner {
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 10px;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .result-card {
-    display: none;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-
-  .result-card.visible { display: block; }
-
-  .result-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border);
-    background: var(--accent-light);
-  }
-
-  .result-header span {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--accent);
-  }
-
-  .interest-btn {
-    font-family: 'Heebo', sans-serif;
-    font-size: 13px;
-    padding: 6px 14px;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    background: #faf9f7;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .interest-btn.active {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-  }
-  .btn-copy {
-    font-family: 'Heebo', sans-serif;
-    font-size: 12px;
-    padding: 5px 14px;
-    border: 1px solid var(--accent);
-    border-radius: 6px;
-    background: transparent;
-    color: var(--accent);
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .btn-copy:hover { background: var(--accent); color: #fff; }
-  .btn-whatsapp { font-family: 'Heebo', sans-serif; font-size: 12px; padding: 5px 14px; border: 1px solid #25d366; border-radius: 6px; background: transparent; color: #25d366; cursor: pointer; transition: background 0.15s; }
-  .btn-whatsapp:hover { background: #25d366; color: #fff; }
-  .btn-pdf { font-family: 'Heebo', sans-serif; font-size: 12px; padding: 5px 14px; border: 1px solid #e65100; border-radius: 6px; background: transparent; color: #e65100; cursor: pointer; transition: background 0.15s; }
-  .btn-pdf:hover { background: #e65100; color: #fff; }
-
-  .result-body h1 { font-size: 18px; font-weight: 600; margin: 1rem 0 0.5rem; color: var(--accent); }
-  .result-body h2 { font-size: 16px; font-weight: 600; margin: 1.25rem 0 0.5rem; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
-  .result-body h3 { font-size: 14px; font-weight: 600; margin: 1rem 0 0.4rem; color: var(--text); }
-  .result-body table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 13px; }
-  .result-body td { padding: 7px 10px; border: 1px solid var(--border); vertical-align: top; }
-  .result-body tr:first-child td { background: var(--accent-light); font-weight: 500; }
-  .result-body ul { margin: 0.5rem 0 0.5rem 1.25rem; }
-  .result-body li { margin-bottom: 4px; font-size: 14px; line-height: 1.6; }
-  .result-body hr { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
-  .result-body strong { font-weight: 600; }
-  .result-body {
-    padding: 1.5rem;
-    font-size: 14px;
-    line-height: 1.9;
-    color: var(--text);
-    }
-
-  .result-footer {
-    padding: 0.75rem 1.5rem;
-    border-top: 1px solid var(--border);
-    text-align: center;
-  }
-
-  .btn-new {
-    font-family: 'Heebo', sans-serif;
-    font-size: 13px;
-    padding: 7px 20px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .btn-new:hover { background: var(--bg); }
-
-  .error {
-    display: none;
-    background: #fef2f2;
-    border: 1px solid #fca5a5;
-    border-radius: var(--radius);
-    padding: 1rem 1.25rem;
-    font-size: 14px;
-    color: #991b1b;
-    margin-bottom: 1rem;
-  }
-
-  .error.visible { display: block; }
-
-  .tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    background: #faf9f7;
-    gap: 0;
-  }
-  .tab {
-    flex: 1;
-    padding: 10px 16px;
-    font-family: 'Heebo', sans-serif;
-    font-size: 13px;
-    font-weight: 500;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .tab:hover { color: var(--text); background: var(--bg); }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: #fff; }
-  .rec-body { padding: 1.25rem; }
-  .rec-section { margin-bottom: 1.5rem; }
-  .rec-section h3 { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 0.75rem; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
-  .rec-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 0.5px solid var(--border); gap: 12px; }
-  .rec-item:last-child { border-bottom: none; }
-  .rec-info { flex: 1; }
-  .rec-name { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
-  .rec-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
-  .rec-links { display: flex; flex-direction: column; gap: 5px; min-width: 90px; align-items: flex-end; }
-  .rec-link { font-size: 11px; padding: 4px 10px; border-radius: 5px; text-decoration: none; text-align: center; white-space: nowrap; border: 1px solid; transition: opacity 0.15s; }
-  .rec-link:hover { opacity: 0.8; }
-  .rec-link.maps { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
-  .rec-link.booking { background: #e8f0fe; color: #1a56db; border-color: #1a56db; }
-  .rec-link.tripadvisor { background: #fff8e1; color: #b7700c; border-color: #b7700c; }
-  .rec-link.viator { background: #e8f5e9; color: #2e7d32; border-color: #2e7d32; }
-  .rec-link.getyourguide { background: #fff3e0; color: #e65100; border-color: #e65100; }
-  .rec-note { font-size: 12px; color: var(--muted); background: var(--accent-light); border-radius: 6px; padding: 8px 12px; margin-bottom: 1rem; }
-  .search-card { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 0.5px solid var(--border); gap: 12px; }
-  .search-card:last-child { border-bottom: none; }
-  .search-info { flex: 1; }
-  .search-label { font-size: 14px; font-weight: 500; color: var(--text); }
-  .search-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .search-btns { display: flex; flex-direction: column; gap: 5px; min-width: 100px; align-items: flex-end; }
-  .rec-loading { padding: 1.5rem; text-align: center; color: var(--muted); font-size: 14px; display: none; }
-  .rec-loading.visible { display: block; }
-
-  @media (max-width: 520px) {
-    .grid { grid-template-columns: 1fr; }
-    .field.full { grid-column: 1; }
-    header h1 { font-size: 22px; }
-  }
-
-  @media print {
-    body { background: #fff; padding: 0; font-size: 12px; }
-    .container { max-width: 100%; }
-    header h1 { font-size: 20px; }
-    .card, .btn, .loading, .error, #form-card, #build-btn, #error-box { display: none !important; }
-    .result-card { display: block !important; border: none; box-shadow: none; }
-    .result-header { background: #eaf3e8; padding: 8px 12px; }
-    .btn-copy, .btn-new, .tabs { display: none !important; }
-    .result-body { padding: 0; font-size: 12px; line-height: 1.6; }
-    .result-body h1 { font-size: 16px; page-break-after: avoid; }
-    .result-body h2 { font-size: 14px; page-break-after: avoid; margin-top: 16px; }
-    .result-body h3 { font-size: 12px; page-break-after: avoid; }
-    .result-body table { width: 100%; border-collapse: collapse; page-break-inside: avoid; font-size: 11px; }
-    .result-body td { padding: 5px 8px; border: 1px solid #ccc; word-wrap: break-word; }
-    .result-body tr { page-break-inside: avoid; }
-    .result-body ul { page-break-inside: avoid; }
-    .result-body li { font-size: 11px; margin-bottom: 2px; }
-    .result-body hr { border-top: 1px solid #ccc; margin: 10px 0; }
-    .rec-body { display: none !important; }
-    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  }
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f7f5f0;--surface:#fff;--border:#e2ddd6;--text:#1a1814;--muted:#6b6560;--accent:#2d5a27;--accent-light:#eaf3e8;--radius:10px}
+body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:2rem 1rem}
+.container{max-width:720px;margin:0 auto}
+header{text-align:center;margin-bottom:2rem}
+header h1{font-size:26px;font-weight:600;margin-bottom:4px}
+header p{font-size:14px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem}
+.card-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field.full{grid-column:1/-1}
+label{font-size:13px;font-weight:500;color:var(--muted)}
+input,select,textarea{font-family:'Heebo',sans-serif;font-size:14px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:#faf9f7;color:var(--text);outline:none;transition:border-color .15s;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);background:#fff}
+textarea{min-height:68px;resize:vertical}
+.interest-btn{font-family:'Heebo',sans-serif;font-size:13px;padding:5px 13px;border:1px solid var(--border);border-radius:20px;background:#faf9f7;color:var(--muted);cursor:pointer;transition:all .15s}
+.interest-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-build{display:block;width:100%;padding:13px;font-family:'Heebo',sans-serif;font-size:15px;font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;transition:opacity .15s;margin-bottom:1.5rem}
+.btn-build:hover{opacity:.9}
+.btn-build:disabled{opacity:.5;cursor:not-allowed}
+.loading{display:none;text-align:center;padding:1.5rem;color:var(--muted);font-size:14px}
+.loading.visible{display:block}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--radius);padding:1rem;font-size:14px;color:#991b1b;margin-bottom:1rem}
+.error.visible{display:block}
+.result-card{display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.result-card.visible{display:block}
+.result-header{display:flex;justify-content:space-between;align-items:center;padding:.875rem 1.25rem;border-bottom:1px solid var(--border);background:var(--accent-light);flex-wrap:wrap;gap:8px}
+.result-title{font-size:14px;font-weight:600;color:var(--accent)}
+.result-btns{display:flex;gap:6px;flex-wrap:wrap}
+.rbtn{font-family:'Heebo',sans-serif;font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .15s;border:1px solid}
+.rbtn-maps{background:transparent;color:#1967d2;border-color:#1967d2}
+.rbtn-maps:hover{background:#1967d2;color:#fff}
+.rbtn-copy{background:transparent;color:var(--accent);border-color:var(--accent)}
+.rbtn-copy:hover{background:var(--accent);color:#fff}
+.rbtn-wa{background:transparent;color:#25d366;border-color:#25d366}
+.rbtn-wa:hover{background:#25d366;color:#fff}
+.rbtn-pdf{background:transparent;color:#e65100;border-color:#e65100}
+.rbtn-pdf:hover{background:#e65100;color:#fff}
+.tabs{display:flex;border-bottom:1px solid var(--border);background:#faf9f7}
+.tab{flex:1;padding:9px 12px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:500;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);background:#fff}
+.result-body{padding:1.25rem;font-size:14px;line-height:1.85;color:var(--text)}
+.result-body h1{font-size:17px;font-weight:600;margin:1rem 0 .4rem;color:var(--accent)}
+.result-body h2{font-size:15px;font-weight:600;margin:1.2rem 0 .4rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:3px}
+.result-body h3{font-size:14px;font-weight:600;margin:.9rem 0 .3rem}
+.result-body table{width:100%;border-collapse:collapse;margin:.75rem 0;font-size:13px}
+.result-body td{padding:6px 9px;border:1px solid var(--border);vertical-align:top}
+.result-body tr:first-child td{background:var(--accent-light);font-weight:500}
+.result-body ul{margin:.5rem 0 .5rem 1.2rem}
+.result-body li{margin-bottom:3px;font-size:14px;line-height:1.6}
+.result-body hr{border:none;border-top:1px solid var(--border);margin:1.2rem 0}
+.result-body strong{font-weight:600}
+.rec-body{padding:1.25rem}
+.rec-note{font-size:12px;color:var(--muted);background:var(--accent-light);border-radius:6px;padding:7px 11px;margin-bottom:1rem}
+.rec-section{margin-bottom:1.5rem}
+.rec-section h3{font-size:14px;font-weight:600;color:var(--accent);margin-bottom:.75rem;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.search-card{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:.5px solid var(--border);gap:10px}
+.search-card:last-child{border-bottom:none}
+.search-info{flex:1}
+.search-label{font-size:14px;font-weight:500}
+.search-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.search-btns{display:flex;flex-direction:column;gap:5px;min-width:95px;align-items:flex-end}
+.rec-link{font-size:11px;padding:4px 10px;border-radius:5px;text-decoration:none;text-align:center;white-space:nowrap;border:1px solid;transition:opacity .15s}
+.rec-link:hover{opacity:.8}
+.rec-link.maps{background:var(--accent-light);color:var(--accent);border-color:var(--accent)}
+.rec-link.booking{background:#e8f0fe;color:#1a56db;border-color:#1a56db}
+.rec-link.tripadvisor{background:#fff8e1;color:#b7700c;border-color:#b7700c}
+.rec-link.viator{background:#e8f5e9;color:#2e7d32;border-color:#2e7d32}
+.rec-link.gyg{background:#fff3e0;color:#e65100;border-color:#e65100}.rec-link.wa{background:#e8f5e9;color:#25d366;border-color:#25d366}
+.result-footer{padding:.75rem 1.25rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.btn-new{font-family:'Heebo',sans-serif;font-size:13px;padding:6px 18px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}
+.btn-new:hover{background:var(--bg)}
+@media(max-width:520px){.grid{grid-template-columns:1fr}.field.full{grid-column:1}header h1{font-size:22px}}
+@media print{
+  body{background:#fff;padding:0;font-size:12px}
+  .container{max-width:100%}
+  #api-card,#form-card,.btn-build,.loading,.error,.result-btns,.tabs,.result-footer{display:none!important}
+  .result-card{display:block!important;border:none}
+  .result-header{background:#eaf3e8;padding:8px 12px}
+  .result-body{padding:0;font-size:12px;line-height:1.6}
+  .result-body table{page-break-inside:avoid;font-size:11px}
+  .result-body td{padding:5px 8px;border:1px solid #ccc}
+  .result-body tr{page-break-inside:avoid}
+  .result-body ul{page-break-inside:avoid}
+  .rec-body{display:none!important}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
 <div class="container">
+<header>
+  <h1>City Trip Builder Claude</h1>
+  <p>מלא את הפרטים - קבל מסלול מפורט לפי שעות</p>
+  <button onclick="toggleHistory()" style="margin-top:8px;font-family:'Heebo',sans-serif;font-size:12px;padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer">📂 מסלולים שמורים</button>
+</header>
 
-  <header>
-    <h1>City Trip Builder Claude</h1>
-    <p>מלא את הפרטים - קבל מסלול מפורט לפי שעות</p>
-  </header>
+<div id="history-panel" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <span style="font-size:14px;font-weight:600">מסלולים שמורים</span>
+    <button onclick="toggleHistory()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px">&times;</button>
+  </div>
+  <div id="history-list" style="font-size:14px;color:var(--muted)">אין מסלולים שמורים עדיין</div>
+</div>
 
-  <div class="card" id="api-card">
-    <div class="card-title">הגדרות</div>
+<div class="card" id="api-card">
+  <div class="card-title">הגדרות</div>
+  <div class="field">
+    <label>מפתח API של Claude (Anthropic) 🔑</label>
+    <input type="password" id="api-key" placeholder="sk-ant-..." />
+    <span style="font-size:11px;color:var(--muted);margin-top:2px">המפתח לא נשמר ולא נשלח לשום מקום מלבד Anthropic</span>
+  </div>
+</div>
+
+<div class="card" id="form-card">
+  <div class="card-title">פרטי הסיור</div>
+  <div class="grid">
+
+    <div class="field full">
+      <label>לאן נוסעים? *</label>
+      <input type="text" id="destination" placeholder="לדוגמה: פלורנציה, ירושלים, ברצלונה" />
+    </div>
+
     <div class="field">
-      <label>Anthropic API Key</label>
-      <input type="password" id="api-key" placeholder="sk-ant-..." />
-      <span style="font-size:11px;color:var(--muted);margin-top:3px;">המפתח נשמר רק בדפדפן שלך ולא נשלח לשום מקום אחר</span>
+      <label>תאריכים</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div style="flex:1;position:relative">
+          <input type="text" id="date-start" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7" onclick="openCal('date-start')" />
+        </div>
+        <span style="font-size:13px;color:var(--muted)">עד</span>
+        <div style="flex:1;position:relative">
+          <input type="text" id="date-end" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7" onclick="openCal('date-end')" />
+        </div>
+      </div>
     </div>
-  </div>
 
-  <div class="card" id="form-card">
-    <div class="card-title">פרטי הסיור</div>
-    <div class="grid">
-
-      <div class="field full">
-        <label>לאן נוסעים? *</label>
-        <input type="text" id="destination" placeholder="לדוגמה: פלורנציה, ירושלים, ברצלונה" />
-      </div>
-
-      <div class="field">
-        <label>תאריכים</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" id="date-start" placeholder="DD/MM/YYYY" style="flex:1;" />
-          <span style="font-size:13px;color:var(--muted);">עד</span>
-          <input type="text" id="date-end" placeholder="DD/MM/YYYY" style="flex:1;" />
-        </div>
-      </div>
-
-
-      <div class="field">
-        <label>מספר משתתפים</label>
-        <input type="number" id="num-people" min="1" max="50" value="2" style="width:100%;" />
-      </div>
-
-      <div class="field">
-        <label>עם מי נוסעים?</label>
-        <select id="group">
-          <option value="">בחר...</option>
-          <option>זוג</option>
-          <option>משפחה עם ילדים</option>
-          <option>חברים</option>
-          <option>לבד</option>
-          <option>קבוצה מאורגנת</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label>קצב הליכה</label>
-        <select id="pace">
-          <option value="">בחר...</option>
-          <option>איטי ורגוע</option>
-          <option>בינוני</option>
-          <option>אינטנסיבי - כמה שיותר</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label>תחבורה</label>
-        <select id="transport">
-          <option value="">בחר...</option>
-          <option>הליכה ברגל בעיקר</option>
-          <option>תחבורה ציבורית</option>
-          <option>מונית / Uber</option>
-          <option>רכב פרטי</option>
-          <option>שילוב</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label>העדפות אוכל</label>
-        <select id="food">
-          <option value="">ללא הגבלות</option>
-          <option>כשר</option>
-          <option>צמחוני / טבעוני</option>
-          <option>ללא גלוטן</option>
-          <option>חלאל</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label>תקציב יומי לאדם</label>
-        <select id="budget">
-          <option value="">לא צוין</option>
-          <option>חסכוני עד $50</option>
-          <option>בינוני $50-150</option>
-          <option>נוח $150-300</option>
-          <option>יוקרה $300+</option>
-        </select>
-      </div>
-
-      <div class="field full">
-        <label>תחומי עניין</label>
-        <div id="interests-buttons" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
-          <button type="button" class="interest-btn active" onclick="toggleInterest(this)">היסטוריה</button>
-          <button type="button" class="interest-btn active" onclick="toggleInterest(this)">אמנות</button>
-          <button type="button" class="interest-btn active" onclick="toggleInterest(this)">אוכל מקומי</button>
-          <button type="button" class="interest-btn active" onclick="toggleInterest(this)">שופינג</button>
-          <button type="button" class="interest-btn" onclick="toggleInterest(this)">טבע</button>
-          <button type="button" class="interest-btn active" onclick="toggleInterest(this)">יהדות</button>
-          <button type="button" class="interest-btn" onclick="toggleInterest(this)">מוזיקה</button>
-          <button type="button" class="interest-btn" onclick="toggleInterest(this)">ספורט</button>
-          <button type="button" class="interest-btn" onclick="toggleInterest(this)">אדריכלות</button>
-          <button type="button" class="interest-btn" onclick="toggleInterest(this)">חיי לילה</button>
-        </div>
-        <input type="text" id="interests-extra" placeholder="תחומי עניין נוספים (אופציונלי)..." style="font-size:13px;" />
-      </div>
-
-      <div class="field">
-        <label>שעות זמינות ביום</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <select id="hour-start" style="flex:1;">
-            <option value="06:00">06:00</option><option value="06:30">06:30</option><option value="07:00">07:00</option><option value="07:30">07:30</option><option value="08:00">08:00</option><option value="08:30">08:30</option><option value="09:00" selected>09:00</option><option value="09:30">09:30</option><option value="10:00">10:00</option><option value="10:30">10:30</option><option value="11:00">11:00</option><option value="11:30">11:30</option><option value="12:00">12:00</option><option value="12:30">12:30</option><option value="13:00">13:00</option><option value="13:30">13:30</option><option value="14:00">14:00</option><option value="14:30">14:30</option><option value="15:00">15:00</option><option value="15:30">15:30</option><option value="16:00">16:00</option><option value="16:30">16:30</option><option value="17:00">17:00</option><option value="17:30">17:30</option><option value="18:00">18:00</option><option value="18:30">18:30</option><option value="19:00">19:00</option><option value="19:30">19:30</option><option value="20:00">20:00</option><option value="20:30">20:30</option><option value="21:00">21:00</option><option value="21:30">21:30</option><option value="22:00">22:00</option><option value="22:30">22:30</option><option value="23:00">23:00</option><option value="23:30">23:30</option>
-          </select>
-          <span style="font-size:13px;color:var(--muted);">עד</span>
-          <select id="hour-end" style="flex:1;">
-            <option value="06:00">06:00</option><option value="06:30">06:30</option><option value="07:00">07:00</option><option value="07:30">07:30</option><option value="08:00">08:00</option><option value="08:30">08:30</option><option value="09:00">09:00</option><option value="09:30">09:30</option><option value="10:00">10:00</option><option value="10:30">10:30</option><option value="11:00">11:00</option><option value="11:30">11:30</option><option value="12:00">12:00</option><option value="12:30">12:30</option><option value="13:00">13:00</option><option value="13:30">13:30</option><option value="14:00">14:00</option><option value="14:30">14:30</option><option value="15:00">15:00</option><option value="15:30">15:30</option><option value="16:00">16:00</option><option value="16:30">16:30</option><option value="17:00">17:00</option><option value="17:30">17:30</option><option value="18:00">18:00</option><option value="18:30">18:30</option><option value="19:00">19:00</option><option value="19:30">19:30</option><option value="20:00">20:00</option><option value="20:30">20:30</option><option value="21:00" selected>21:00</option><option value="21:30">21:30</option><option value="22:00">22:00</option><option value="22:30">22:30</option><option value="23:00">23:00</option><option value="23:30">23:30</option>
+    <div class="field">
+      <label>&nbsp;</label>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:2;display:flex;flex-direction:column;gap:5px">
+          <label>עם מי נוסעים?</label>
+          <select id="group">
+            <option value="">בחר...</option>
+            <option>זוג</option>
+            <option>משפחה עם ילדים</option>
+            <option>חברים</option>
+            <option>לבד</option>
+            <option>קבוצה מאורגנת</option>
           </select>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-          <input type="checkbox" id="lunch-break" style="width:16px;height:16px;cursor:pointer;" />
-          <label for="lunch-break" style="font-size:13px;color:var(--muted);font-weight:400;cursor:pointer;">כולל הפסקת צהריים (עצירה לאוכל + מנוחה)</label>
+        <div style="flex:1;display:flex;flex-direction:column;gap:5px">
+          <label>מספר אנשים</label>
+          <input type="number" id="num-people" min="1" max="50" value="2" />
         </div>
       </div>
+    </div>
 
-      <div class="field">
-        <label>היכרות עם היעד</label>
-        <textarea id="visited" rows="2" style="min-height:56px;" placeholder="לדוגמה: ביקור ראשון / ביקרתי פעמיים אך רק במרכז / מכיר טוב את הצפון אך לא את הדרום / גר שם שנה בעבר..."></textarea>
+    <div class="field">
+      <label>קצב הליכה</label>
+      <select id="pace">
+        <option value="">בחר...</option>
+        <option>איטי ורגוע</option>
+        <option>בינוני</option>
+        <option>אינטנסיבי - כמה שיותר</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>תחבורה</label>
+      <select id="transport">
+        <option value="">בחר...</option>
+        <option>הליכה ברגל בעיקר</option>
+        <option>תחבורה ציבורית</option>
+        <option>מונית / Uber</option>
+        <option>רכב פרטי</option>
+        <option>שילוב</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>העדפות אוכל</label>
+      <select id="food">
+        <option value="">ללא הגבלות</option>
+        <option>כשר</option>
+        <option>צמחוני / טבעוני</option>
+        <option>ללא גלוטן</option>
+        <option>חלאל</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>תקציב יומי לאדם</label>
+      <select id="budget">
+        <option value="">לא צוין</option>
+        <option>חסכוני עד $50</option>
+        <option>בינוני $50-150</option>
+        <option>נוח $150-300</option>
+        <option>יוקרה $300+</option>
+      </select>
+    </div>
+
+    <div class="field full">
+      <label>תחומי עניין</label>
+      <div id="interest-wrap" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px">
+        <button type="button" class="interest-btn active" onclick="toggleInterest(this)">היסטוריה</button>
+        <button type="button" class="interest-btn active" onclick="toggleInterest(this)">אמנות</button>
+        <button type="button" class="interest-btn active" onclick="toggleInterest(this)">אוכל מקומי</button>
+        <button type="button" class="interest-btn active" onclick="toggleInterest(this)">שופינג</button>
+        <button type="button" class="interest-btn" onclick="toggleInterest(this)">טבע</button>
+        <button type="button" class="interest-btn active" onclick="toggleInterest(this)">יהדות</button>
+        <button type="button" class="interest-btn" onclick="toggleInterest(this)">מוזיקה</button>
+        <button type="button" class="interest-btn" onclick="toggleInterest(this)">ספורט</button>
+        <button type="button" class="interest-btn" onclick="toggleInterest(this)">אדריכלות</button>
+        <button type="button" class="interest-btn" onclick="toggleInterest(this)">חיי לילה</button>
       </div>
+      <input type="text" id="interests-extra" placeholder="תחומי עניין נוספים (אופציונלי)..." />
+    </div>
 
-      <div class="field full">
-        <label>מלון / לינה</label>
-        <input type="text" id="hotel" placeholder="שם המלון ושכונה - או השאר ריק לקבלת המלצות לינה" />
+    <div class="field full">
+      <label>אזורים - רחובות שווקים מעניינים ומיוחדים</label>
+      <input type="text" id="areas" placeholder="לדוגמה: נחלאות, שוק מחנה יהודה, העיר העתיקה..." />
+    </div>
+
+    <div class="field">
+      <label>שעות זמינות ביום</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="hour-start" style="flex:1">
+          <option value="06:00">06:00</option><option value="06:30">06:30</option><option value="07:00">07:00</option><option value="07:30">07:30</option><option value="08:00">08:00</option><option value="08:30">08:30</option><option value="09:00" selected>09:00</option><option value="09:30">09:30</option><option value="10:00">10:00</option><option value="10:30">10:30</option><option value="11:00">11:00</option><option value="11:30">11:30</option><option value="12:00">12:00</option><option value="12:30">12:30</option><option value="13:00">13:00</option><option value="13:30">13:30</option><option value="14:00">14:00</option><option value="14:30">14:30</option><option value="15:00">15:00</option><option value="15:30">15:30</option><option value="16:00">16:00</option><option value="16:30">16:30</option><option value="17:00">17:00</option><option value="17:30">17:30</option><option value="18:00">18:00</option><option value="18:30">18:30</option><option value="19:00">19:00</option><option value="19:30">19:30</option><option value="20:00">20:00</option><option value="20:30">20:30</option><option value="21:00">21:00</option><option value="21:30">21:30</option><option value="22:00">22:00</option><option value="22:30">22:30</option><option value="23:00">23:00</option><option value="23:30">23:30</option>
+        </select>
+        <span style="font-size:13px;color:var(--muted)">עד</span>
+        <select id="hour-end" style="flex:1">
+          <option value="06:00">06:00</option><option value="06:30">06:30</option><option value="07:00">07:00</option><option value="07:30">07:30</option><option value="08:00">08:00</option><option value="08:30">08:30</option><option value="09:00">09:00</option><option value="09:30">09:30</option><option value="10:00">10:00</option><option value="10:30">10:30</option><option value="11:00">11:00</option><option value="11:30">11:30</option><option value="12:00">12:00</option><option value="12:30">12:30</option><option value="13:00">13:00</option><option value="13:30">13:30</option><option value="14:00">14:00</option><option value="14:30">14:30</option><option value="15:00">15:00</option><option value="15:30">15:30</option><option value="16:00">16:00</option><option value="16:30">16:30</option><option value="17:00">17:00</option><option value="17:30">17:30</option><option value="18:00">18:00</option><option value="18:30">18:30</option><option value="19:00">19:00</option><option value="19:30">19:30</option><option value="20:00">20:00</option><option value="20:30">20:30</option><option value="21:00" selected>21:00</option><option value="21:30">21:30</option><option value="22:00">22:00</option><option value="22:30">22:30</option><option value="23:00">23:00</option><option value="23:30">23:30</option>
+        </select>
       </div>
-
-      <div class="field full">
-        <label>הערות נוספות</label>
-        <textarea id="notes" placeholder="לדוגמה: ילד בן 5, מגבלות ניידות, אלרגיות..."></textarea>
+      <div style="display:flex;align-items:center;gap:7px;margin-top:5px">
+        <input type="checkbox" id="lunch-break" style="width:16px;height:16px;cursor:pointer" />
+        <label for="lunch-break" style="font-size:13px;font-weight:400;cursor:pointer">כולל הפסקת צהריים (עצירה לאוכל + מנוחה)</label>
       </div>
+    </div>
 
+    <div class="field">
+      <label>היכרות עם היעד</label>
+      <textarea id="visited" placeholder="לדוגמה: ביקור ראשון / ביקרתי פעמיים אך רק במרכז / מכיר טוב את הצפון אך לא את הדרום..."></textarea>
+    </div>
+
+    <div class="field full">
+      <label>מלון / לינה</label>
+      <input type="text" id="hotel" placeholder="שם המלון ושכונה - או השאר ריק לקבלת המלצות לינה" />
+    </div>
+
+    <div class="field full">
+      <label>הערות נוספות</label>
+      <textarea id="notes" placeholder="לדוגמה: ילד בן 5, מגבלות ניידות, אלרגיות..."></textarea>
+    </div>
+
+  </div>
+</div>
+<div id="cal-popup" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #e2ddd6;border-radius:10px;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:280px"></div>
+
+<div class="error" id="error-box"></div>
+<button class="btn-build" id="build-btn" onclick="buildTrip()">בנה מסלול מפורט</button>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  בונה את המסלול שלך...
+</div>
+
+<div class="result-card" id="result-card">
+  <div class="result-header">
+    <span class="result-title" id="result-title">המסלול שלך</span>
+    <div class="result-btns">
+      <button class="rbtn rbtn-maps" onclick="openInMaps()">🗺 Google Maps</button>
+      <button class="rbtn rbtn-wa" onclick="sendWhatsApp()">📱 וואטסאפ</button>
+      <button class="rbtn rbtn-pdf" onclick="window.print()">🖨 PDF</button>
+      <button class="rbtn rbtn-copy" onclick="copyResult()">העתק</button>
     </div>
   </div>
-
-  <div class="error" id="error-box"></div>
-
-  <button class="btn" id="build-btn" onclick="buildTrip()">בנה מסלול מפורט</button>
-
-  <div class="loading" id="loading">
-    <div class="spinner"></div>
-    בונה את המסלול שלך...
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('itinerary')">מסלול</button>
+    <button class="tab" onclick="switchTab('recommendations')">המלצות - לינה / אוכל / אטרקציות</button>
   </div>
-
-  <div class="result-card" id="result-card">
-    <div class="result-header">
-      <span id="result-title">המסלול שלך</span>
-      <button class="btn-copy" onclick="copyResult()">העתק</button>
-      <button class="btn-whatsapp" onclick="sendWhatsApp()">WhatsApp</button>
-      <button class="btn-pdf" onclick="window.print()">הורד PDF</button>
-    </div>
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('itinerary')">מסלול</button>
-      <button class="tab" onclick="switchTab('recommendations')">המלצות - לינה / אוכל / אטרקציות</button>
-    </div>
-    <div class="result-body" id="result-body"></div>
-    <div class="rec-body" id="rec-body" style="display:none;"></div>
-    <div class="result-footer">
+  <div class="result-body" id="result-body"></div>
+  <div class="rec-body" id="rec-body" style="display:none"></div>
+  <div class="edit-section" id="edit-section" style="display:none;padding:1rem 1.25rem;border-top:1px solid var(--border)">
+    <div style="font-size:13px;font-weight:500;color:var(--muted);margin-bottom:6px">בקשת עריכה</div>
+    <textarea id="edit-request" placeholder="לדוגמה: הזז את הביקור במוזיאון ליום 2 בשעה 14:00 / החלף את המסעדה בצהריים ביום 1..." style="min-height:72px;margin-bottom:8px"></textarea>
+    <button class="btn-build" style="margin:0" onclick="editItinerary()">עדכן מסלול</button>
+  </div>
+  <div class="result-footer">
+    <span id="version-tag" style="font-size:11px;color:var(--muted)">גרסה 1</span>
+    <div style="display:flex;gap:8px">
+      <button class="btn-new" onclick="saveItinerary()">💾 שמור מסלול</button>
+      <button class="btn-new" onclick="toggleEdit()">✏️ ערוך</button>
       <button class="btn-new" onclick="resetForm()">סיור חדש</button>
     </div>
   </div>
-
 </div>
 
+</div>
 <script>
-const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+const API = 'https://api.anthropic.com/v1/messages';
 
 window.addEventListener('load', () => {
-  const saved = localStorage.getItem('ctb_api_key');
-  if (saved) document.getElementById('api-key').value = saved;
+  const k = localStorage.getItem('ctb_key');
+  if (k) document.getElementById('api-key').value = k;
 });
 
-function renderMarkdown(text) {
-  // Escape HTML
-  let html = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+function toggleInterest(btn) { btn.classList.toggle('active'); }
 
-  // Tables - collect consecutive rows into one table
-  html = html.replace(/((?:^\|.+\|
-?)+)/gm, function(block) {
-    const rows = block.trim().split('
-');
-    const tableRows = rows
-      .filter(row => !row.match(/^\|[\s\-|]+\|$/))
-      .map(row => {
-        const cells = row.split('|').filter((c, i, a) => i > 0 && i < a.length - 1);
-        return '<tr>' + cells.map(c => '<td>' + c.trim() + '</td>').join('') + '</tr>';
-      });
-    return '<table>' + tableRows.join('') + '</table>';
-  });
-
-  // Headers
-  html = html
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>');
-
-  // Bold and italic
-  html = html
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>');
-
-  // Lists - collect consecutive items
-  html = html.replace(/((?:^- .+
-?)+)/gm, function(block) {
-    const items = block.trim().split('
-')
-      .map(line => '<li>' + line.replace(/^- /, '') + '</li>')
-      .join('');
-    return '<ul>' + items + '</ul>';
-  });
-
-  // HR
-  html = html.replace(/^---$/gm, '<hr>');
-
-  // Paragraphs
-  html = html
-    .replace(/
-
-/g, '</p><p>')
-    .replace(/
-/g, '<br>');
-
-  return html;
+function getInterests() {
+  const btns = Array.from(document.querySelectorAll('.interest-btn.active')).map(b => b.textContent);
+  const extra = document.getElementById('interests-extra').value;
+  if (extra) btns.push(extra);
+  return btns.join(', ') || 'כללי';
 }
 
-function toggleInterest(btn) {
-  btn.classList.toggle('active');
+function renderMarkdown(text) {
+  let h = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(/((?:^\|.+\|\n?)+)/gm, block => {
+    const rows = block.trim().split('\n')
+      .filter(r => !/^\|[\s\-|]+\|$/.test(r))
+      .map(r => {
+        const cells = r.split('|').filter((_,i,a) => i>0 && i<a.length-1);
+        return '<tr>' + cells.map(c => '<td>'+c.trim()+'</td>').join('') + '</tr>';
+      });
+    return '<table>' + rows.join('') + '</table>';
+  });
+  h = h.replace(/^### (.+)$/gm,'<h3>$1</h3>')
+       .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+       .replace(/^# (.+)$/gm,'<h1>$1</h1>')
+       .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+       .replace(/\*(.+?)\*/g,'<em>$1</em>');
+  h = h.replace(/((?:^- .+\n?)+)/gm, block => {
+    const items = block.trim().split('\n').map(l => '<li>'+l.replace(/^- /,'')+'</li>').join('');
+    return '<ul>'+items+'</ul>';
+  });
+  h = h.replace(/^---$/gm,'<hr>').replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
+  return h;
 }
 
 async function buildTrip() {
-  const destination = document.getElementById('destination').value.trim();
-  hideError();
-
-  if (!destination) {
-    showError('יש להזין יעד נסיעה');
-    return;
-  }
+  const dest = document.getElementById('destination').value.trim();
+  document.getElementById('error-box').classList.remove('visible');
+  if (!dest) { showError('יש להזין יעד נסיעה'); return; }
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { showError('יש להזין Anthropic API Key'); return; }
+  localStorage.setItem('ctb_key', apiKey);
   setLoading(true);
 
+  const ds = document.getElementById('date-start').value;
+  const de = document.getElementById('date-end').value;
+  const dates = (ds && de) ? ds+' עד '+de : (ds||'לא צוין');
+  const num = document.getElementById('num-people').value || '2';
+  const group = document.getElementById('group').value || '';
+  const hs = document.getElementById('hour-start').value;
+  const he = document.getElementById('hour-end').value;
+  const lunch = document.getElementById('lunch-break').checked;
+  const hotel = document.getElementById('hotel').value;
+
   const fields = {
-    destination,
-    dates: (() => {
-      const s = document.getElementById('date-start').value;
-      const e = document.getElementById('date-end').value;
-      if (s && e) return s + ' עד ' + e;
-      if (s) return 'מ-' + s;
-      return 'לא צוין';
-    })(),
-    group: (() => {
-      const num = document.getElementById('num-people').value || '2';
-      const type = document.getElementById('group').value || '';
-      return num + ' ' + (type || 'אנשים');
-    })(),
+    dest, dates,
+    group: num + ' ' + (group||'אנשים'),
     pace: document.getElementById('pace').value || 'בינוני',
     transport: document.getElementById('transport').value || 'שילוב',
     food: document.getElementById('food').value || 'ללא הגבלות',
     budget: document.getElementById('budget').value || 'לא צוין',
-    interests: (() => {
-      const btns = Array.from(document.querySelectorAll('.interest-btn.active')).map(b => b.textContent);
-      const extra = document.getElementById('interests-extra').value;
-      if (extra) btns.push(extra);
-      return btns.join(', ') || 'כללי';
-    })(),
-    hours: (() => {
-      const s = document.getElementById('hour-start').value || '09:00';
-      const e = document.getElementById('hour-end').value || '21:00';
-      const lunch = document.getElementById('lunch-break').checked;
-      return s + ' עד ' + e + (lunch ? ' (כולל הפסקת צהריים וחידוש פעילות אחריה)' : '');
-    })(),
+    interests: getInterests(),
+    areas: document.getElementById('areas').value || '',
+    hours: hs+' עד '+he+(lunch?' (כולל הפסקת צהריים)':''),
     visited: document.getElementById('visited').value || 'ראשון',
-    hotel: document.getElementById('hotel').value || '',
+    hotel: hotel ? hotel+' (השתמש במיקומו כנקודת מוצא)' : 'לא צוין - כלול המלצות לינה בסוף',
     notes: document.getElementById('notes').value || 'אין',
   };
 
-  const prompt = `בנה מסלול סיור מפורט לפי הפרטים הבאים:
+  const system = `אתה מדריך סיורים מקצועי ברמת מומחה עם 20 שנות ניסיון. הכללים שלך:
+- בונה מסלול ריאלי - לא דוחס יותר מדי אתרים
+- כותב טבלת שעות מסודרת לכל יום: HH:MM-HH:MM | מקום | פעולה
+- כולל זמני מעבר ריאליים בין אתרים
+- ממליץ על אוכל ספציפי לפי ההעדפות
+- מוסיף טיפ insider לכל אתר
+- לא ממציא מקומות שלא קיימים
+- כשממליץ על מסעדות - ממליץ רק על מסעדות שניתן להגיע אליהן ללא הזמנה מראש של יותר משבוע, אלא אם המשתמש ציין שיש לו הזמנה
+- לצד כל המלצת מסעדה - ציין בסוגריים אם נדרשת הזמנה מראש
+- לכל ארוחה (בוקר/צהריים/ערב) הצע 2-3 אפשרויות שונות ברמות תקציב/סגנון שונים
+- בביקור חוזר - לא מציע אטרקציות תיירותיות ראשיות
+- כותב בעברית בלבד`;
 
-פרטי הסיור:
-- יעד: ${fields.destination}
-- תאריכים / ימים: ${fields.dates}
-- עם מי: ${fields.group}
-- שעות זמינות ביום: ${fields.hours}
-- ביקור: ${fields.visited}
-- קצב הליכה: ${fields.pace}
+  const prompt = `בנה מסלול סיור מפורט:
+- יעד: ${fields.dest}
+- תאריכים: ${fields.dates}
+- קבוצה: ${fields.group}
+- שעות: ${fields.hours}
+- היכרות: ${fields.visited}
+- קצב: ${fields.pace}
 - תחבורה: ${fields.transport}
-- העדפות אוכל: ${fields.food}
-- תקציב יומי לאדם: ${fields.budget}
+- אוכל: ${fields.food}
+- תקציב: ${fields.budget}
 - תחומי עניין: ${fields.interests}
-- מלון / לינה: ${fields.hotel ? fields.hotel + ' (השתמש במיקומו כנקודת מוצא לתכנון)' : 'לא צוין - כלול המלצות לינה בסוף המסלול'}
+- אזורים מועדפים: ${fields.areas||'לא צוין'}
+- מלון: ${fields.hotel}
 - הערות: ${fields.notes}
 
-כללי בנייה מקצועיים:
-
-1. מבנה היום - לכל יום:
-   - כותרת: "יום X - [נושא/אזור]"
-   - טבלת שעות: HH:MM-HH:MM | שם המקום | פעולה מומלצת
-   - הקפד על ריאליות: כלול 15-20 דקות מעבר בין אתרים סמוכים, 30-45 דקות בין אזורים
-   - אל תדחוס יותר מדי - איכות על פני כמות
-
-2. לכל אתר - תן:
-   - שם מדויק + שכונה/רחוב
-   - מה לראות / לעשות שם (2 משפטים ממוקדים)
-   - טיפ insider אחד שרוב התיירים מפספסים
-   
-3. אוכל - 3 המלצות ליום:
-   - בוקר: שם מקום + סוג + מה להזמין
-   - צהריים: שם מקום + סוג + מה להזמין
-   - ערב: שם מקום + סוג + אווירה
-   - התאם בקפדנות להעדפות האוכל שצוינו
-
-4. סיום כל יום:
-   - "טיפ היום": עצה מעשית אחת חשובה (כרטיסים מראש, שעות עומס, לבוש מתאים וכו')
-   - "אפשרות בונוס": פעילות קצרה אם נשאר זמן
-
-5. התאמות מיוחדות:
-   - אם ביקור ראשון: כלול את האתרים הקלאסיים אך הוסף נגיעה מקומית אחת לפחות
-   - אם ביקור חוזר: הימנע לחלוטין מאטרקציות תיירותיות ראשיות, התמקד בשכונות מקומיות ומקומות מוסתרים
-   - התאם את עצימות המסלול לקצב הליכה שצוין
-   - אם יש ילדים - כלול הפסקות ומקומות ידידותיים לילדים
-
-כתוב בעברית, בצורה ברורה, מאורגנת ומעוררת השראה.`;
+לכל יום: כותרת + טבלת שעות + המלצות אוכל (בוקר/צהריים/ערב) + טיפ insider + טיפ היום + אפשרות בונוס.`;
 
   try {
-    const apiKey = document.getElementById('api-key').value.trim();
-    if (apiKey) localStorage.setItem('ctb_api_key', apiKey);
-    if (!apiKey) { showError('יש להזין Anthropic API Key'); setLoading(false); return; }
-
-    const systemPrompt = `אתה מדריך סיורים מקצועי ברמת מומחה בינלאומי עם 20 שנות ניסיון בתכנון מסלולים אישיים. אתה מכיר לעומק ערים בישראל ובעולם.
-
-הכללים שלך:
-- תמיד בונה מסלול ריאלי - לא דוחס יותר מדי אתרים ביום
-- תמיד כותב טבלת שעות מסודרת לכל יום בפורמט: HH:MM-HH:MM | מקום | פעולה
-- תמיד כולל זמני מעבר ריאליים בין אתרים
-- תמיד ממליץ על אוכל ספציפי לפי ההעדפות שצוינו
-- תמיד מוסיף טיפ insider אחד לכל אתר
-- אף פעם לא ממציא מקומות שלא קיימים
-- אם ביקור חוזר - אף פעם לא מציע אטרקציות תיירותיות ראשיות
-- כותב בעברית בלבד, ברורה ומאורגנת`;
-
-    const res = await fetch(ANTHROPIC_API, {
+    const res = await fetch(API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-4-5',
         max_tokens: 4000,
         temperature: 0.3,
-        system: systemPrompt,
+        system,
         messages: [{ role: 'user', content: prompt }]
       })
     });
-
-    if (!res.ok) throw new Error(`שגיאת שרת: ${res.status}`);
-
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = errData?.error?.message || 'שגיאת שרת ' + res.status;
+      if (res.status === 401) throw new Error('API Key שגוי או פג תוקף - בדוק את המפתח');
+      if (res.status === 429) throw new Error('חריגה ממגבלת שימוש - נסה שוב בעוד דקה');
+      throw new Error(msg);
+    }
     const data = await res.json();
-    const text = data.content?.map(b => b.text || '').join('') || '';
-    if (!text) throw new Error('לא התקבלה תשובה מהשרת');
-
+    const text = data.content?.map(b=>b.text||'').join('')||'';
+    if (!text) throw new Error('לא התקבלה תשובה');
     document.getElementById('result-body').innerHTML = renderMarkdown(text);
-    document.getElementById('result-title').textContent = `מסלול: ${destination}`;
+    document.getElementById('result-title').textContent = 'מסלול: '+fields.dest;
     document.getElementById('result-card').classList.add('visible');
-    document.getElementById('result-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  } catch (e) {
-    showError('שגיאה בבניית המסלול. בדוק חיבור אינטרנט ונסה שוב. (' + e.message + ')');
+    document.getElementById('result-card').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) {
+    showError('שגיאה: '+e.message);
   }
-
   setLoading(false);
 }
 
@@ -732,155 +462,388 @@ function showError(msg) {
   el.classList.add('visible');
 }
 
-function hideError() {
-  document.getElementById('error-box').classList.remove('visible');
-}
-
 function copyResult() {
-  const destination = document.getElementById('destination').value.trim();
   const text = document.getElementById('result-body').textContent;
   navigator.clipboard.writeText(text).then(() => {
-    const btn = document.querySelector('.btn-copy');
-    const orig = btn.textContent;
+    const btn = document.querySelector('.rbtn-copy');
     btn.textContent = 'הועתק!';
-    setTimeout(() => btn.textContent = orig, 2000);
+    setTimeout(()=>btn.textContent='העתק הכל', 2000);
   });
 }
 
 function sendWhatsApp() {
-  const destination = document.getElementById('destination').value.trim();
+  const dest = document.getElementById('destination').value.trim();
   const text = document.getElementById('result-body').textContent;
-  const header = 'מסלול סיור: ' + destination + '\n\n';
-  const encoded = encodeURIComponent(header + text);
-  window.open('https://wa.me/?text=' + encoded, '_blank');
-}
-
-function resetForm() {
-  document.getElementById('result-card').classList.remove('visible');
-  document.getElementById('destination').value = '';
-  document.getElementById('notes').value = '';
-  // interests handled above
-  document.getElementById('date-start').value = '';
-  document.getElementById('date-end').value = '';
-  document.getElementById('num-people').value = '2';
-  document.getElementById('interests-extra').value = '';
-  document.querySelectorAll('.interest-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('hotel').value = '';
-  document.getElementById('hour-start').value = '09:00';
-  document.getElementById('hour-end').value = '21:00';
-  document.getElementById('lunch-break').checked = false;
-  document.getElementById('visited').value = '';
-  ['group','pace','transport','food','budget'].forEach(id => {
-    document.getElementById(id).selectedIndex = 0;
-  });
-  document.getElementById('rec-body').innerHTML = '';
-  document.getElementById('rec-body').style.display = 'none';
-  document.getElementById('result-body').style.display = 'block';
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===0));
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const msg = 'מסלול סיור: '+dest+'\n\n'+text;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
 
 function switchTab(tab) {
-  const itinerary = document.getElementById('result-body');
+  const body = document.getElementById('result-body');
   const rec = document.getElementById('rec-body');
   const tabs = document.querySelectorAll('.tab');
   if (tab === 'itinerary') {
-    itinerary.style.display = 'block';
-    rec.style.display = 'none';
+    body.style.display='block'; rec.style.display='none';
     tabs[0].classList.add('active'); tabs[1].classList.remove('active');
   } else {
-    itinerary.style.display = 'none';
-    rec.style.display = 'block';
+    body.style.display='none'; rec.style.display='block';
     tabs[1].classList.add('active'); tabs[0].classList.remove('active');
-    if (!rec.hasChildNodes()) buildRecommendations();
+    if (!rec.hasChildNodes()) buildRec();
   }
 }
 
-function buildRecommendations() {
-  const destination = document.getElementById('destination').value.trim();
+function buildRec() {
+  const dest = document.getElementById('destination').value.trim();
   const food = document.getElementById('food').value || '';
   const budget = document.getElementById('budget').value || '';
-  const interests = (() => {
-    const btns = Array.from(document.querySelectorAll('.interest-btn.active')).map(b => b.textContent);
-    const extra = document.getElementById('interests-extra').value;
-    if (extra) btns.push(extra);
-    return btns.join(', ');
-  })();
+  const interests = getInterests();
   const hotel = document.getElementById('hotel').value || '';
   const enc = encodeURIComponent;
-
-  const foodQuery = (food && food !== 'ללא הגבלות') ? food + ' restaurant ' + destination : 'restaurant ' + destination;
-  const budgetTag = budget.includes('יוקרה') ? 'luxury ' : budget.includes('נוח') ? 'boutique ' : '';
-  const attractQuery = interests ? interests.split(',')[0].trim() + ' ' + destination : 'top attractions ' + destination;
+  const foodQ = (food && food!=='ללא הגבלות') ? food+' restaurant '+dest : 'restaurant '+dest;
+  const budgetTag = budget.includes('יוקרה')?'luxury ':budget.includes('נוח')?'boutique ':'';
+  const attrQ = interests ? interests.split(',')[0].trim()+' '+dest : 'top attractions '+dest;
 
   document.getElementById('rec-body').innerHTML = `
-    <div class="rec-note">החיפושים נפתחים בזמן אמת - תוצאות עדכניות ומדויקות</div>
-
+    <div class="rec-note">החיפושים נפתחים בזמן אמת - תוצאות עדכניות</div>
     <div class="rec-section">
       <h3>לינה</h3>
       <div class="search-card">
         <div class="search-info">
-          <div class="search-label">${hotel ? 'מלונות באזור: ' + hotel : 'מלונות ב-' + destination}</div>
-          <div class="search-sub">${budget ? 'תקציב: ' + budget : 'כל הרמות'}</div>
+          <div class="search-label">${hotel?'מלונות באזור: '+hotel:'מלונות ב-'+dest}</div>
+          <div class="search-sub">${budget||'כל הרמות'}</div>
         </div>
         <div class="search-btns">
-          <a class="rec-link booking" href="https://www.booking.com/search.html?ss=${enc(destination)}" target="_blank">Booking.com</a>
-          <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(budgetTag + 'hotel ' + destination)}" target="_blank">Google Maps</a>
+          <a class="rec-link booking" href="https://www.booking.com/search.html?ss=${enc(dest)}" target="_blank">Booking.com</a>
+          <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(budgetTag+'hotel '+dest)}" target="_blank">Google Maps</a>
+          <a class="rec-link wa" href="https://wa.me/?text=${enc('🏨 לינה ב-'+dest+':\nBooking: https://www.booking.com/search.html?ss='+dest+'\nGoogle Maps: https://www.google.com/maps/search/hotel+'+dest)}" target="_blank">📱 שתף</a>
         </div>
       </div>
     </div>
-
     <div class="rec-section">
       <h3>מסעדות</h3>
       <div class="search-card">
         <div class="search-info">
-          <div class="search-label">מסעדות ב-${destination}</div>
-          <div class="search-sub">${food ? 'סינון: ' + food : 'כל הסגנונות'}</div>
+          <div class="search-label">מסעדות ב-${dest}</div>
+          <div class="search-sub">${food||'כל הסגנונות'}</div>
         </div>
         <div class="search-btns">
-          <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(foodQuery)}" target="_blank">Google Maps</a>
-          <a class="rec-link tripadvisor" href="https://www.tripadvisor.com/Search?q=${enc(foodQuery)}" target="_blank">TripAdvisor</a>
+          <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(foodQ)}" target="_blank">Google Maps</a>
+          <a class="rec-link tripadvisor" href="https://www.tripadvisor.com/Search?q=${enc(foodQ)}" target="_blank">TripAdvisor</a>
+          <a class="rec-link wa" href="https://wa.me/?text=${enc('🍽 מסעדות ב-'+dest+':\nGoogle Maps: https://www.google.com/maps/search/'+foodQ+'\nTripAdvisor: https://www.tripadvisor.com/Search?q='+foodQ)}" target="_blank">📱 שתף</a>
         </div>
       </div>
-      ${food === 'כשר' ? `<div class="search-card" style="margin-top:8px;">
-        <div class="search-info">
-          <div class="search-label">מסעדות כשרות בלבד</div>
-          <div class="search-sub">חיפוש ממוקד</div>
-        </div>
-        <div class="search-btns">
-          <a class="rec-link maps" href="https://www.google.com/maps/search/${enc('kosher restaurant ' + destination)}" target="_blank">Google Maps</a>
-        </div>
-      </div>` : ''}
+      ${food==='כשר'?`<div class="search-card"><div class="search-info"><div class="search-label">כשרות בלבד</div></div><div class="search-btns"><a class="rec-link maps" href="https://www.google.com/maps/search/${enc('kosher restaurant '+dest)}" target="_blank">Google Maps</a></div></div>`:''}
     </div>
-
     <div class="rec-section">
       <h3>אטרקציות</h3>
       <div class="search-card">
         <div class="search-info">
-          <div class="search-label">אטרקציות ב-${destination}</div>
-          <div class="search-sub">${interests ? 'תחומי עניין: ' + interests : 'כל הקטגוריות'}</div>
+          <div class="search-label">אטרקציות ב-${dest}</div>
+          <div class="search-sub">${interests}</div>
         </div>
         <div class="search-btns">
-          <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(attractQuery)}" target="_blank">Google Maps</a>
-          <a class="rec-link tripadvisor" href="https://www.tripadvisor.com/Search?q=${enc(attractQuery)}" target="_blank">TripAdvisor</a>
+          <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(attrQ)}" target="_blank">Google Maps</a>
+          <a class="rec-link tripadvisor" href="https://www.tripadvisor.com/Search?q=${enc(attrQ)}" target="_blank">TripAdvisor</a>
+          <a class="rec-link wa" href="https://wa.me/?text=${enc('🎯 אטרקציות ב-'+dest+':\nGoogle Maps: https://www.google.com/maps/search/'+attrQ+'\nTripAdvisor: https://www.tripadvisor.com/Search?q='+attrQ)}" target="_blank">📱 שתף</a>
         </div>
       </div>
     </div>
-
     <div class="rec-section">
       <h3>כרטיסים מראש</h3>
       <div class="search-card">
         <div class="search-info">
-          <div class="search-label">הזמנת סיורים וכרטיסים</div>
+          <div class="search-label">סיורים וכרטיסים</div>
           <div class="search-sub">מונע המתנה בתורים</div>
         </div>
         <div class="search-btns">
-          <a class="rec-link viator" href="https://www.viator.com/search/${enc(destination)}" target="_blank">Viator</a>
-          <a class="rec-link getyourguide" href="https://www.getyourguide.com/s/?q=${enc(destination)}" target="_blank">GetYourGuide</a>
+          <a class="rec-link viator" href="https://www.viator.com/search/${enc(dest)}" target="_blank">Viator</a>
+          <a class="rec-link gyg" href="https://www.getyourguide.com/s/?q=${enc(dest)}" target="_blank">GetYourGuide</a>
+          <a class="rec-link wa" href="https://wa.me/?text=${enc('🎟 כרטיסים ב-'+dest+':\nViator: https://www.viator.com/search/'+dest+'\nGetYourGuide: https://www.getyourguide.com/s/?q='+dest)}" target="_blank">📱 שתף</a>
         </div>
       </div>
+    </div>`;
+}
+
+let itineraryVersion = 1;
+
+// Google Maps - extract places and open
+function openInMaps() {
+  const text = document.getElementById('result-body').textContent;
+  const dest = document.getElementById('destination').value.trim();
+
+  const lines = text.split('\n');
+  const places = [];
+  for (const line of lines) {
+    const parts = line.split('|');
+    if (parts.length >= 2) {
+      const place = parts[1].trim();
+      if (place && place.length > 2 && place.length < 60 && !place.includes('מקום') && !place.includes('שעה')) {
+        places.push(place + ' ' + dest);
+      }
+    }
+  }
+
+  if (places.length === 0) {
+    window.open('https://www.google.com/maps/search/' + encodeURIComponent(dest), '_blank');
+    return;
+  }
+
+  // Build directions URL with all waypoints (max 10)
+  const waypoints = places.slice(0, 10).map(p => encodeURIComponent(p)).join('/');
+  window.open('https://www.google.com/maps/dir/' + waypoints, '_blank');
+}
+
+// Save itinerary to localStorage
+function saveItinerary() {
+  const dest = document.getElementById('destination').value.trim();
+  const text = document.getElementById('result-body').innerHTML;
+  if (!text || !dest) return;
+  
+  const name = prompt('שם המסלול:', dest + ' - ' + new Date().toLocaleDateString('he-IL'));
+  if (!name) return;
+  
+  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  saved.unshift({ name, dest, html: text, date: new Date().toLocaleDateString('he-IL'), version: itineraryVersion });
+  if (saved.length > 10) saved.pop(); // max 10
+  localStorage.setItem('ctb_history', JSON.stringify(saved));
+  
+  const btn = document.querySelector('[onclick="saveItinerary()"]');
+  btn.textContent = '✓ נשמר!';
+  setTimeout(() => btn.textContent = '💾 שמור מסלול', 2000);
+  renderHistory();
+}
+
+// Toggle history panel
+function toggleHistory() {
+  const panel = document.getElementById('history-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (panel.style.display === 'block') renderHistory();
+}
+
+// Render history list
+function renderHistory() {
+  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  const list = document.getElementById('history-list');
+  
+  if (saved.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px">אין מסלולים שמורים עדיין</div>';
+    return;
+  }
+  
+  list.innerHTML = saved.map((item, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--border)">
+      <div>
+        <div style="font-size:14px;font-weight:500">${item.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${item.date}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="loadItinerary(${i})" style="font-family:'Heebo',sans-serif;font-size:12px;padding:4px 12px;border:1px solid var(--accent);border-radius:6px;background:transparent;color:var(--accent);cursor:pointer">פתח</button>
+        <button onclick="deleteItinerary(${i})" style="font-family:'Heebo',sans-serif;font-size:12px;padding:4px 8px;border:1px solid #fca5a5;border-radius:6px;background:transparent;color:#991b1b;cursor:pointer">✕</button>
+      </div>
     </div>
-  `;
+  `).join('');
+}
+
+// Load saved itinerary
+function loadItinerary(index) {
+  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  const item = saved[index];
+  if (!item) return;
+  
+  document.getElementById('destination').value = item.dest;
+  document.getElementById('result-body').innerHTML = item.html;
+  document.getElementById('result-title').textContent = 'מסלול: ' + item.dest;
+  document.getElementById('result-card').classList.add('visible');
+  document.getElementById('history-panel').style.display = 'none';
+  document.getElementById('result-card').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// Delete saved itinerary
+function deleteItinerary(index) {
+  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  saved.splice(index, 1);
+  localStorage.setItem('ctb_history', JSON.stringify(saved));
+  renderHistory();
 }
 
 
+
+function toggleEdit() {
+  const section = document.getElementById('edit-section');
+  section.style.display = section.style.display === 'none' ? 'block' : 'none';
+  if (section.style.display === 'block') {
+    document.getElementById('edit-request').focus();
+  }
+}
+
+async function editItinerary() {
+  const request = document.getElementById('edit-request').value.trim();
+  if (!request) { alert('יש לכתוב בקשת עריכה'); return; }
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { alert('יש להזין API Key'); return; }
+
+  const currentItinerary = document.getElementById('result-body').textContent;
+  const dest = document.getElementById('destination').value.trim();
+
+  document.getElementById('edit-section').style.display = 'none';
+  setLoading(true);
+
+  const system = `אתה מדריך סיורים מקצועי. קיבלת מסלול קיים ובקשת עריכה ספציפית. תפקידך לעדכן את המסלול בהתאם לבקשה בלבד - אל תשנה שום דבר אחר. החזר את המסלול המלא המעודכן בעברית.`;
+
+  const prompt = `המסלול הנוכחי:
+${currentItinerary}
+
+בקשת העריכה: ${request}
+
+החזר את המסלול המלא עם השינוי הנדרש בלבד.`;
+
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4000,
+        temperature: 0.3,
+        system,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!res.ok) throw new Error('שגיאת שרת: ' + res.status);
+    const data = await res.json();
+    const text = data.content?.map(b => b.text || '').join('') || '';
+    if (!text) throw new Error('לא התקבלה תשובה');
+
+    document.getElementById('result-body').innerHTML = renderMarkdown(text);
+    document.getElementById('edit-request').value = '';
+    itineraryVersion++;
+    document.getElementById('version-tag').textContent = 'גרסה ' + itineraryVersion;
+  } catch(e) {
+    showError('שגיאה: ' + e.message);
+  }
+  setLoading(false);
+}
+
+function resetForm() {
+  document.getElementById('result-card').classList.remove('visible');
+  document.getElementById('destination').value='';
+  document.getElementById('date-start').value='';
+  document.getElementById('date-end').value='';
+  document.getElementById('num-people').value='2';
+  document.getElementById('interests-extra').value='';
+  document.getElementById('areas').value='';
+  document.getElementById('visited').value='';
+  document.getElementById('hotel').value='';
+  document.getElementById('notes').value='';
+  document.getElementById('lunch-break').checked=false;
+  document.querySelectorAll('.interest-btn').forEach(b=>b.classList.remove('active'));
+  ['group','pace','transport','food','budget'].forEach(id=>document.getElementById(id).selectedIndex=0);
+  document.getElementById('hour-start').value='09:00';
+  document.getElementById('hour-end').value='21:00';
+  document.getElementById('rec-body').innerHTML='';
+  document.getElementById('rec-body').style.display='none';
+  document.getElementById('result-body').style.display='block';
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===0));
+  itineraryVersion = 1;
+  document.getElementById('version-tag').textContent = 'גרסה 1';
+  document.getElementById('edit-section').style.display = 'none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// Custom Calendar
+let calTarget = null;
+const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+const DAYS_HE = ['א','ב','ג','ד','ה','ו','ש'];
+let calYear, calMonth;
+
+function openCal(id) {
+  calTarget = id;
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  const val = document.getElementById(id).value;
+  if (val && val.length === 10) {
+    const parts = val.split('/');
+    if (parts.length === 3) {
+      calMonth = parseInt(parts[1]) - 1;
+      calYear = parseInt(parts[2]);
+    }
+  }
+  const input = document.getElementById(id);
+  const rect = input.getBoundingClientRect();
+  const popup = document.getElementById('cal-popup');
+  const popupWidth = 280;
+  // Position: below input, align right edge if near right side of screen
+  let left = rect.left;
+  if (left + popupWidth > window.innerWidth - 10) {
+    left = rect.right - popupWidth;
+  }
+  popup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+  popup.style.left = Math.max(5, left) + 'px';
+  popup.style.display = 'block';
+  renderCal();
+  setTimeout(() => document.addEventListener('click', closeCal), 10);
+}
+
+function closeCal(e) {
+  const popup = document.getElementById('cal-popup');
+  const t = e.target;
+  if (!popup.contains(t) && t.id !== 'date-start' && t.id !== 'date-end') {
+    popup.style.display = 'none';
+    document.removeEventListener('click', closeCal);
+  }
+}
+
+function renderCal() {
+  const popup = document.getElementById('cal-popup');
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const today = new Date();
+
+  let html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+  html += '<button onclick="event.stopPropagation();calNav(-1)" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px 8px">&lsaquo;</button>';
+  html += '<span style="font-weight:600;font-size:14px">' + MONTHS_HE[calMonth] + ' ' + calYear + '</span>';
+  html += '<button onclick="event.stopPropagation();calNav(1)" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px 8px">&rsaquo;</button>';
+  html += '</div>';
+  html += '<table style="width:100%;border-collapse:collapse;text-align:center">';
+  html += '<tr>' + DAYS_HE.map(d => '<th style="font-size:11px;color:#6b6560;padding:4px">' + d + '</th>').join('') + '</tr><tr>';
+
+  for (let i = 0; i < firstDay; i++) html += '<td></td>';
+
+  let dayCount = firstDay;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dd = String(d).padStart(2,'0');
+    const mm = String(calMonth+1).padStart(2,'0');
+    const dayStr = dd + '/' + mm + '/' + calYear;
+    const isToday = d===today.getDate() && calMonth===today.getMonth() && calYear===today.getFullYear();
+    const bg = isToday ? '#2d5a27' : '#fff';
+    const col = isToday ? '#fff' : '#1a1814';
+    html += '<td onclick="selectDate(\`' + dayStr + '\`)" style="padding:4px;font-size:13px;cursor:pointer;border-radius:50%;width:32px;height:32px;background:' + bg + ';color:' + col + '">' + d + '</td>';
+    dayCount++;
+    if (dayCount % 7 === 0 && d < daysInMonth) html += '</tr><tr>';
+  }
+  html += '</tr></table>';
+  popup.innerHTML = html;
+}
+
+function calNav(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCal();
+}
+
+function selectDate(dateStr) {
+  document.getElementById(calTarget).value = dateStr;
+  document.getElementById('cal-popup').style.display = 'none';
+  document.removeEventListener('click', closeCal);
+}
+
+</script>
+</body>
+</html>
