@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v2.3 - 31/05/2026 - familiarity tiers + default-exclusion in prompt -->
+<!-- City Trip Builder Claude - v2.4 - 31/05/2026 - debug button (raw request+response JSON) -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -299,6 +299,7 @@ textarea{min-height:68px;resize:vertical}
       <button class="rbtn rbtn-wa" onclick="sendWhatsApp()">📱 וואטסאפ</button>
       <button class="rbtn rbtn-pdf" onclick="window.print()">🖨 PDF</button>
       <button class="rbtn rbtn-copy" onclick="copyResult()">העתק</button>
+      <button class="rbtn" onclick="toggleDebug()" style="background:#444;color:#fff">🐞 Debug</button>
     </div>
   </div>
   <div id="day-maps-row" style="display:none;padding:6px 1.25rem;background:var(--accent-light);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;"></div>
@@ -307,6 +308,7 @@ textarea{min-height:68px;resize:vertical}
     <button class="tab" onclick="switchTab('recommendations')">המלצות - לינה / אוכל / אטרקציות</button>
   </div>
   <div class="result-body" id="result-body"></div>
+  <pre id="debug-panel" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;padding:1rem;margin:0;background:#1a1814;color:#9fe89f;max-height:420px;overflow:auto;direction:ltr;border-top:1px solid var(--border)"></pre>
   <div class="rec-body" id="rec-body" style="display:none"></div>
   <div class="edit-section" id="edit-section" style="display:none;padding:1rem 1.25rem;border-top:1px solid var(--border)">
     <div style="font-size:13px;font-weight:500;color:var(--muted);margin-bottom:6px">בקשת עריכה</div>
@@ -363,6 +365,28 @@ function renderMarkdown(text) {
   });
   h = h.replace(/^---$/gm,'<hr>').replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>');
   return h;
+}
+
+let lastDebugInfo = null;
+
+function toggleDebug() {
+  const panel = document.getElementById('debug-panel');
+  if (!panel) return;
+  if (panel.style.display === 'none' || !panel.style.display) {
+    if (!lastDebugInfo) {
+      panel.textContent = 'אין נתונים עדיין - בנה מסלול קודם.';
+    } else {
+      panel.textContent =
+        '=== נשלח בתאריך: ' + lastDebugInfo.sentAt + ' ===\n\n' +
+        '--- REQUEST (מה שנשלח למודל) ---\n' +
+        JSON.stringify(lastDebugInfo.request, null, 2) + '\n\n' +
+        '--- RESPONSE (תשובה גולמית) ---\n' +
+        JSON.stringify(lastDebugInfo.response, null, 2);
+    }
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
 }
 
 async function buildTrip() {
@@ -446,6 +470,15 @@ async function buildTrip() {
 
 לכל יום: כותרת + טבלת שעות + המלצות אוכל (בוקר/צהריים/ערב) + טיפ insider + טיפ היום + אפשרות בונוס.`;
 
+  const payload = {
+    model: 'claude-sonnet-4-5',
+    max_tokens: 8000,
+    temperature: 0.3,
+    system,
+    messages: [{ role: 'user', content: prompt }]
+  };
+  lastDebugInfo = { sentAt: new Date().toLocaleString('he-IL'), request: payload, response: null };
+
   try {
     const res = await fetch(API, {
       method: 'POST',
@@ -455,13 +488,7 @@ async function buildTrip() {
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 8000,
-        temperature: 0.3,
-        system,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify(payload)
     });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
@@ -471,6 +498,7 @@ async function buildTrip() {
       throw new Error(msg);
     }
     const data = await res.json();
+    lastDebugInfo.response = data;
     const text = data.content?.map(b=>b.text||'').join('')||'';
     if (!text) throw new Error('לא התקבלה תשובה');
     document.getElementById('result-body').innerHTML = renderMarkdown(text);
