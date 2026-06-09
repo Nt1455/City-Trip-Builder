@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v2.4 - 31/05/2026 - debug button (raw request+response JSON) -->
+<!-- City Trip Builder Claude - v2.5 - 07/06/2026 - debug panel auto-scroll into view -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -384,6 +384,7 @@ function toggleDebug() {
         JSON.stringify(lastDebugInfo.response, null, 2);
     }
     panel.style.display = 'block';
+    if (panel.scrollIntoView) panel.scrollIntoView({behavior:'smooth', block:'center'});
   } else {
     panel.style.display = 'none';
   }
