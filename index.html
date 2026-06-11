@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v2.7 - 11/06/2026 - updated model to claude-sonnet-4-6 -->
+<!-- City Trip Builder Claude - v2.7 - 11/06/2026 - added weather forecast -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -101,6 +101,18 @@ textarea{min-height:68px;resize:vertical}
   .rec-body{display:none!important}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+/* Weather Widget */
+#weather-widget{margin-top:10px;padding:10px 14px;background:linear-gradient(135deg,#e8f4fd,#f0f8ff);border:1px solid #b8d9f0;border-radius:10px;font-size:13px;display:none}
+#weather-widget.visible{display:block}
+.weather-loading{color:#666;font-size:12px}
+.weather-days{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.weather-day{background:#fff;border:1px solid #cce4f5;border-radius:8px;padding:6px 10px;text-align:center;min-width:70px;font-size:12px}
+.weather-day .w-date{font-weight:600;color:#1a73e8;font-size:11px;margin-bottom:2px}
+.weather-day .w-icon{font-size:20px;line-height:1.2}
+.weather-day .w-temp{font-size:12px;color:#333;margin-top:2px}
+.weather-day .w-rain{font-size:10px;color:#666}
+.weather-inline{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.7);border-radius:6px;padding:2px 7px;font-size:12px;margin-right:8px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -134,7 +146,7 @@ textarea{min-height:68px;resize:vertical}
 
     <div class="field full">
       <label>לאן נוסעים? *</label>
-      <input type="text" id="destination" placeholder="לדוגמה: פלורנציה, ירושלים, ברצלונה" />
+      <input type="text" id="destination" placeholder="לדוגמה: פלורנציה, ירושלים, ברצלונה" onblur="fetchWeather()" />
     </div>
 
     <div class="field">
@@ -147,6 +159,13 @@ textarea{min-height:68px;resize:vertical}
         <div style="flex:1;position:relative">
           <input type="text" id="date-end" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7" onclick="openCal('date-end')" />
         </div>
+      </div>
+    </div>
+
+    <div class="field full" id="weather-field">
+      <div id="weather-widget">
+        <div style="font-weight:600;color:#1a73e8;margin-bottom:4px">🌤 תחזית מזג אוויר</div>
+        <div id="weather-content"><span class="weather-loading">טוען תחזית...</span></div>
       </div>
     </div>
 
@@ -368,6 +387,143 @@ function renderMarkdown(text) {
   return h;
 }
 
+
+// ===== WEATHER FUNCTIONS =====
+let weatherData = null; // {dates: [...], forecasts: {dateStr: {icon, temp, rain}}}
+
+function getWeatherIcon(wcode) {
+  if (wcode === 0) return '☀️';
+  if (wcode <= 2) return '🌤';
+  if (wcode <= 3) return '☁️';
+  if (wcode <= 49) return '🌫';
+  if (wcode <= 67) return '🌧';
+  if (wcode <= 77) return '❄️';
+  if (wcode <= 82) return '🌦';
+  if (wcode <= 99) return '⛈';
+  return '🌡';
+}
+
+async function fetchWeather() {
+  const dest = document.getElementById('destination').value.trim();
+  const ds = document.getElementById('date-start').value;
+  const de = document.getElementById('date-end').value;
+  if (!dest || !ds) return;
+
+  const widget = document.getElementById('weather-widget');
+  const content = document.getElementById('weather-content');
+  widget.classList.add('visible');
+  content.innerHTML = '<span class="weather-loading">מחפש תחזית עבור ' + dest + '...</span>';
+  weatherData = null;
+
+  try {
+    // שלב 1: Geocoding
+    const geoRes = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(dest) + '&count=1&language=he&format=json');
+    const geoData = await geoRes.json();
+    if (!geoData.results || geoData.results.length === 0) {
+      content.innerHTML = '<span style="color:#999;font-size:12px">לא נמצאה תחזית עבור יעד זה</span>';
+      return;
+    }
+    const { latitude, longitude, name } = geoData.results[0];
+
+    // חישוב תאריכים
+    function parseDate(str) {
+      const [d,m,y] = str.split('/');
+      return new Date(+y, +m-1, +d);
+    }
+    const startDate = parseDate(ds);
+    const endDate = de ? parseDate(de) : new Date(startDate);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const maxForecast = new Date(today); maxForecast.setDate(maxForecast.getDate()+15);
+
+    // בדיקה אם יש תאריכים בטווח תחזית
+    if (startDate > maxForecast) {
+      content.innerHTML = '<span style="color:#999;font-size:12px">התחזית זמינה עד 16 ימים קדימה בלבד</span>';
+      return;
+    }
+
+    const fetchStart = startDate < today ? today : startDate;
+    const fetchEnd = endDate > maxForecast ? maxForecast : endDate;
+    function fmtDate(d) {
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    }
+
+    // שלב 2: Weather API
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude='+latitude+'&longitude='+longitude+
+      '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max'+
+      '&timezone=auto&start_date='+fmtDate(fetchStart)+'&end_date='+fmtDate(fetchEnd);
+    const wRes = await fetch(url);
+    const wData = await wRes.json();
+
+    if (!wData.daily || !wData.daily.time.length) {
+      content.innerHTML = '<span style="color:#999;font-size:12px">לא נמצאו נתוני תחזית</span>';
+      return;
+    }
+
+    // בניית מאגר תחזית
+    weatherData = { forecasts: {} };
+    wData.daily.time.forEach((dateStr, i) => {
+      weatherData.forecasts[dateStr] = {
+        icon: getWeatherIcon(wData.daily.weathercode[i]),
+        max: Math.round(wData.daily.temperature_2m_max[i]),
+        min: Math.round(wData.daily.temperature_2m_min[i]),
+        rain: wData.daily.precipitation_probability_max[i] || 0
+      };
+    });
+
+    // הצגת widget
+    const days = wData.daily.time;
+    const hebrewDays = ['א','ב','ג','ד','ה','ו','ש'];
+    let html = '<div style="font-size:11px;color:#666;margin-bottom:6px">יעד: <strong>' + name + '</strong></div><div class="weather-days">';
+    days.forEach(dateStr => {
+      const f = weatherData.forecasts[dateStr];
+      const d = new Date(dateStr + 'T00:00:00');
+      const dayHe = hebrewDays[d.getDay()];
+      const dayNum = dateStr.slice(8);
+      const mon = dateStr.slice(5,7);
+      html += '<div class="weather-day">';
+      html += '<div class="w-date">'+dayNum+'/'+mon+' ('+dayHe+')</div>';
+      html += '<div class="w-icon">'+f.icon+'</div>';
+      html += '<div class="w-temp">'+f.max+'°/'+f.min+'°</div>';
+      html += '<div class="w-rain">💧'+f.rain+'%</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    content.innerHTML = html;
+
+  } catch(e) {
+    content.innerHTML = '<span style="color:#999;font-size:12px">לא ניתן לטעון תחזית כעת</span>';
+  }
+}
+
+function injectWeatherIntoResult() {
+  if (!weatherData || !weatherData.forecasts) return;
+  const body = document.getElementById('result-body');
+  if (!body) return;
+  // מחפש h2 של ימים ומוסיף תחזית inline
+  const h2s = body.querySelectorAll('h2');
+  h2s.forEach(h2 => {
+    // מחפש תאריך בפורמט DD/MM או YYYY-MM-DD בתוך h2
+    const text = h2.textContent;
+    let dateStr = null;
+    // ניסיון DD/MM/YYYY
+    const m1 = text.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+    if (m1) {
+      const year = m1[3] || new Date().getFullYear();
+      dateStr = year+'-'+String(m1[2]).padStart(2,'0')+'-'+String(m1[1]).padStart(2,'0');
+    }
+    if (dateStr && weatherData.forecasts[dateStr]) {
+      const f = weatherData.forecasts[dateStr];
+      if (!h2.querySelector('.weather-inline')) {
+        const badge = document.createElement('span');
+        badge.className = 'weather-inline';
+        badge.innerHTML = f.icon+' '+f.max+'°/'+f.min+'° 💧'+f.rain+'%';
+        h2.appendChild(badge);
+      }
+    }
+  });
+}
+// ===== END WEATHER FUNCTIONS =====
+
 let lastDebugInfo = null;
 
 function toggleDebug() {
@@ -507,6 +663,7 @@ async function buildTrip() {
     document.getElementById('result-title').textContent = 'מסלול: '+fields.dest;
     document.getElementById('result-card').classList.add('visible');
     buildDayMapButtons();
+    injectWeatherIntoResult();
     document.getElementById('result-card').scrollIntoView({behavior:'smooth',block:'start'});
   } catch(e) {
     showError('שגיאה: '+e.message);
@@ -851,6 +1008,8 @@ ${currentItinerary}
 function resetForm() {
   document.getElementById('result-card').classList.remove('visible');
   document.getElementById('destination').value='';
+  weatherData = null;
+  const ww = document.getElementById('weather-widget'); if(ww) ww.classList.remove('visible');
   document.getElementById('date-start').value='';
   document.getElementById('date-end').value='';
   document.getElementById('num-people').value='2';
@@ -962,6 +1121,7 @@ function selectDate(dateStr) {
   document.getElementById(calTarget).value = dateStr;
   document.getElementById('cal-popup').style.display = 'none';
   document.removeEventListener('click', closeCal);
+  fetchWeather();
 }
 
 </script>
