@@ -637,20 +637,62 @@ async function fetchIntent(fields, apiKey) {
   }
 }
 
+function loadMapsApiForPlaces() {
+  return new Promise((resolve) => {
+    if (window.google && window.google.maps && window.google.maps.places) {
+      resolve(); return;
+    }
+    if (mapsApiLoaded) { resolve(); return; }
+    if (mapsApiLoading) {
+      const check = setInterval(() => {
+        if (mapsApiLoaded) { clearInterval(check); resolve(); }
+      }, 200);
+      return;
+    }
+    mapsApiLoading = true;
+    const script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + MAPS_KEY + '&libraries=places&callback=onMapsReady&language=he';
+    script.async = true;
+    script.defer = true;
+    const origReady = window.onMapsReady;
+    window.onMapsReady = function() {
+      if (origReady) origReady();
+      resolve();
+    };
+    document.head.appendChild(script);
+  });
+}
+
 async function fetchPlaces(dest, categories) {
   if (!categories || !categories.length) return [];
+  try {
+    await loadMapsApiForPlaces();
+  } catch(e) {
+    return [];
+  }
+  if (!window.google || !window.google.maps || !window.google.maps.places) return [];
+
+  const service = new google.maps.places.PlacesService(document.createElement('div'));
   const allPlaces = [];
+
   for (const cat of categories) {
     try {
-      const query = encodeURIComponent(cat.keyword + ' in ' + dest);
-      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${query}&key=${MAPS_KEY}&language=he`;
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (data.results && data.results.length > 0) {
-        const top = data.results.slice(0, 5).map(p => ({
+      const results = await new Promise((resolve) => {
+        service.textSearch({
+          query: cat.keyword + ' in ' + dest,
+          language: 'he'
+        }, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            resolve(results);
+          } else {
+            resolve([]);
+          }
+        });
+      });
+      if (results.length > 0) {
+        const top = results.slice(0, 5).map(p => ({
           name: p.name,
-          address: p.formatted_address || '',
+          address: p.formatted_address || p.vicinity || '',
           rating: p.rating || null,
           place_id: p.place_id,
           label: cat.label
@@ -999,7 +1041,7 @@ function showMapPanel(places, dest, label) {
     mapsApiLoading = true;
     document.getElementById('map-canvas').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:420px;color:var(--muted);font-size:14px">⏳ טוען מפה...</div>';
     const script = document.createElement('script');
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyAPr4VeTsgdLYQF7FXslrRWu6HMYQ-tNKg&callback=onMapsReady&language=he';
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyAPr4VeTsgdLYQF7FXslrRWu6HMYQ-tNKg&libraries=places&callback=onMapsReady&language=he';
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
