@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v2.6 - 09/06/2026 - added guided bus transport option -->
+<!-- City Trip Builder Claude - v2.7 - 11/06/2026 - updated model to claude-sonnet-4-6 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -473,7 +473,7 @@ async function buildTrip() {
 לכל יום: כותרת + טבלת שעות + המלצות אוכל (בוקר/צהריים/ערב) + טיפ insider + טיפ היום + אפשרות בונוס.`;
 
   const payload = {
-    model: 'claude-sonnet-4-5',
+    model: 'claude-sonnet-4-6',
     max_tokens: 8000,
     temperature: 0.3,
     system,
@@ -826,7 +826,7 @@ ${currentItinerary}
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-6',
         max_tokens: 8000,
         temperature: 0.3,
         system,
