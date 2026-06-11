@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v2.9 - 11/06/2026 - Google Maps inline panel with pins -->
+<!-- City Trip Builder Claude - v3.0 - 11/06/2026 - Places API integration: fetchIntent + fetchPlaces -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -583,6 +583,87 @@ function toggleDebug() {
   }
 }
 
+const MAPS_KEY = 'AIzaSyAPr4VeTsgdLYQF7FXslrRWu6HMYQ-tNKg';
+
+// ===== PLACES API FUNCTIONS =====
+
+async function fetchIntent(fields, apiKey) {
+  const intentPrompt = `אתה עוזר לתכנון סיורים. בהתבסס על הנתונים הבאים, החזר JSON בלבד (ללא טקסט נוסף) עם קטגוריות לחיפוש ב-Google Places API.
+
+נתונים:
+- יעד: ${fields.dest}
+- קבוצה: ${fields.group}
+- תחומי עניין: ${fields.interests}
+- אוכל: ${fields.food}
+- תקציב: ${fields.budget}
+
+החזר בפורמט הזה בדיוק:
+{
+  "categories": [
+    {"keyword": "מילת חיפוש באנגלית", "type": "restaurant|cafe|tourist_attraction|museum|park|market|bar", "label": "תיאור בעברית"}
+  ]
+}
+
+כללים:
+- תמיד כלול: מסעדות (restaurant), בתי קפה (cafe), שווקים (market)
+- הוסף לפי תחומי עניין: מוזיאונים, פארקים, גלריות, ברים, אתרים היסטוריים
+- אל תכלול אטרקציות לילדים אם לא צוינו ילדים בקבוצה
+- מקסימום 5 קטגוריות
+- keyword באנגלית בלבד`;
+
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 500,
+      temperature: 0,
+      messages: [{ role: 'user', content: intentPrompt }]
+    })
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const text = data.content?.map(b => b.text || '').join('') || '';
+  try {
+    const clean = text.replace(/```json|```/g, '').trim();
+    return JSON.parse(clean);
+  } catch(e) {
+    return null;
+  }
+}
+
+async function fetchPlaces(dest, categories) {
+  if (!categories || !categories.length) return [];
+  const allPlaces = [];
+  for (const cat of categories) {
+    try {
+      const query = encodeURIComponent(cat.keyword + ' in ' + dest);
+      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${query}&key=${MAPS_KEY}&language=he`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        const top = data.results.slice(0, 5).map(p => ({
+          name: p.name,
+          address: p.formatted_address || '',
+          rating: p.rating || null,
+          place_id: p.place_id,
+          label: cat.label
+        }));
+        allPlaces.push({ category: cat.label, places: top });
+      }
+    } catch(e) {
+      continue;
+    }
+  }
+  return allPlaces;
+}
+
 async function buildTrip() {
   const dest = document.getElementById('destination').value.trim();
   document.getElementById('error-box').classList.remove('visible');
@@ -646,6 +727,28 @@ async function buildTrip() {
   * ציין את המרחק בהליכה מהמלון
 - כותב בעברית בלבד`;
 
+  // שלב 1: fetchIntent - Claude מחזיר קטגוריות
+  let placesContext = '';
+  try {
+    const intentData = await fetchIntent(fields, apiKey);
+    if (intentData && intentData.categories && intentData.categories.length > 0) {
+      const placesData = await fetchPlaces(fields.dest, intentData.categories);
+      if (placesData && placesData.length > 0) {
+        placesContext = '\n\nמקומות אמיתיים מאומתים מ-Google Places (השתמש בהם בעדיפות גבוהה):\n' +
+          placesData.map(cat =>
+            '\n' + cat.category + ':\n' +
+            cat.places.map(p =>
+              '- ' + p.name + ' | ' + p.address + (p.rating ? ' | דירוג: ' + p.rating : '')
+            ).join('\n')
+          ).join('\n') +
+          '\n\nהנחיה: השתמש במקומות הנ"ל כבסיס למסלול. מקומות אלו אומתו כקיימים. תוכל להוסיף מקומות נוספים מהידע שלך אך סמן אותם ב-⚠️';
+      }
+    }
+  } catch(e) {
+    placesContext = '';
+  }
+  const placesNote = placesContext ? '' : '\n\n⚠️ הערה: המסלול מבוסס על ידע AI בלבד - אמת פרטי מקומות לפני הגעה.';
+
   const prompt = `בנה מסלול סיור מפורט:
 - יעד: ${fields.dest}
 - תאריכים: ${fields.dates}
@@ -661,7 +764,7 @@ async function buildTrip() {
 - אזורים מועדפים: ${fields.areas||'לא צוין'}
 - מלון: ${fields.hotel}
 - הערות: ${fields.notes}
-
+- הערות: ${fields.notes}${placesContext}${placesNote}\n'
 לכל יום: כותרת + טבלת שעות + המלצות אוכל (בוקר/צהריים/ערב) + טיפ insider + טיפ היום + אפשרות בונוס.`;
 
   const payload = {
