@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v2.8 - 11/06/2026 - weather fixes and badge in result -->
+<!-- City Trip Builder Claude - v2.9 - 11/06/2026 - Google Maps inline panel with pins -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -44,6 +44,11 @@ textarea{min-height:68px;resize:vertical}
 .rbtn-maps:hover{background:#1967d2;color:#fff}
 .rbtn-day{font-family:'Heebo',sans-serif;font-size:11px;padding:4px 10px;border:1px solid #1967d2;border-radius:5px;background:transparent;color:#1967d2;cursor:pointer;white-space:nowrap}
 .rbtn-day:hover{background:#1967d2;color:#fff}
+#map-panel{display:none;border-top:1px solid var(--border)}
+#map-panel.visible{display:block}
+#map-panel-header{display:flex;justify-content:space-between;align-items:center;padding:8px 1.25rem;background:var(--accent-light);font-size:13px;font-weight:600;color:var(--accent)}
+#map-panel-header button{font-family:'Heebo',sans-serif;font-size:11px;padding:3px 10px;border:1px solid var(--accent);border-radius:5px;background:transparent;color:var(--accent);cursor:pointer}
+#map-canvas{width:100%;height:420px}
 .rbtn-park{background:transparent;color:#2d5a27;border-color:#2d5a27}
 .rbtn-park:hover{background:#2d5a27;color:#fff}
 .rbtn-copy{background:transparent;color:var(--accent);border-color:var(--accent)}
@@ -323,6 +328,13 @@ textarea{min-height:68px;resize:vertical}
     </div>
   </div>
   <div id="day-maps-row" style="display:none;padding:6px 1.25rem;background:var(--accent-light);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;"></div>
+  <div id="map-panel">
+    <div id="map-panel-header">
+      <span id="map-panel-title">🗺 מפת המסלול</span>
+      <button onclick="closeMapPanel()">✕ סגור</button>
+    </div>
+    <div id="map-canvas"></div>
+  </div>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('itinerary')">מסלול</button>
     <button class="tab" onclick="switchTab('recommendations')">המלצות - לינה / אוכל / אטרקציות</button>
@@ -845,7 +857,88 @@ function openInMaps(dayIndex) {
     window.open('https://www.google.com/maps/search/' + encodeURIComponent(dest), '_blank');
     return;
   }
-  window.open('https://www.google.com/maps/dir/' + places.slice(0,10).map(p => encodeURIComponent(p)).join('/'), '_blank');
+
+  const label = dayIndex !== undefined ? 'יום ' + (dayIndex + 1) : 'כל המסלול';
+  showMapPanel(places, dest, label);
+}
+
+function closeMapPanel() {
+  document.getElementById('map-panel').classList.remove('visible');
+}
+
+let mapsApiLoaded = false;
+let mapsApiLoading = false;
+let pendingMapCall = null;
+
+function showMapPanel(places, dest, label) {
+  const panel = document.getElementById('map-panel');
+  document.getElementById('map-panel-title').textContent = '🗺 ' + label + ' - ' + dest;
+  panel.classList.add('visible');
+  panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+
+  if (mapsApiLoaded) {
+    renderMap(places, dest);
+    return;
+  }
+  pendingMapCall = {places, dest};
+  if (!mapsApiLoading) {
+    mapsApiLoading = true;
+    document.getElementById('map-canvas').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:420px;color:var(--muted);font-size:14px">⏳ טוען מפה...</div>';
+    const script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyAHeN7fhRkfEaQrMe8MxrEZRbZqT9T_E4c&callback=onMapsReady&language=he';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+}
+
+function onMapsReady() {
+  mapsApiLoaded = true;
+  mapsApiLoading = false;
+  if (pendingMapCall) {
+    renderMap(pendingMapCall.places, pendingMapCall.dest);
+    pendingMapCall = null;
+  }
+}
+
+function renderMap(places, dest) {
+  const canvas = document.getElementById('map-canvas');
+  canvas.innerHTML = '';
+  const map = new google.maps.Map(canvas, {
+    zoom: 13,
+    center: {lat: 32.0853, lng: 34.7818},
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: true
+  });
+
+  const geocoder = new google.maps.Geocoder();
+  const bounds = new google.maps.LatLngBounds();
+  let resolved = 0;
+  const total = places.length;
+
+  places.forEach((place, i) => {
+    geocoder.geocode({address: place, region: 'IL'}, function(results, status) {
+      resolved++;
+      if (status === 'OK' && results[0]) {
+        const pos = results[0].geometry.location;
+        bounds.extend(pos);
+        const marker = new google.maps.Marker({
+          map: map,
+          position: pos,
+          label: {text: String(i + 1), color: '#fff', fontWeight: 'bold'},
+          title: place
+        });
+        const infoWindow = new google.maps.InfoWindow({
+          content: '<div style="font-family:Heebo,sans-serif;font-size:13px;direction:rtl;max-width:200px"><b>' + (i+1) + '. ' + place + '</b></div>'
+        });
+        marker.addListener('click', function() { infoWindow.open(map, marker); });
+        if (resolved === total) map.fitBounds(bounds);
+      } else if (resolved === total) {
+        map.fitBounds(bounds);
+      }
+    });
+  });
 }
 
 function openParking() {
