@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v2.7 - 11/06/2026 - added weather forecast -->
+<!-- City Trip Builder Claude - v2.8 - 11/06/2026 - weather fixes and badge in result -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -420,7 +420,7 @@ async function fetchWeather() {
     const geoRes = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(dest) + '&count=1&language=he&format=json');
     const geoData = await geoRes.json();
     if (!geoData.results || geoData.results.length === 0) {
-      content.innerHTML = '<span style="color:#999;font-size:12px">לא נמצאה תחזית עבור יעד זה</span>';
+      content.innerHTML = '<span style="color:#e07">⚠️ לא נמצא יעד זה - נסה שם עיר באנגלית</span>';
       return;
     }
     const { latitude, longitude, name } = geoData.results[0];
@@ -437,7 +437,7 @@ async function fetchWeather() {
 
     // בדיקה אם יש תאריכים בטווח תחזית
     if (startDate > maxForecast) {
-      content.innerHTML = '<span style="color:#999;font-size:12px">התחזית זמינה עד 16 ימים קדימה בלבד</span>';
+      content.innerHTML = '<span style="color:#888;font-size:12px">📅 התחזית זמינה עד 16 ימים קדימה בלבד</span>';
       return;
     }
 
@@ -455,7 +455,7 @@ async function fetchWeather() {
     const wData = await wRes.json();
 
     if (!wData.daily || !wData.daily.time.length) {
-      content.innerHTML = '<span style="color:#999;font-size:12px">לא נמצאו נתוני תחזית</span>';
+      content.innerHTML = '<span style="color:#888;font-size:12px">⚠️ לא נמצאו נתוני תחזית עבור יעד זה</span>';
       return;
     }
 
@@ -473,9 +473,11 @@ async function fetchWeather() {
     // הצגת widget
     const days = wData.daily.time;
     const hebrewDays = ['א','ב','ג','ד','ה','ו','ש'];
-    let html = '<div style="font-size:11px;color:#666;margin-bottom:6px">יעד: <strong>' + name + '</strong></div><div class="weather-days">';
+    let html = '<div style="font-size:11px;color:#666;margin-bottom:6px">✅ תחזית נטענה עבור: <strong>' + name + '</strong></div><div class="weather-days">';
     days.forEach(dateStr => {
       const f = weatherData.forecasts[dateStr];
+      // סינון ימים עם נתונים חסרים (0/0)
+      if (f.max === 0 && f.min === 0) return;
       const d = new Date(dateStr + 'T00:00:00');
       const dayHe = hebrewDays[d.getDay()];
       const dayNum = dateStr.slice(8);
@@ -491,7 +493,7 @@ async function fetchWeather() {
     content.innerHTML = html;
 
   } catch(e) {
-    content.innerHTML = '<span style="color:#999;font-size:12px">לא ניתן לטעון תחזית כעת</span>';
+    content.innerHTML = '<span style="color:#c44;font-size:12px">⚠️ שגיאת רשת - לא ניתן לטעון תחזית</span>';
   }
 }
 
@@ -499,17 +501,39 @@ function injectWeatherIntoResult() {
   if (!weatherData || !weatherData.forecasts) return;
   const body = document.getElementById('result-body');
   if (!body) return;
-  // מחפש h2 של ימים ומוסיף תחזית inline
   const h2s = body.querySelectorAll('h2');
   h2s.forEach(h2 => {
-    // מחפש תאריך בפורמט DD/MM או YYYY-MM-DD בתוך h2
     const text = h2.textContent;
     let dateStr = null;
-    // ניסיון DD/MM/YYYY
+    // פורמט DD/MM/YYYY או DD/MM
     const m1 = text.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
     if (m1) {
       const year = m1[3] || new Date().getFullYear();
       dateStr = year+'-'+String(m1[2]).padStart(2,'0')+'-'+String(m1[1]).padStart(2,'0');
+    }
+    // פורמט יום X - DD/MM (כמו "יום 1 - 14/06")
+    if (!dateStr) {
+      const m2 = text.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?/);
+      if (m2) {
+        const year = m2[3] || new Date().getFullYear();
+        dateStr = year+'-'+String(m2[2]).padStart(2,'0')+'-'+String(m2[1]).padStart(2,'0');
+      }
+    }
+    // אם לא נמצא תאריך - ניסיון לפי מספר יום (יום 1, יום 2...)
+    if (!dateStr) {
+      const mDay = text.match(/יום\s*(\d+)/);
+      if (mDay) {
+        const ds = document.getElementById('date-start').value;
+        if (ds) {
+          const [dd,mm,yy] = ds.split('/');
+          const base = new Date(+yy, +mm-1, +dd);
+          base.setDate(base.getDate() + parseInt(mDay[1]) - 1);
+          const y = base.getFullYear();
+          const mo = String(base.getMonth()+1).padStart(2,'0');
+          const d = String(base.getDate()).padStart(2,'0');
+          dateStr = y+'-'+mo+'-'+d;
+        }
+      }
     }
     if (dateStr && weatherData.forecasts[dateStr]) {
       const f = weatherData.forecasts[dateStr];
