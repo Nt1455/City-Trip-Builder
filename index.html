@@ -729,11 +729,16 @@ async function buildTrip() {
 
   // שלב 1: fetchIntent - Claude מחזיר קטגוריות
   let placesContext = '';
+  let placesDebug = { status: 'not_started', intentData: null, placesData: null, error: null };
   try {
     const intentData = await fetchIntent(fields, apiKey);
+    placesDebug.intentData = intentData;
     if (intentData && intentData.categories && intentData.categories.length > 0) {
+      placesDebug.status = 'intent_ok';
       const placesData = await fetchPlaces(fields.dest, intentData.categories);
+      placesDebug.placesData = placesData;
       if (placesData && placesData.length > 0) {
+        placesDebug.status = 'places_ok';
         placesContext = '\n\nמקומות אמיתיים מאומתים מ-Google Places (השתמש בהם בעדיפות גבוהה):\n' +
           placesData.map(cat =>
             '\n' + cat.category + ':\n' +
@@ -742,9 +747,15 @@ async function buildTrip() {
             ).join('\n')
           ).join('\n') +
           '\n\nהנחיה: השתמש במקומות הנ"ל כבסיס למסלול. מקומות אלו אומתו כקיימים. תוכל להוסיף מקומות נוספים מהידע שלך אך סמן אותם ב-⚠️';
+      } else {
+        placesDebug.status = 'places_empty';
       }
+    } else {
+      placesDebug.status = 'intent_failed';
     }
   } catch(e) {
+    placesDebug.status = 'error';
+    placesDebug.error = e.message;
     placesContext = '';
   }
   const placesNote = placesContext ? '' : '\n\n⚠️ הערה: המסלול מבוסס על ידע AI בלבד - אמת פרטי מקומות לפני הגעה.';
@@ -774,7 +785,7 @@ async function buildTrip() {
     system,
     messages: [{ role: 'user', content: prompt }]
   };
-  lastDebugInfo = { sentAt: new Date().toLocaleString('he-IL'), request: payload, response: null };
+  lastDebugInfo = { sentAt: new Date().toLocaleString('he-IL'), places_debug: placesDebug, request: payload, response: null };
 
   try {
     const res = await fetch(API, {
