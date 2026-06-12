@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v3.5 - 12/06/2026 - Fix weather geocoding: Google Maps Geocoder -->
+<!-- City Trip Builder Claude - v3.6 - 12/06/2026 - Fix buildDayMapButtons regex: support Hebrew letters (א-ת) and digits -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -1155,8 +1155,8 @@ function buildDayMapButtons() {
   const hasParking = resultBody.textContent.includes('חניון');
   document.getElementById('btn-parking').style.display = hasParking ? 'inline-block' : 'none';
 
-  // סנן רק כותרות יום אמיתיות (יום 1 עד יום 9) - לא תאריכים
-  const dayHeadings = Array.from(resultBody.querySelectorAll('h1,h2,h3,h4')).filter(h => /יום\s+[1-9]\b/.test(h.textContent) && !/טבלת/.test(h.textContent) && !/ארוחת/.test(h.textContent) && !/המלצות/.test(h.textContent));
+  // סנן רק כותרות יום אמיתיות - תופס גם "יום 1" (ספרות) וגם "יום א'" (אותיות עבריות)
+  const dayHeadings = Array.from(resultBody.querySelectorAll('h1,h2,h3,h4')).filter(h => /יום\s+([1-9]|[\u05d0-\u05ea]'?)/.test(h.textContent) && !/טבלת/.test(h.textContent) && !/ארוחת/.test(h.textContent) && !/המלצות/.test(h.textContent));
 
   if (dayHeadings.length === 0) { dayRow.style.display = 'none'; return; }
   dayRow.style.display = 'flex';
