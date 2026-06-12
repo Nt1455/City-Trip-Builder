@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v3.3 - 12/06/2026 - Fix weather geocoding: Hebrew+English fallback -->
+<!-- City Trip Builder Claude - v3.4 - 12/06/2026 - Fix weather geocoding: Google Maps Geocoder -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -440,18 +440,23 @@ async function fetchWeather() {
   weatherData = null;
 
   try {
-    // שלב 1: Geocoding - קודם עברית, אחר כך אנגלית כ-fallback
-    let geoData = null;
-    for (const lang of ['he', 'en']) {
-      const geoRes = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(dest) + '&count=1&language=' + lang + '&format=json');
-      const data = await geoRes.json();
-      if (data.results && data.results.length > 0) { geoData = data; break; }
-    }
-    if (!geoData) {
-      content.innerHTML = '<span style="color:#e07">⚠️ לא נמצא יעד זה - בדוק את שם העיר</span>';
-      return;
-    }
-    const { latitude, longitude, name } = geoData.results[0];
+    // שלב 1: Geocoding - Google Maps (מדויק לעברית ולכל שפה)
+    await loadMapsApiForPlaces();
+    const { latitude, longitude, name } = await new Promise((resolve, reject) => {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: dest, region: 'IL' }, function(results, status) {
+        if (status === 'OK' && results[0]) {
+          const loc = results[0].geometry.location;
+          resolve({
+            latitude: loc.lat(),
+            longitude: loc.lng(),
+            name: results[0].formatted_address
+          });
+        } else {
+          reject(new Error('לא נמצא יעד זה'));
+        }
+      });
+    });
 
     // חישוב תאריכים
     function parseDate(str) {
@@ -521,7 +526,11 @@ async function fetchWeather() {
     content.innerHTML = html;
 
   } catch(e) {
-    content.innerHTML = '<span style="color:#c44;font-size:12px">⚠️ שגיאת רשת - לא ניתן לטעון תחזית</span>';
+    if (e.message && e.message.includes('לא נמצא')) {
+      content.innerHTML = '<span style="color:#e07">⚠️ לא נמצא יעד זה - בדוק את שם העיר</span>';
+    } else {
+      content.innerHTML = '<span style="color:#c44;font-size:12px">⚠️ שגיאת רשת - לא ניתן לטעון תחזית</span>';
+    }
   }
 }
 
