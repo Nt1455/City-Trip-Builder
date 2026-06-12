@@ -571,6 +571,8 @@ function toggleDebug() {
     } else {
       panel.textContent =
         '=== נשלח בתאריך: ' + lastDebugInfo.sentAt + ' ===\n\n' +
+        '--- PLACES DEBUG ---\n' +
+        JSON.stringify(lastDebugInfo.places_debug, null, 2) + '\n\n' +
         '--- REQUEST (מה שנשלח למודל) ---\n' +
         JSON.stringify(lastDebugInfo.request, null, 2) + '\n\n' +
         '--- RESPONSE (תשובה גולמית) ---\n' +
@@ -1131,7 +1133,7 @@ function buildDayMapButtons() {
   if (tables.length <= 1) { dayRow.style.display = 'none'; return; }
   dayRow.style.display = 'flex';
   dayRow.innerHTML = '<span style="font-size:12px;color:var(--muted);align-self:center;margin-left:6px">📍 מפה ליום:</span>';
-  const headings = Array.from(resultBody.querySelectorAll('h3,h2')).filter(h => h.textContent.includes('יום') || h.textContent.match(/\d{2}\/\d{2}/));
+  const headings = Array.from(resultBody.querySelectorAll('h2')).filter(h => /יום\s*\d/.test(h.textContent));
   tables.forEach((t, i) => {
     const label = headings[i] ? headings[i].textContent.trim().substring(0,20) : 'יום ' + (i+1);
     const btn = document.createElement('button');
