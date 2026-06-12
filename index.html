@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v3.2 - 12/06/2026 - Fix buildDayMapButtons: loop on dayHeadings not tables -->
+<!-- City Trip Builder Claude - v3.3 - 12/06/2026 - Fix weather geocoding: Hebrew+English fallback -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -440,11 +440,15 @@ async function fetchWeather() {
   weatherData = null;
 
   try {
-    // שלב 1: Geocoding
-    const geoRes = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(dest) + '&count=1&language=he&format=json');
-    const geoData = await geoRes.json();
-    if (!geoData.results || geoData.results.length === 0) {
-      content.innerHTML = '<span style="color:#e07">⚠️ לא נמצא יעד זה - נסה שם עיר באנגלית</span>';
+    // שלב 1: Geocoding - קודם עברית, אחר כך אנגלית כ-fallback
+    let geoData = null;
+    for (const lang of ['he', 'en']) {
+      const geoRes = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(dest) + '&count=1&language=' + lang + '&format=json');
+      const data = await geoRes.json();
+      if (data.results && data.results.length > 0) { geoData = data; break; }
+    }
+    if (!geoData) {
+      content.innerHTML = '<span style="color:#e07">⚠️ לא נמצא יעד זה - בדוק את שם העיר</span>';
       return;
     }
     const { latitude, longitude, name } = geoData.results[0];
