@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v3.1 - 12/06/2026 - Fix day buttons, Places Debug panel, auto version title -->
+<!-- City Trip Builder Claude - v3.2 - 12/06/2026 - Fix buildDayMapButtons: loop on dayHeadings not tables -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -1137,17 +1137,20 @@ function openParking() {
 function buildDayMapButtons() {
   const resultBody = document.getElementById('result-body');
   const dayRow = document.getElementById('day-maps-row');
-  const tables = resultBody.querySelectorAll('table');
-  
+
   // Show parking button only if parking info exists
   const hasParking = resultBody.textContent.includes('חניון');
   document.getElementById('btn-parking').style.display = hasParking ? 'inline-block' : 'none';
-  if (tables.length <= 1) { dayRow.style.display = 'none'; return; }
+
+  // סנן רק כותרות יום אמיתיות (יום 1 עד יום 9) - לא תאריכים
+  const dayHeadings = Array.from(resultBody.querySelectorAll('h2,h3')).filter(h => /יום\s+[1-9]\b/.test(h.textContent));
+
+  if (dayHeadings.length === 0) { dayRow.style.display = 'none'; return; }
   dayRow.style.display = 'flex';
   dayRow.innerHTML = '<span style="font-size:12px;color:var(--muted);align-self:center;margin-left:6px">📍 מפה ליום:</span>';
-  const headings = Array.from(resultBody.querySelectorAll('h2')).filter(h => /יום\s*\d/.test(h.textContent));
-  tables.forEach((t, i) => {
-    const label = headings[i] ? headings[i].textContent.trim().substring(0,20) : 'יום ' + (i+1);
+
+  dayHeadings.forEach((h, i) => {
+    const label = h.textContent.trim().substring(0, 20);
     const btn = document.createElement('button');
     btn.className = 'rbtn-day';
     btn.textContent = '📍 ' + label;
