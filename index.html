@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v3.7 - 12/06/2026 - Fix prompt: Places API names mandatory in level3, enforce tour end time -->
+<!-- City Trip Builder Claude - v3.8 - 13/06/2026 - Add hotel area search button in recommendations tab -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -940,6 +940,8 @@ function buildRec() {
   const interests = getInterests();
   const hotel = document.getElementById('hotel').value || '';
   const enc = encodeURIComponent;
+  window._recDest = dest;
+  window._recBudgetTag = budget.includes('יוקרה')?'luxury ':budget.includes('נוח')?'boutique ':'';
   const foodQ = (food && food!=='ללא הגבלות') ? food+' restaurant '+dest : 'restaurant '+dest;
   const budgetTag = budget.includes('יוקרה')?'luxury ':budget.includes('נוח')?'boutique ':'';
   const attrQ = interests ? interests.split(',')[0].trim()+' '+dest : 'top attractions '+dest;
@@ -957,6 +959,7 @@ function buildRec() {
           <a class="rec-link booking" href="https://www.booking.com/search.html?ss=${enc(dest)}" target="_blank">Booking.com</a>
           <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(budgetTag+'hotel '+dest)}" target="_blank">Google Maps</a>
           <a class="rec-link wa" href="https://wa.me/?text=${enc('🏨 לינה ב-'+dest+':\nBooking: https://www.booking.com/search.html?ss='+dest+'\nGoogle Maps: https://www.google.com/maps/search/hotel+'+dest)}" target="_blank">📱 שתף</a>
+          <button onclick="searchHotelByArea()" style="font-family:'Heebo',sans-serif;font-size:11px;padding:4px 10px;border:1px solid #7b5ea7;border-radius:5px;background:transparent;color:#7b5ea7;cursor:pointer;white-space:nowrap">🔍 באזור ספציפי</button>
         </div>
       </div>
     </div>
@@ -1427,6 +1430,17 @@ function selectDate(dateStr) {
   document.getElementById('cal-popup').style.display = 'none';
   document.removeEventListener('click', closeCal);
   fetchWeather();
+}
+
+function searchHotelByArea() {
+  var dest = window._recDest || document.getElementById('destination').value.trim();
+  var budgetTag = window._recBudgetTag || '';
+  var area = prompt('חפש מלון באיזה אזור או שכונה?\nלדוגמה: נחלאות, העיר העתיקה, תל אביב הצפונית');
+  if (!area || !area.trim()) return;
+  var q = budgetTag + 'hotel ' + area.trim() + ' ' + dest;
+  var enc = encodeURIComponent;
+  window.open('https://www.booking.com/search.html?ss=' + enc(area.trim() + ' ' + dest), '_blank');
+  window.open('https://www.google.com/maps/search/' + enc(q), '_blank');
 }
 
 </script>
