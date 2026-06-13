@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v3.8 - 13/06/2026 - Add hotel area search button in recommendations tab -->
+<!-- City Trip Builder Claude - v4.0 - 13/06/2026 - Upgrade fetchPlaces to Places API (New) REST -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -692,36 +692,34 @@ function loadMapsApiForPlaces() {
 
 async function fetchPlaces(dest, categories) {
   if (!categories || !categories.length) return [];
-  try {
-    await loadMapsApiForPlaces();
-  } catch(e) {
-    return [];
-  }
-  if (!window.google || !window.google.maps || !window.google.maps.places) return [];
-
-  const service = new google.maps.places.PlacesService(document.createElement('div'));
   const allPlaces = [];
+  const PLACES_NEW_ENDPOINT = 'https://places.googleapis.com/v1/places:searchText';
+  const FIELD_MASK = 'places.displayName,places.formattedAddress,places.rating,places.id';
 
   for (const cat of categories) {
     try {
-      const results = await new Promise((resolve) => {
-        service.textSearch({
-          query: cat.keyword + ' in ' + dest,
-          language: 'he'
-        }, (results, status) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            resolve(results);
-          } else {
-            resolve([]);
-          }
-        });
+      const res = await fetch(PLACES_NEW_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': MAPS_KEY,
+          'X-Goog-FieldMask': FIELD_MASK
+        },
+        body: JSON.stringify({
+          textQuery: cat.keyword + ' in ' + dest,
+          languageCode: 'he',
+          maxResultCount: 5
+        })
       });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const results = data.places || [];
       if (results.length > 0) {
-        const top = results.slice(0, 5).map(p => ({
-          name: p.name,
-          address: p.formatted_address || p.vicinity || '',
+        const top = results.map(p => ({
+          name: p.displayName?.text || '',
+          address: p.formattedAddress || '',
           rating: p.rating || null,
-          place_id: p.place_id,
+          place_id: p.id || '',
           label: cat.label
         }));
         allPlaces.push({ category: cat.label, places: top });
