@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.0 - 13/06/2026 - Upgrade fetchPlaces to Places API (New) REST -->
+<!-- City Trip Builder Claude - v4.1 - 17/07/2026 - Multi-region trip support + fix duplicate notes line in prompt -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -25,6 +25,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);background:#f
 textarea{min-height:68px;resize:vertical}
 .interest-btn{font-family:'Heebo',sans-serif;font-size:13px;padding:5px 13px;border:1px solid var(--border);border-radius:20px;background:#faf9f7;color:var(--muted);cursor:pointer;transition:all .15s}
 .interest-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.region-row{border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;background:#faf9f7}
+.region-row .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.region-row-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.btn-remove-region{font-family:'Heebo',sans-serif;background:transparent;border:1px solid #fca5a5;color:#991b1b;border-radius:6px;font-size:11px;padding:3px 9px;cursor:pointer}
+.btn-remove-region:hover{background:#fef2f2}
+.btn-add-region{font-family:'Heebo',sans-serif;font-size:12px;padding:6px 14px;border:1px solid var(--accent);border-radius:6px;background:transparent;color:var(--accent);cursor:pointer}
+.btn-add-region:hover{background:var(--accent-light)}
 .btn-build{display:block;width:100%;padding:13px;font-family:'Heebo',sans-serif;font-size:15px;font-weight:600;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;transition:opacity .15s;margin-bottom:1.5rem}
 .btn-build:hover{opacity:.9}
 .btn-build:disabled{opacity:.5;cursor:not-allowed}
@@ -308,6 +315,20 @@ textarea{min-height:68px;resize:vertical}
     <div class="field full">
       <label>מלון / לינה</label>
       <input type="text" id="hotel" placeholder="שם המלון ושכונה - או השאר ריק לקבלת המלצות לינה" />
+    </div>
+
+    <div class="field full" id="multi-region-block">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:var(--text)">
+        <input type="checkbox" id="multi-region-toggle" onchange="toggleMultiRegion()" style="width:16px;height:16px;cursor:pointer" />
+        סיור מרובה אזורים (כמה עיירות / מלונות באותו סיור)
+      </label>
+      <div id="multi-region-container" style="display:none;margin-top:10px">
+        <div id="region-rows"></div>
+        <button type="button" class="btn-add-region" onclick="addRegionRow()">+ הוסף אזור</button>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">
+          שדה "לאן נוסעים?" למעלה ישמש כיעד הראשי לתחזית מזג אוויר ואימות מקומות (Google Places). שאר האזורים יתוארו במסלול לפי הפרטים שתמלא כאן.
+        </div>
+      </div>
     </div>
 
     <div class="field full">
@@ -828,6 +849,7 @@ async function buildTrip() {
     placesContext = '';
   }
   const placesNote = placesContext ? '' : '\n\n⚠️ הערה: המסלול מבוסס על ידע AI בלבד - אמת פרטי מקומות לפני הגעה.';
+  const multiRegionText = buildMultiRegionText();
 
   const prompt = `בנה מסלול סיור מפורט:
 - יעד: ${fields.dest}
@@ -843,8 +865,7 @@ async function buildTrip() {
 - תחומי עניין: ${fields.interests}
 - אזורים מועדפים: ${fields.areas||'לא צוין'}
 - מלון: ${fields.hotel}
-- הערות: ${fields.notes}
-- הערות: ${fields.notes}${placesContext}${placesNote}\n'
+- הערות: ${fields.notes}${placesContext}${placesNote}${multiRegionText}
 לכל יום: כותרת + טבלת שעות + המלצות אוכל (בוקר/צהריים/ערב) + טיפ insider + טיפ היום + אפשרות בונוס.`;
 
   const payload = {
@@ -1428,6 +1449,184 @@ function selectDate(dateStr) {
   document.getElementById('cal-popup').style.display = 'none';
   document.removeEventListener('click', closeCal);
   fetchWeather();
+}
+
+// ===== מבנה סיור רב-אזורים (multi-region) =====
+let regionRowCount = 0;
+
+function toggleMultiRegion() {
+  const on = document.getElementById('multi-region-toggle').checked;
+  document.getElementById('multi-region-container').style.display = on ? 'block' : 'none';
+  if (on && document.getElementById('region-rows').children.length === 0) {
+    addRegionRow();
+    addRegionRow();
+  }
+}
+
+function addRegionRow() {
+  regionRowCount++;
+  const idx = regionRowCount;
+  const wrap = document.createElement('div');
+  wrap.className = 'region-row';
+  wrap.id = 'region-row-' + idx;
+  wrap.innerHTML =
+    '<div class="region-row-header">' +
+      '<span style="font-size:12px;font-weight:600;color:var(--accent)">אזור #' + idx + '</span>' +
+      '<button type="button" class="btn-remove-region" onclick="removeRegionRow(' + idx + ')">✕ הסר</button>' +
+    '</div>' +
+    '<div class="grid">' +
+      '<div class="field full">' +
+        '<label>עיר / אזור</label>' +
+        '<input type="text" id="region-name-' + idx + '" placeholder="לדוגמה: טארנוב" />' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>תאריכים באזור זה</label>' +
+        '<input type="text" id="region-dates-' + idx + '" placeholder="לדוגמה: 29-31/12" />' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>מלון / לינה באזור זה</label>' +
+        '<input type="text" id="region-hotel-' + idx + '" placeholder="שם המלון או השאר ריק" />' +
+      '</div>' +
+    '</div>' +
+    '<label style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer">' +
+      '<input type="checkbox" id="region-side-toggle-' + idx + '" onchange="toggleSideTrip(' + idx + ')" style="width:15px;height:15px;cursor:pointer" />' +
+      '<span style="font-size:12.5px">כולל יום טיול כוכב מהבסיס הזה</span>' +
+    '</label>' +
+    '<div id="region-side-block-' + idx + '" style="display:none;margin-top:6px">' +
+      '<div class="grid">' +
+        '<div class="field">' +
+          '<label>תאריך הטיול</label>' +
+          '<input type="text" id="region-side-date-' + idx + '" placeholder="לדוגמה: 30/12" />' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>יעד הטיול</label>' +
+          '<div style="display:flex;gap:6px">' +
+            '<input type="text" id="region-side-dest-' + idx + '" placeholder="לדוגמה: זקופאנה, או השאר ריק והמלץ לי" style="flex:1" />' +
+            '<button type="button" id="region-side-suggest-btn-' + idx + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestSideTrip(' + idx + ')">✨ המלץ לי</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div id="region-side-suggestions-' + idx + '" style="margin-top:6px"></div>' +
+    '</div>';
+  document.getElementById('region-rows').appendChild(wrap);
+}
+
+function removeRegionRow(idx) {
+  const el = document.getElementById('region-row-' + idx);
+  if (el) el.remove();
+}
+
+function toggleSideTrip(idx) {
+  const box = document.getElementById('region-side-toggle-' + idx);
+  const block = document.getElementById('region-side-block-' + idx);
+  if (!box || !block) return;
+  block.style.display = box.checked ? 'block' : 'none';
+}
+
+function buildMultiRegionText() {
+  const toggle = document.getElementById('multi-region-toggle');
+  if (!toggle || !toggle.checked) return '';
+  const rows = document.querySelectorAll('#region-rows .region-row');
+  if (!rows.length) return '';
+  const parts = [];
+  rows.forEach(row => {
+    const idx = row.id.replace('region-row-', '');
+    const nameEl = document.getElementById('region-name-' + idx);
+    const datesEl = document.getElementById('region-dates-' + idx);
+    const name = nameEl ? nameEl.value.trim() : '';
+    const dates = datesEl ? datesEl.value.trim() : '';
+    if (!name || !dates) return; // ולידציה: שורה חסרה לא נכנסת לטקסט
+    const hotelEl = document.getElementById('region-hotel-' + idx);
+    const hotel = hotelEl ? hotelEl.value.trim() : '';
+    let line = 'אזור: ' + name + ' | תאריכים: ' + dates + ' | לינה: ' + (hotel || 'לא צוין - כלול המלצות לינה לאזור זה');
+    const sideToggle = document.getElementById('region-side-toggle-' + idx);
+    if (sideToggle && sideToggle.checked) {
+      const sd = (document.getElementById('region-side-date-' + idx) || {}).value || '';
+      const sdest = (document.getElementById('region-side-dest-' + idx) || {}).value || '';
+      if (sd.trim()) {
+        line += sdest.trim()
+          ? ' | טיול כוכב ביום ' + sd.trim() + ' ליעד: ' + sdest.trim() + ' (חזרה ללינה הקבועה של אזור זה בערב)'
+          : ' | טיול כוכב ביום ' + sd.trim() + ' - הצע יעד מתאים במרחק נסיעה סביר ליום (חזרה ללינה הקבועה של אזור זה בערב)';
+      }
+    }
+    parts.push(line);
+  });
+  if (!parts.length) return '';
+  return '\n\nמבנה הסיור (רב-אזורים - חובה לכבד את החלוקה הבאה בדיוק):\n' + parts.join('\n') +
+    '\n\nהוראות מחייבות למבנה רב-אזורים:\n' +
+    '- בכל יום ציין בבירור בכותרת היום את אזור הלינה של אותו לילה.\n' +
+    '- ביום טיול כוכב - כותרת היום תציין את יעד הטיול, אך סעיף הלינה בסוף היום נשאר אזור הבסיס (אין מעבר לינה באותו יום).\n' +
+    '- בכל מעבר קבוע בין אזורי לינה (לא טיול כוכב) - ציין בתחילת אותו יום את משך הנסיעה המשוער בין האזורים.\n' +
+    '- כאשר צוין "לא צוין - כלול המלצות לינה" לאזור מסוים - כלול 2-3 המלצות לינה קונקרטיות לאותו אזור בתוך היום הרלוונטי במסלול, לא רק בסוף המסמך.';
+}
+
+function escapeHtmlLocal(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+window._sideTripSuggestions = {};
+
+async function suggestSideTrip(idx) {
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { showError('יש להזין Anthropic API Key למעלה לפני קבלת המלצות'); return; }
+  const nameEl = document.getElementById('region-name-' + idx);
+  const baseName = nameEl ? nameEl.value.trim() : '';
+  if (!baseName) { showError('נא למלא קודם את שם העיר/אזור בשורה זו לפני בקשת המלצה'); return; }
+  const btn = document.getElementById('region-side-suggest-btn-' + idx);
+  const box = document.getElementById('region-side-suggestions-' + idx);
+  if (btn) { btn.disabled = true; btn.textContent = 'טוען...'; }
+  if (box) box.innerHTML = '';
+  document.getElementById('error-box').classList.remove('visible');
+
+  const prompt = `המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-2 שעות בכל כיוון). החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+{"suggestions":[{"name":"שם היעד","reason":"משפט קצר אחד למה כדאי"}]}`;
+
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 500,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData?.error?.message || ('שגיאת שרת ' + res.status));
+    }
+    const data = await res.json();
+    const text = data.content?.map(b => b.text || '').join('') || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    const list = (parsed && parsed.suggestions) || [];
+    if (!list.length) throw new Error('לא התקבלו הצעות תקינות');
+
+    window._sideTripSuggestions[idx] = list;
+    if (box) {
+      box.innerHTML = list.map((s, i) =>
+        '<button type="button" class="rec-link maps" style="margin:4px 4px 0 0" onclick="applySideTripSuggestion(' + idx + ',' + i + ')" title="' + escapeHtmlLocal(s.reason || '') + '">' + escapeHtmlLocal(s.name) + '</button>'
+      ).join('') + '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה, ניתן גם לערוך ידנית</div>';
+    }
+  } catch(e) {
+    if (box) box.innerHTML = '<span style="font-size:11px;color:#991b1b">שגיאה בקבלת הצעות: ' + escapeHtmlLocal(e.message) + ' - ניתן למלא ידנית</span>';
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '✨ המלץ לי'; }
+}
+
+function applySideTripSuggestion(idx, i) {
+  const list = window._sideTripSuggestions[idx];
+  if (!list || !list[i]) return;
+  const input = document.getElementById('region-side-dest-' + idx);
+  if (input) input.value = list[i].name;
+  const box = document.getElementById('region-side-suggestions-' + idx);
+  if (box) box.innerHTML = '';
 }
 
 function searchHotelByArea() {
