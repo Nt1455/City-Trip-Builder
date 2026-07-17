@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.1 - 17/07/2026 - Multi-region trip support + fix duplicate notes line in prompt -->
+<!-- City Trip Builder Claude - v4.2 - 17/07/2026 - Dedicated calendar picker for multi-region date fields (no fetchWeather trigger) -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -339,6 +339,7 @@ textarea{min-height:68px;resize:vertical}
   </div>
 </div>
 <div id="cal-popup" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #e2ddd6;border-radius:10px;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:280px"></div>
+<div id="cal-popup-region" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #e2ddd6;border-radius:10px;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:280px"></div>
 
 <div class="error" id="error-box"></div>
 <button class="btn-build" id="build-btn" onclick="buildTrip()">בנה מסלול מפורט</button>
@@ -1481,7 +1482,11 @@ function addRegionRow() {
       '</div>' +
       '<div class="field">' +
         '<label>תאריכים באזור זה</label>' +
-        '<input type="text" id="region-dates-' + idx + '" placeholder="לדוגמה: 29-31/12" />' +
+        '<div style="display:flex;gap:6px;align-items:center">' +
+          '<input type="text" id="region-date-start-' + idx + '" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7;flex:1" onclick="openCalRegion(\'region-date-start-' + idx + '\')" />' +
+          '<span style="font-size:12px;color:var(--muted)">עד</span>' +
+          '<input type="text" id="region-date-end-' + idx + '" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7;flex:1" onclick="openCalRegion(\'region-date-end-' + idx + '\')" />' +
+        '</div>' +
       '</div>' +
       '<div class="field">' +
         '<label>מלון / לינה באזור זה</label>' +
@@ -1496,7 +1501,7 @@ function addRegionRow() {
       '<div class="grid">' +
         '<div class="field">' +
           '<label>תאריך הטיול</label>' +
-          '<input type="text" id="region-side-date-' + idx + '" placeholder="לדוגמה: 30/12" />' +
+          '<input type="text" id="region-side-date-' + idx + '" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7" onclick="openCalRegion(\'region-side-date-' + idx + '\')" />' +
         '</div>' +
         '<div class="field">' +
           '<label>יעד הטיול</label>' +
@@ -1532,10 +1537,13 @@ function buildMultiRegionText() {
   rows.forEach(row => {
     const idx = row.id.replace('region-row-', '');
     const nameEl = document.getElementById('region-name-' + idx);
-    const datesEl = document.getElementById('region-dates-' + idx);
+    const startEl = document.getElementById('region-date-start-' + idx);
+    const endEl = document.getElementById('region-date-end-' + idx);
     const name = nameEl ? nameEl.value.trim() : '';
-    const dates = datesEl ? datesEl.value.trim() : '';
-    if (!name || !dates) return; // ולידציה: שורה חסרה לא נכנסת לטקסט
+    const dStart = startEl ? startEl.value.trim() : '';
+    const dEnd = endEl ? endEl.value.trim() : '';
+    if (!name || !dStart) return; // ולידציה: שורה חסרה לא נכנסת לטקסט
+    const dates = dEnd && dEnd !== dStart ? (dStart + ' עד ' + dEnd) : dStart;
     const hotelEl = document.getElementById('region-hotel-' + idx);
     const hotel = hotelEl ? hotelEl.value.trim() : '';
     let line = 'אזור: ' + name + ' | תאריכים: ' + dates + ' | לינה: ' + (hotel || 'לא צוין - כלול המלצות לינה לאזור זה');
@@ -1558,6 +1566,95 @@ function buildMultiRegionText() {
     '- ביום טיול כוכב - כותרת היום תציין את יעד הטיול, אך סעיף הלינה בסוף היום נשאר אזור הבסיס (אין מעבר לינה באותו יום).\n' +
     '- בכל מעבר קבוע בין אזורי לינה (לא טיול כוכב) - ציין בתחילת אותו יום את משך הנסיעה המשוער בין האזורים.\n' +
     '- כאשר צוין "לא צוין - כלול המלצות לינה" לאזור מסוים - כלול 2-3 המלצות לינה קונקרטיות לאותו אזור בתוך היום הרלוונטי במסלול, לא רק בסוף המסמך.';
+}
+
+// ===== לוח שנה נפרד לשדות אזור (לא נוגע ב-openCal/selectDate הראשיים, לא מפעיל fetchWeather) =====
+let calTargetRegion = null;
+let calYearRegion, calMonthRegion;
+
+function openCalRegion(id) {
+  calTargetRegion = id;
+  const now = new Date();
+  calYearRegion = now.getFullYear();
+  calMonthRegion = now.getMonth();
+  const input = document.getElementById(id);
+  const val = input ? input.value : '';
+  if (val && val.length === 10) {
+    const parts = val.split('/');
+    if (parts.length === 3) {
+      calMonthRegion = parseInt(parts[1]) - 1;
+      calYearRegion = parseInt(parts[2]);
+    }
+  }
+  const rect = input.getBoundingClientRect();
+  const popup = document.getElementById('cal-popup-region');
+  const popupWidth = 280;
+  let left = rect.left;
+  if (left + popupWidth > window.innerWidth - 10) left = rect.right - popupWidth;
+  popup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+  popup.style.left = Math.max(5, left) + 'px';
+  popup.style.display = 'block';
+  renderCalRegion();
+  setTimeout(() => document.addEventListener('click', closeCalRegion), 10);
+}
+
+function closeCalRegion(e) {
+  const popup = document.getElementById('cal-popup-region');
+  const t = e.target;
+  const isRegionDateInput = t.id && (
+    t.id.indexOf('region-date-start-') === 0 ||
+    t.id.indexOf('region-date-end-') === 0 ||
+    t.id.indexOf('region-side-date-') === 0
+  );
+  if (!popup.contains(t) && !isRegionDateInput) {
+    popup.style.display = 'none';
+    document.removeEventListener('click', closeCalRegion);
+  }
+}
+
+function renderCalRegion() {
+  const popup = document.getElementById('cal-popup-region');
+  const firstDay = new Date(calYearRegion, calMonthRegion, 1).getDay();
+  const daysInMonth = new Date(calYearRegion, calMonthRegion + 1, 0).getDate();
+  const today = new Date();
+
+  let html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+  html += '<button onclick="event.stopPropagation();calNavRegion(-1)" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px 8px">&lsaquo;</button>';
+  html += '<span style="font-weight:600;font-size:14px">' + MONTHS_HE[calMonthRegion] + ' ' + calYearRegion + '</span>';
+  html += '<button onclick="event.stopPropagation();calNavRegion(1)" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px 8px">&rsaquo;</button>';
+  html += '</div>';
+  html += '<table style="width:100%;border-collapse:collapse;text-align:center">';
+  html += '<tr>' + DAYS_HE.map(d => '<th style="font-size:11px;color:#6b6560;padding:4px">' + d + '</th>').join('') + '</tr><tr>';
+
+  for (let i = 0; i < firstDay; i++) html += '<td></td>';
+
+  let dayCount = firstDay;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dd = String(d).padStart(2,'0');
+    const mm = String(calMonthRegion+1).padStart(2,'0');
+    const dayStr = dd + '/' + mm + '/' + calYearRegion;
+    const isToday = d===today.getDate() && calMonthRegion===today.getMonth() && calYearRegion===today.getFullYear();
+    const bg = isToday ? '#2d5a27' : '#fff';
+    const col = isToday ? '#fff' : '#1a1814';
+    html += '<td onclick="selectDateRegion(\`' + dayStr + '\`)" style="padding:4px;font-size:13px;cursor:pointer;border-radius:50%;width:32px;height:32px;background:' + bg + ';color:' + col + '">' + d + '</td>';
+    dayCount++;
+    if (dayCount % 7 === 0 && d < daysInMonth) html += '</tr><tr>';
+  }
+  html += '</tr></table>';
+  popup.innerHTML = html;
+}
+
+function calNavRegion(dir) {
+  calMonthRegion += dir;
+  if (calMonthRegion > 11) { calMonthRegion = 0; calYearRegion++; }
+  if (calMonthRegion < 0) { calMonthRegion = 11; calYearRegion--; }
+  renderCalRegion();
+}
+
+function selectDateRegion(dateStr) {
+  if (calTargetRegion) document.getElementById(calTargetRegion).value = dateStr;
+  document.getElementById('cal-popup-region').style.display = 'none';
+  document.removeEventListener('click', closeCalRegion);
 }
 
 function escapeHtmlLocal(s) {
