@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.10 - 18/07/2026 - Added user-configurable max-hours input for suggestSideTrip (default 2h) - controls both the AI prompt wording and the ⚠️ warning threshold (with 25% buffer over the chosen value), replacing the previous hardcoded 150-minute threshold. Falls back to 2h if the field is empty/invalid -->
+<!-- City Trip Builder Claude - v4.11 - 18/07/2026 - suggestSideTrip: the AI's "reason" for each day-trip suggestion is now shown as visible text under the button (same pattern as suggestRegionCity), instead of only in a title="" hover tooltip which never showed on touch/mobile -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -1933,9 +1933,10 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
     if (box) {
       const anyTooFar = list.some(s => s.tooFar);
       box.innerHTML = list.map((s, i) =>
-        '<button type="button" class="rec-link maps" style="margin:4px 4px 0 0" onclick="applySideTripSuggestion(' + tid + ',' + i + ')" title="' + escapeHtmlLocal(s.reason || '') + '">' +
-          escapeHtmlLocal(s.name) +
+        '<button type="button" class="rec-link maps" style="margin:4px 4px 4px 0;display:block;width:100%;text-align:right" onclick="applySideTripSuggestion(' + tid + ',' + i + ')">' +
+          '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
           (s.realDuration ? ' <span style="font-size:10px;font-weight:400' + (s.tooFar ? ';color:#c0392b' : '') + '">(' + (s.tooFar ? '⚠️ ' : '') + escapeHtmlLocal(s.realDuration) + ')</span>' : '') +
+          (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
         '</button>'
       ).join('') +
       '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה, ניתן גם לערוך ידנית' +
