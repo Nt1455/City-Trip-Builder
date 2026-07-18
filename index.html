@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.17 - 18/07/2026 - Split single PDF button into "🖨 הדפס" + "💾 שמור PDF" (both call window.print() - the reliable native path, no PDF-generation library added due to known Hebrew/RTL text rendering bugs in jsPDF/html2pdf.js). Added dedicated print for the saved-suggestions panel (printSavedSuggestions(), body.printing-suggestions CSS mode) - previously that panel had no print path and, worse, wasn't explicitly excluded from the main itinerary print, so if left open it could leak into the itinerary PDF. Now both header/history-panel/saved-suggestions-panel are explicitly hidden in normal print -->
+<!-- City Trip Builder Claude - v4.19 - 18/07/2026 - Added "🖨 הדפס" and "💾 שמור PDF" buttons to the bottom result-footer row too (next to שמור מסלול/עריכה/סיור חדש/Debug), matching the header row. Added flex-wrap to the footer button row since it now holds 6 buttons -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -401,10 +401,12 @@ textarea{min-height:68px;resize:vertical}
   </div>
   <div class="result-footer">
     <span id="version-tag" style="font-size:11px;color:var(--muted)">גרסה 1</span>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-new" onclick="saveItinerary()">💾 שמור מסלול</button>
       <button class="btn-new" onclick="toggleEdit()">✏️ ערוך</button>
       <button class="btn-new" onclick="resetForm()">סיור חדש</button>
+      <button class="btn-new" onclick="window.print()">🖨 הדפס</button>
+      <button class="btn-new" onclick="window.print()">💾 שמור PDF</button>
       <button class="btn-new" onclick="toggleDebug()" style="background:#444;color:#fff;border-color:#444">🐞 Debug</button>
     </div>
   </div>
@@ -1671,6 +1673,7 @@ function addRegionRow() {
           '<input type="text" id="region-name-' + idx + '" placeholder="לדוגמה: טארנוב" style="flex:1" />' +
           '<button type="button" id="region-name-suggest-btn-' + idx + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestRegionCity(' + idx + ')">✨ המלץ לי</button>' +
         '</div>' +
+        '<input type="text" id="region-clarify-' + idx + '" placeholder="הבהרה נוספת להמלץ לי (לא חובה): לדוגמה \'בדרך בין וורוצלב לקרקוב\', \'קרוב לתחנת רכבת\'" style="margin-top:4px;font-size:12px;width:100%" />' +
         '<div id="region-name-err-' + idx + '" style="font-size:11px;color:#991b1b;margin-top:4px"></div>' +
         '<div id="region-name-suggestions-' + idx + '" style="margin-top:4px"></div>' +
       '</div>' +
@@ -1731,6 +1734,7 @@ function addSideTripRow(regionIdx) {
     '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);white-space:nowrap">עד <input type="number" id="sidetrip-maxhours-' + tid + '" value="2" min="0.5" max="12" step="0.5" style="width:48px;padding:2px 4px" /> שעות</label>' +
     '<button type="button" id="sidetrip-suggest-btn-' + tid + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestSideTrip(' + tid + ',' + regionIdx + ')">✨ המלץ לי</button>' +
     '<button type="button" class="btn-remove-region" onclick="removeSideTripRow(' + tid + ')">✕</button>' +
+    '<input type="text" id="sidetrip-clarify-' + tid + '" placeholder="הבהרה נוספת להמלץ לי (לא חובה): לדוגמה \'בחזרה מזקופאנה לקרקוב\', \'רק טבע\'" style="width:100%;font-size:12px" />' +
     '<div id="sidetrip-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>' +
     '<div id="sidetrip-suggestions-' + tid + '" style="width:100%"></div>';
   container.appendChild(row);
@@ -1999,7 +2003,11 @@ async function suggestRegionCity(idx, isRefresh) {
   const numPeople = numPeopleEl ? numPeopleEl.value.trim() : '';
   const groupSizeClause = numPeople ? ` הקבוצה מונה ${numPeople} אנשים - אם היעד המוצע קטן/כפרי ועלול להיות מוגבל בזמינות לינה (מלון אחד) לקבוצה בגודל הזה, ציין זאת במפורש בתיאור.` : '';
 
-  const prompt = `המלץ על 2-3 ערים/אזורים שונים שמתאימים כבסיס לינה נוסף בסיור, במרחקים שונים זה מזה מ-${mainDest} (בין כשעה לכ-3 שעות נסיעה בערך).${excludeClause} התאם לתחומי עניין: ${interests}. לכל המלצה כתוב תיאור של 2-3 משפטים (לא רק משפט אחד) שכולל: זמן נסיעה משוער מ-${mainDest}, מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), ואווירת בתי קפה/מסעדות/פעילות ערב.${groupSizeClause} החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+  const clarifyEl = document.getElementById('region-clarify-' + idx);
+  const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
+  const clarifyClause = clarifyText ? ` הערה/העדפה נוספת מהמשתמש שיש להתחשב בה בבחירת ההצעות: "${clarifyText}".` : '';
+
+  const prompt = `המלץ על 2-3 ערים/אזורים שונים שמתאימים כבסיס לינה נוסף בסיור, במרחקים שונים זה מזה מ-${mainDest} (בין כשעה לכ-3 שעות נסיעה בערך).${excludeClause} התאם לתחומי עניין: ${interests}.${clarifyClause} לכל המלצה כתוב תיאור של 2-3 משפטים (לא רק משפט אחד) שכולל: זמן נסיעה משוער מ-${mainDest}, מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), ואווירת בתי קפה/מסעדות/פעילות ערב.${groupSizeClause} החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
 {"suggestions":[{"name":"שם העיר/אזור","distance":"כ-X שעות נסיעה מ-${mainDest}","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
 
   try {
@@ -2061,7 +2069,11 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
   if (!maxHours || isNaN(maxHours) || maxHours <= 0) maxHours = 2; // נפילה חזרה לברירת מחדל אם השדה ריק/לא תקין
   const maxMinutesThreshold = Math.round(maxHours * 60 * 1.25); // 25% buffer מעל הסף שהמשתמש קבע, לפני סימון ⚠️
 
-  const prompt = `המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause} לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור. החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+  const clarifyEl = document.getElementById('sidetrip-clarify-' + tid);
+  const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
+  const clarifyClause = clarifyText ? ` הערה/העדפה נוספת מהמשתמש שיש להתחשב בה בבחירת ההצעות: "${clarifyText}".` : '';
+
+  const prompt = `המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause}${clarifyClause} לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור. החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
 
   try {
@@ -2077,7 +2089,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
       btn.textContent = 'מנסה שוב עם יעדים קרובים יותר...';
       const tooFarDetail = tooFarItems.map(s => s.name + ' (בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף)').join('; ');
       const allNamesSoFar = list.map(s => s.name);
-      const retryPrompt = `המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}. הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם. החזר JSON בלבד באותו פורמט:
+      const retryPrompt = `המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם. החזר JSON בלבד באותו פורמט:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
       try {
         const replacementList = await fetchAiSuggestions(apiKey, retryPrompt);
