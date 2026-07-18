@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.8 - 18/07/2026 - Refactor: extracted shared fetchAiSuggestions() helper used by both suggestRegionCity() and suggestSideTrip(), removing duplicated fetch/parse/error-handling code. No behavior change - same prompts, same UI, same error messages -->
+<!-- City Trip Builder Claude - v4.10 - 18/07/2026 - Added user-configurable max-hours input for suggestSideTrip (default 2h) - controls both the AI prompt wording and the ⚠️ warning threshold (with 25% buffer over the chosen value), replacing the previous hardcoded 150-minute threshold. Falls back to 2h if the field is empty/invalid -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -1594,6 +1594,7 @@ function addSideTripRow(regionIdx) {
   row.innerHTML =
     '<input type="text" id="sidetrip-date-' + tid + '" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7;width:110px" onclick="openCalRegion(\'sidetrip-date-' + tid + '\')" />' +
     '<input type="text" id="sidetrip-dest-' + tid + '" placeholder="לדוגמה: זקופאנה, או השאר ריק והמלץ לי" style="flex:1;min-width:140px" />' +
+    '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);white-space:nowrap">עד <input type="number" id="sidetrip-maxhours-' + tid + '" value="2" min="0.5" max="12" step="0.5" style="width:48px;padding:2px 4px" /> שעות</label>' +
     '<button type="button" id="sidetrip-suggest-btn-' + tid + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestSideTrip(' + tid + ',' + regionIdx + ')">✨ המלץ לי</button>' +
     '<button type="button" class="btn-remove-region" onclick="removeSideTripRow(' + tid + ')">✕</button>' +
     '<div id="sidetrip-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>' +
@@ -1756,6 +1757,43 @@ function escapeHtmlLocal(s) {
 
 window._sideTripSuggestions = {};
 window._regionCitySuggestions = {};
+window._sideTripExcluded = {};
+window._regionCityExcluded = {};
+
+let distanceMatrixService = null;
+
+// אימות מרחק/זמן נסיעה אמיתי בין שתי ערים - דרך google.maps.DistanceMatrixService
+// (לא fetch ישיר ל-REST endpoint, כי ה-Distance Matrix API הקלאסי לא תומך CORS מדפדפן).
+// משתמש ב-loadMapsApiForPlaces() הקיים כדי לא לפתוח מסלול טעינה נוסף.
+// לא חוסם: אם השירות נכשל מכל סיבה - מחזיר null, וההצעה מוצגת בלי סימון מרחק.
+async function getTravelDistance(origin, destination) {
+  try {
+    await loadMapsApiForPlaces();
+    if (!window.google || !google.maps || !google.maps.DistanceMatrixService) return null;
+    if (!distanceMatrixService) distanceMatrixService = new google.maps.DistanceMatrixService();
+    return await new Promise((resolve) => {
+      distanceMatrixService.getDistanceMatrix({
+        origins: [origin],
+        destinations: [destination],
+        travelMode: google.maps.TravelMode.DRIVING,
+        unitSystem: google.maps.UnitSystem.METRIC
+      }, (response, status) => {
+        console.log('[DistanceMatrix]', origin, '->', destination, status, response);
+        if (status !== 'OK') { resolve(null); return; }
+        const el = response && response.rows && response.rows[0] && response.rows[0].elements && response.rows[0].elements[0];
+        if (!el || el.status !== 'OK') { resolve(null); return; }
+        resolve({
+          distanceText: (el.distance && el.distance.text) || '',
+          durationText: (el.duration && el.duration.text) || '',
+          durationMinutes: (el.duration && el.duration.value) ? Math.round(el.duration.value / 60) : null
+        });
+      });
+    });
+  } catch (e) {
+    console.warn('[DistanceMatrix] נכשל:', e);
+    return null;
+  }
+}
 
 // פונקציית עזר משותפת - קריאה ל-Claude API וחילוץ רשימת הצעות JSON.
 // זהה בשתי הפונקציות למטה, אוחד למקום אחד כדי למנוע כפילות קוד.
@@ -1788,7 +1826,7 @@ async function fetchAiSuggestions(apiKey, prompt) {
   return list;
 }
 
-async function suggestRegionCity(idx) {
+async function suggestRegionCity(idx, isRefresh) {
   const errBox = document.getElementById('region-name-err-' + idx);
   if (errBox) errBox.textContent = '';
   const apiKey = document.getElementById('api-key').value.trim();
@@ -1801,19 +1839,39 @@ async function suggestRegionCity(idx) {
   if (btn) { btn.disabled = true; btn.textContent = 'טוען...'; }
   if (box) box.innerHTML = '';
 
-  const prompt = `המלץ על 2-3 ערים/אזורים שונים שמתאימים כבסיס לינה נוסף בסיור, במרחקים שונים זה מזה מ-${mainDest} (בין כשעה לכ-3 שעות נסיעה בערך). התאם לתחומי עניין: ${interests}. לכל המלצה ציין זמן נסיעה משוער מ-${mainDest} וסיבה קצרה אחת למה כדאי. החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+  if (isRefresh) {
+    const prevList = window._regionCitySuggestions[idx] || [];
+    window._regionCityExcluded[idx] = (window._regionCityExcluded[idx] || []).concat(prevList.map(s => s.name));
+  } else {
+    window._regionCityExcluded[idx] = [];
+  }
+  const excludeNames = window._regionCityExcluded[idx];
+  const excludeClause = excludeNames.length ? ` אל תציע שוב את הערים/אזורים הבאים שכבר הוצעו: ${excludeNames.join(', ')}.` : '';
+
+  const prompt = `המלץ על 2-3 ערים/אזורים שונים שמתאימים כבסיס לינה נוסף בסיור, במרחקים שונים זה מזה מ-${mainDest} (בין כשעה לכ-3 שעות נסיעה בערך).${excludeClause} התאם לתחומי עניין: ${interests}. לכל המלצה ציין זמן נסיעה משוער מ-${mainDest} וסיבה קצרה אחת למה כדאי. החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
 {"suggestions":[{"name":"שם העיר/אזור","distance":"כ-X שעות נסיעה מ-${mainDest}","reason":"משפט קצר אחד למה כדאי"}]}`;
 
   try {
     const list = await fetchAiSuggestions(apiKey, prompt);
+    // אימות מרחק אמיתי מול DistanceMatrixService - לא חוסם אם נכשל, רק מוסיף מידע מאומת כשיש
+    await Promise.all(list.map(async (s) => {
+      const d = await getTravelDistance(mainDest, s.name);
+      if (d) {
+        s.realDuration = d.durationText;
+        s.realDurationMinutes = d.durationMinutes;
+        s.tooFar = d.durationMinutes != null && d.durationMinutes > 210; // חריגה משמעותית מ-3 שעות
+      }
+    }));
     window._regionCitySuggestions[idx] = list;
     if (box) {
       box.innerHTML = list.map((s, i) =>
         '<button type="button" class="rec-link maps" style="margin:4px 4px 4px 0;display:block;width:100%;text-align:right" onclick="applyRegionCitySuggestion(' + idx + ',' + i + ')">' +
-          '<strong>' + escapeHtmlLocal(s.name) + '</strong>' + (s.distance ? ' - ' + escapeHtmlLocal(s.distance) : '') +
+          '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
+          (s.realDuration ? ' - ' + (s.tooFar ? '⚠️ ' : '') + escapeHtmlLocal(s.realDuration) + ' (מאומת)' : (s.distance ? ' - ' + escapeHtmlLocal(s.distance) : '')) +
           (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
         '</button>'
-      ).join('') + '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה</div>';
+      ).join('') + '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה</div>' +
+      '<button type="button" class="rec-link" style="margin-top:6px;font-size:11px" onclick="suggestRegionCity(' + idx + ',true)">🔄 עוד הצעות</button>';
     }
   } catch(e) {
     if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message;
@@ -1830,7 +1888,7 @@ function applyRegionCitySuggestion(idx, i) {
   if (box) box.innerHTML = '';
 }
 
-async function suggestSideTrip(tid, regionIdx) {
+async function suggestSideTrip(tid, regionIdx, isRefresh) {
   const errBox = document.getElementById('sidetrip-err-' + tid);
   if (errBox) errBox.textContent = '';
   const apiKey = document.getElementById('api-key').value.trim();
@@ -1843,16 +1901,46 @@ async function suggestSideTrip(tid, regionIdx) {
   if (btn) { btn.disabled = true; btn.textContent = 'טוען...'; }
   if (box) box.innerHTML = '';
 
-  const prompt = `המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-2 שעות בכל כיוון). החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+  if (isRefresh) {
+    const prevList = window._sideTripSuggestions[tid] || [];
+    window._sideTripExcluded[tid] = (window._sideTripExcluded[tid] || []).concat(prevList.map(s => s.name));
+  } else {
+    window._sideTripExcluded[tid] = [];
+  }
+  const excludeNames = window._sideTripExcluded[tid];
+  const excludeClause = excludeNames.length ? ` אל תציע שוב את היעדים הבאים שכבר הוצעו: ${excludeNames.join(', ')}.` : '';
+
+  const maxHoursInput = document.getElementById('sidetrip-maxhours-' + tid);
+  let maxHours = maxHoursInput ? parseFloat(maxHoursInput.value) : NaN;
+  if (!maxHours || isNaN(maxHours) || maxHours <= 0) maxHours = 2; // נפילה חזרה לברירת מחדל אם השדה ריק/לא תקין
+  const maxMinutesThreshold = Math.round(maxHours * 60 * 1.25); // 25% buffer מעל הסף שהמשתמש קבע, לפני סימון ⚠️
+
+  const prompt = `המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause} החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
 {"suggestions":[{"name":"שם היעד","reason":"משפט קצר אחד למה כדאי"}]}`;
 
   try {
     const list = await fetchAiSuggestions(apiKey, prompt);
+    // אימות מרחק אמיתי מול DistanceMatrixService - לא חוסם אם נכשל, רק מוסיף סימון כשיש
+    await Promise.all(list.map(async (s) => {
+      const d = await getTravelDistance(baseName, s.name);
+      if (d) {
+        s.realDuration = d.durationText;
+        s.realDurationMinutes = d.durationMinutes;
+        s.tooFar = d.durationMinutes != null && d.durationMinutes > maxMinutesThreshold;
+      }
+    }));
     window._sideTripSuggestions[tid] = list;
     if (box) {
+      const anyTooFar = list.some(s => s.tooFar);
       box.innerHTML = list.map((s, i) =>
-        '<button type="button" class="rec-link maps" style="margin:4px 4px 0 0" onclick="applySideTripSuggestion(' + tid + ',' + i + ')" title="' + escapeHtmlLocal(s.reason || '') + '">' + escapeHtmlLocal(s.name) + '</button>'
-      ).join('') + '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה, ניתן גם לערוך ידנית</div>';
+        '<button type="button" class="rec-link maps" style="margin:4px 4px 0 0" onclick="applySideTripSuggestion(' + tid + ',' + i + ')" title="' + escapeHtmlLocal(s.reason || '') + '">' +
+          escapeHtmlLocal(s.name) +
+          (s.realDuration ? ' <span style="font-size:10px;font-weight:400' + (s.tooFar ? ';color:#c0392b' : '') + '">(' + (s.tooFar ? '⚠️ ' : '') + escapeHtmlLocal(s.realDuration) + ')</span>' : '') +
+        '</button>'
+      ).join('') +
+      '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה, ניתן גם לערוך ידנית' +
+        (anyTooFar ? ' - ⚠️ = זמן נסיעה בפועל חורג מהיעד (עד כ-' + maxHours + ' שעות)' : '') + '</div>' +
+      '<button type="button" class="rec-link" style="margin-top:6px;font-size:11px" onclick="suggestSideTrip(' + tid + ',' + regionIdx + ',true)">🔄 עוד הצעות</button>';
     }
   } catch(e) {
     if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message + ' - ניתן למלא ידנית';
