@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.3 - 18/07/2026 - Fix: region date calendar popup positioned off-screen when page scrolled (removed incorrect scrollY offset on position:fixed popup) -->
+<!-- City Trip Builder Claude - v4.4 - 18/07/2026 - Fix main calendar scrollY offset (same bug as region calendar); add lodging as fixed fetchIntent category (market now optional, max categories 5->6); Places API now validates places for multi-region areas too, not just main destination -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -649,15 +649,16 @@ async function fetchIntent(fields, apiKey) {
 החזר בפורמט הזה בדיוק:
 {
   "categories": [
-    {"keyword": "מילת חיפוש באנגלית", "type": "restaurant|cafe|tourist_attraction|museum|park|market|bar", "label": "תיאור בעברית"}
+    {"keyword": "מילת חיפוש באנגלית", "type": "restaurant|cafe|tourist_attraction|museum|park|market|bar|lodging", "label": "תיאור בעברית"}
   ]
 }
 
 כללים:
-- תמיד כלול: מסעדות (restaurant), בתי קפה (cafe), שווקים (market)
+- תמיד כלול: מסעדות (restaurant), בתי קפה (cafe), לינה/מלונות (lodging)
+- שווקים (market) - כלול לפי רלוונטיות ליעד ולתחומי עניין, לא באופן קבוע
 - הוסף לפי תחומי עניין: מוזיאונים, פארקים, גלריות, ברים, אתרים היסטוריים
 - אל תכלול אטרקציות לילדים אם לא צוינו ילדים בקבוצה
-- מקסימום 5 קטגוריות
+- מקסימום 6 קטגוריות
 - keyword באנגלית בלבד`;
 
   const res = await fetch(API, {
@@ -840,6 +841,35 @@ async function buildTrip() {
           '\n\nהנחיה: השתמש במקומות הנ"ל כבסיס למסלול. מקומות אלו אומתו כקיימים. תוכל להוסיף מקומות נוספים מהידע שלך אך סמן אותם ב-⚠️';
       } else {
         placesDebug.status = 'places_empty';
+      }
+
+      // אימות Places API גם לאזורים משניים בסיור מרובה אזורים
+      const regionNamesForPlaces = Array.from(document.querySelectorAll('#region-rows .region-row'))
+        .map(row => {
+          const ridx = row.id.replace('region-row-', '');
+          const rNameEl = document.getElementById('region-name-' + ridx);
+          return rNameEl ? rNameEl.value.trim() : '';
+        })
+        .filter(n => n);
+      if (regionNamesForPlaces.length > 0) {
+        placesDebug.regionPlacesData = {};
+        for (const regionName of regionNamesForPlaces) {
+          try {
+            const regionPlaces = await fetchPlaces(regionName, intentData.categories);
+            placesDebug.regionPlacesData[regionName] = regionPlaces;
+            if (regionPlaces && regionPlaces.length > 0) {
+              placesContext += '\n\nמקומות אמיתיים מאומתים מ-Google Places באזור ' + regionName + ':\n' +
+                regionPlaces.map(cat =>
+                  '\n' + cat.category + ':\n' +
+                  cat.places.map(p =>
+                    '- ' + p.name + ' | ' + p.address + (p.rating ? ' | דירוג: ' + p.rating : '')
+                  ).join('\n')
+                ).join('\n');
+            }
+          } catch(eRegion) {
+            placesDebug.regionPlacesData[regionName] = { error: eRegion.message };
+          }
+        }
       }
     } else {
       placesDebug.status = 'intent_failed';
@@ -1390,7 +1420,7 @@ function openCal(id) {
   if (left + popupWidth > window.innerWidth - 10) {
     left = rect.right - popupWidth;
   }
-  popup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+  popup.style.top = (rect.bottom + 4) + 'px';
   popup.style.left = Math.max(5, left) + 'px';
   popup.style.display = 'block';
   renderCal();
