@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.5 - 18/07/2026 - Enforce restaurant/cafe/lodging categories programmatically via ensureCoreCategories() instead of relying on model compliance with prompt instructions; graceful fallback to core categories even if fetchIntent fails entirely -->
+<!-- City Trip Builder Claude - v4.6 - 18/07/2026 - Multi day-trip rows per region (was single side-trip slot, now dynamic list via addSideTripRow); suggestSideTrip errors now shown inline near the button instead of the far-away global error-box; both calendars (main + region) now flip above the input when there's no room below the viewport -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -1438,10 +1438,17 @@ function openCal(id) {
   if (left + popupWidth > window.innerWidth - 10) {
     left = rect.right - popupWidth;
   }
-  popup.style.top = (rect.bottom + 4) + 'px';
   popup.style.left = Math.max(5, left) + 'px';
   popup.style.display = 'block';
   renderCal();
+  // מיקום אנכי: מתחת לשדה כברירת מחדל, אלא אם אין מקום - אז מעל השדה
+  const popupHeight = popup.offsetHeight;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  if (spaceBelow < popupHeight + 10 && rect.top > popupHeight + 10) {
+    popup.style.top = (rect.top - popupHeight - 4) + 'px';
+  } else {
+    popup.style.top = (rect.bottom + 4) + 'px';
+  }
   setTimeout(() => document.addEventListener('click', closeCal), 10);
 }
 
@@ -1543,23 +1550,11 @@ function addRegionRow() {
     '</div>' +
     '<label style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer">' +
       '<input type="checkbox" id="region-side-toggle-' + idx + '" onchange="toggleSideTrip(' + idx + ')" style="width:15px;height:15px;cursor:pointer" />' +
-      '<span style="font-size:12.5px">כולל יום טיול כוכב מהבסיס הזה</span>' +
+      '<span style="font-size:12.5px">כולל יום/ימי טיול כוכב מהבסיס הזה (נסיעה ליעד וחזרה לאותו מלון בערב)</span>' +
     '</label>' +
     '<div id="region-side-block-' + idx + '" style="display:none;margin-top:6px">' +
-      '<div class="grid">' +
-        '<div class="field">' +
-          '<label>תאריך הטיול</label>' +
-          '<input type="text" id="region-side-date-' + idx + '" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7" onclick="openCalRegion(\'region-side-date-' + idx + '\')" />' +
-        '</div>' +
-        '<div class="field">' +
-          '<label>יעד הטיול</label>' +
-          '<div style="display:flex;gap:6px">' +
-            '<input type="text" id="region-side-dest-' + idx + '" placeholder="לדוגמה: זקופאנה, או השאר ריק והמלץ לי" style="flex:1" />' +
-            '<button type="button" id="region-side-suggest-btn-' + idx + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestSideTrip(' + idx + ')">✨ המלץ לי</button>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-      '<div id="region-side-suggestions-' + idx + '" style="margin-top:6px"></div>' +
+      '<div id="region-sidetrips-' + idx + '"></div>' +
+      '<button type="button" class="btn-add-region" style="margin-top:4px" onclick="addSideTripRow(' + idx + ')">+ הוסף יום קפיצה נוסף</button>' +
     '</div>';
   document.getElementById('region-rows').appendChild(wrap);
 }
@@ -1574,6 +1569,36 @@ function toggleSideTrip(idx) {
   const block = document.getElementById('region-side-block-' + idx);
   if (!box || !block) return;
   block.style.display = box.checked ? 'block' : 'none';
+  if (box.checked) {
+    const container = document.getElementById('region-sidetrips-' + idx);
+    if (container && container.children.length === 0) addSideTripRow(idx);
+  }
+}
+
+let sideTripRowCount = 0;
+
+function addSideTripRow(regionIdx) {
+  const container = document.getElementById('region-sidetrips-' + regionIdx);
+  if (!container) return;
+  sideTripRowCount++;
+  const tid = sideTripRowCount;
+  const row = document.createElement('div');
+  row.className = 'sidetrip-row';
+  row.id = 'sidetrip-row-' + tid;
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap';
+  row.innerHTML =
+    '<input type="text" id="sidetrip-date-' + tid + '" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7;width:110px" onclick="openCalRegion(\'sidetrip-date-' + tid + '\')" />' +
+    '<input type="text" id="sidetrip-dest-' + tid + '" placeholder="לדוגמה: זקופאנה, או השאר ריק והמלץ לי" style="flex:1;min-width:140px" />' +
+    '<button type="button" id="sidetrip-suggest-btn-' + tid + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestSideTrip(' + tid + ',' + regionIdx + ')">✨ המלץ לי</button>' +
+    '<button type="button" class="btn-remove-region" onclick="removeSideTripRow(' + tid + ')">✕</button>' +
+    '<div id="sidetrip-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>' +
+    '<div id="sidetrip-suggestions-' + tid + '" style="width:100%"></div>';
+  container.appendChild(row);
+}
+
+function removeSideTripRow(tid) {
+  const el = document.getElementById('sidetrip-row-' + tid);
+  if (el) el.remove();
 }
 
 function buildMultiRegionText() {
@@ -1597,12 +1622,20 @@ function buildMultiRegionText() {
     let line = 'אזור: ' + name + ' | תאריכים: ' + dates + ' | לינה: ' + (hotel || 'לא צוין - כלול המלצות לינה לאזור זה');
     const sideToggle = document.getElementById('region-side-toggle-' + idx);
     if (sideToggle && sideToggle.checked) {
-      const sd = (document.getElementById('region-side-date-' + idx) || {}).value || '';
-      const sdest = (document.getElementById('region-side-dest-' + idx) || {}).value || '';
-      if (sd.trim()) {
-        line += sdest.trim()
-          ? ' | טיול כוכב ביום ' + sd.trim() + ' ליעד: ' + sdest.trim() + ' (חזרה ללינה הקבועה של אזור זה בערב)'
-          : ' | טיול כוכב ביום ' + sd.trim() + ' - הצע יעד מתאים במרחק נסיעה סביר ליום (חזרה ללינה הקבועה של אזור זה בערב)';
+      const tripRows = document.querySelectorAll('#region-sidetrips-' + idx + ' .sidetrip-row');
+      const trips = [];
+      tripRows.forEach(tr => {
+        const tid = tr.id.replace('sidetrip-row-', '');
+        const sd = (document.getElementById('sidetrip-date-' + tid) || {}).value || '';
+        const sdest = (document.getElementById('sidetrip-dest-' + tid) || {}).value || '';
+        if (sd.trim()) {
+          trips.push(sdest.trim()
+            ? sd.trim() + ' → ' + sdest.trim()
+            : sd.trim() + ' → הצע יעד מתאים במרחק נסיעה סביר ליום');
+        }
+      });
+      if (trips.length) {
+        line += ' | ימי טיול כוכב (נסיעה וחזרה לאותה לינה בערב): ' + trips.join(' , ');
       }
     }
     parts.push(line);
@@ -1611,7 +1644,7 @@ function buildMultiRegionText() {
   return '\n\nמבנה הסיור (רב-אזורים - חובה לכבד את החלוקה הבאה בדיוק):\n' + parts.join('\n') +
     '\n\nהוראות מחייבות למבנה רב-אזורים:\n' +
     '- בכל יום ציין בבירור בכותרת היום את אזור הלינה של אותו לילה.\n' +
-    '- ביום טיול כוכב - כותרת היום תציין את יעד הטיול, אך סעיף הלינה בסוף היום נשאר אזור הבסיס (אין מעבר לינה באותו יום).\n' +
+    '- ביום טיול כוכב - כותרת היום תציין את יעד הטיול, אך סעיף הלינה בסוף היום נשאר אזור הבסיס (אין מעבר לינה באותו יום). ימים שלא צוינו כטיול כוכב ואינם יום המעבר בין אזורים - הסיור בהם מתבצע בעיר/אזור הבסיס עצמו.\n' +
     '- בכל מעבר קבוע בין אזורי לינה (לא טיול כוכב) - ציין בתחילת אותו יום את משך הנסיעה המשוער בין האזורים.\n' +
     '- כאשר צוין "לא צוין - כלול המלצות לינה" לאזור מסוים - כלול 2-3 המלצות לינה קונקרטיות לאותו אזור בתוך היום הרלוונטי במסלול, לא רק בסוף המסמך.';
 }
@@ -1639,10 +1672,17 @@ function openCalRegion(id) {
   const popupWidth = 280;
   let left = rect.left;
   if (left + popupWidth > window.innerWidth - 10) left = rect.right - popupWidth;
-  popup.style.top = (rect.bottom + 4) + 'px';
   popup.style.left = Math.max(5, left) + 'px';
   popup.style.display = 'block';
   renderCalRegion();
+  // מיקום אנכי: מתחת לשדה כברירת מחדל, אלא אם אין מקום - אז מעל השדה
+  const popupHeight = popup.offsetHeight;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  if (spaceBelow < popupHeight + 10 && rect.top > popupHeight + 10) {
+    popup.style.top = (rect.top - popupHeight - 4) + 'px';
+  } else {
+    popup.style.top = (rect.bottom + 4) + 'px';
+  }
   setTimeout(() => document.addEventListener('click', closeCalRegion), 10);
 }
 
@@ -1652,7 +1692,7 @@ function closeCalRegion(e) {
   const isRegionDateInput = t.id && (
     t.id.indexOf('region-date-start-') === 0 ||
     t.id.indexOf('region-date-end-') === 0 ||
-    t.id.indexOf('region-side-date-') === 0
+    t.id.indexOf('sidetrip-date-') === 0
   );
   if (!popup.contains(t) && !isRegionDateInput) {
     popup.style.display = 'none';
@@ -1711,17 +1751,18 @@ function escapeHtmlLocal(s) {
 
 window._sideTripSuggestions = {};
 
-async function suggestSideTrip(idx) {
+async function suggestSideTrip(tid, regionIdx) {
+  const errBox = document.getElementById('sidetrip-err-' + tid);
+  if (errBox) errBox.textContent = '';
   const apiKey = document.getElementById('api-key').value.trim();
-  if (!apiKey) { showError('יש להזין Anthropic API Key למעלה לפני קבלת המלצות'); return; }
-  const nameEl = document.getElementById('region-name-' + idx);
+  if (!apiKey) { if (errBox) errBox.textContent = 'יש להזין Anthropic API Key למעלה לפני קבלת המלצות'; return; }
+  const nameEl = document.getElementById('region-name-' + regionIdx);
   const baseName = nameEl ? nameEl.value.trim() : '';
-  if (!baseName) { showError('נא למלא קודם את שם העיר/אזור בשורה זו לפני בקשת המלצה'); return; }
-  const btn = document.getElementById('region-side-suggest-btn-' + idx);
-  const box = document.getElementById('region-side-suggestions-' + idx);
+  if (!baseName) { if (errBox) errBox.textContent = 'נא למלא קודם את שם העיר/אזור למעלה לפני בקשת המלצה'; return; }
+  const btn = document.getElementById('sidetrip-suggest-btn-' + tid);
+  const box = document.getElementById('sidetrip-suggestions-' + tid);
   if (btn) { btn.disabled = true; btn.textContent = 'טוען...'; }
   if (box) box.innerHTML = '';
-  document.getElementById('error-box').classList.remove('visible');
 
   const prompt = `המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-2 שעות בכל כיוון). החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
 {"suggestions":[{"name":"שם היעד","reason":"משפט קצר אחד למה כדאי"}]}`;
@@ -1753,24 +1794,24 @@ async function suggestSideTrip(idx) {
     const list = (parsed && parsed.suggestions) || [];
     if (!list.length) throw new Error('לא התקבלו הצעות תקינות');
 
-    window._sideTripSuggestions[idx] = list;
+    window._sideTripSuggestions[tid] = list;
     if (box) {
       box.innerHTML = list.map((s, i) =>
-        '<button type="button" class="rec-link maps" style="margin:4px 4px 0 0" onclick="applySideTripSuggestion(' + idx + ',' + i + ')" title="' + escapeHtmlLocal(s.reason || '') + '">' + escapeHtmlLocal(s.name) + '</button>'
+        '<button type="button" class="rec-link maps" style="margin:4px 4px 0 0" onclick="applySideTripSuggestion(' + tid + ',' + i + ')" title="' + escapeHtmlLocal(s.reason || '') + '">' + escapeHtmlLocal(s.name) + '</button>'
       ).join('') + '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה, ניתן גם לערוך ידנית</div>';
     }
   } catch(e) {
-    if (box) box.innerHTML = '<span style="font-size:11px;color:#991b1b">שגיאה בקבלת הצעות: ' + escapeHtmlLocal(e.message) + ' - ניתן למלא ידנית</span>';
+    if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message + ' - ניתן למלא ידנית';
   }
   if (btn) { btn.disabled = false; btn.textContent = '✨ המלץ לי'; }
 }
 
-function applySideTripSuggestion(idx, i) {
-  const list = window._sideTripSuggestions[idx];
+function applySideTripSuggestion(tid, i) {
+  const list = window._sideTripSuggestions[tid];
   if (!list || !list[i]) return;
-  const input = document.getElementById('region-side-dest-' + idx);
+  const input = document.getElementById('sidetrip-dest-' + tid);
   if (input) input.value = list[i].name;
-  const box = document.getElementById('region-side-suggestions-' + idx);
+  const box = document.getElementById('sidetrip-suggestions-' + tid);
   if (box) box.innerHTML = '';
 }
 
