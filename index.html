@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.4 - 18/07/2026 - Fix main calendar scrollY offset (same bug as region calendar); add lodging as fixed fetchIntent category (market now optional, max categories 5->6); Places API now validates places for multi-region areas too, not just main destination -->
+<!-- City Trip Builder Claude - v4.5 - 18/07/2026 - Enforce restaurant/cafe/lodging categories programmatically via ensureCoreCategories() instead of relying on model compliance with prompt instructions; graceful fallback to core categories even if fetchIntent fails entirely -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -687,6 +687,26 @@ async function fetchIntent(fields, apiKey) {
   }
 }
 
+// אוכף שקטגוריות הליבה (מסעדות, בתי קפה, לינה) תמיד קיימות בחיפוש Places -
+// גם אם Claude לא כלל אותן בתשובתו, וגם אם fetchIntent נכשל לגמרי (categories=null/ריק)
+function ensureCoreCategories(categories, dest) {
+  const cats = Array.isArray(categories) ? categories.slice() : [];
+  const hasType = t => cats.some(c => c && c.type === t);
+  const forced = [];
+  if (!hasType('restaurant')) forced.push({ keyword: 'restaurant ' + dest, type: 'restaurant', label: 'מסעדות מקומיות' });
+  if (!hasType('cafe')) forced.push({ keyword: 'cafe ' + dest, type: 'cafe', label: 'בתי קפה' });
+  if (!hasType('lodging')) forced.push({ keyword: 'hotel ' + dest, type: 'lodging', label: 'לינה / מלונות' });
+  let merged = forced.concat(cats);
+  const seen = new Set();
+  merged = merged.filter(c => {
+    if (!c || !c.type) return true;
+    if (seen.has(c.type)) return false;
+    seen.add(c.type);
+    return true;
+  });
+  return merged.slice(0, 6);
+}
+
 function loadMapsApiForPlaces() {
   return new Promise((resolve) => {
     if (window.google && window.google.maps && window.google.maps.places) {
@@ -825,54 +845,52 @@ async function buildTrip() {
   try {
     const intentData = await fetchIntent(fields, apiKey);
     placesDebug.intentData = intentData;
-    if (intentData && intentData.categories && intentData.categories.length > 0) {
-      placesDebug.status = 'intent_ok';
-      const placesData = await fetchPlaces(fields.dest, intentData.categories);
-      placesDebug.placesData = placesData;
-      if (placesData && placesData.length > 0) {
-        placesDebug.status = 'places_ok';
-        placesContext = '\n\nמקומות אמיתיים מאומתים מ-Google Places (השתמש בהם בעדיפות גבוהה):\n' +
-          placesData.map(cat =>
-            '\n' + cat.category + ':\n' +
-            cat.places.map(p =>
-              '- ' + p.name + ' | ' + p.address + (p.rating ? ' | דירוג: ' + p.rating : '')
-            ).join('\n')
-          ).join('\n') +
-          '\n\nהנחיה: השתמש במקומות הנ"ל כבסיס למסלול. מקומות אלו אומתו כקיימים. תוכל להוסיף מקומות נוספים מהידע שלך אך סמן אותם ב-⚠️';
-      } else {
-        placesDebug.status = 'places_empty';
-      }
+    const categories = ensureCoreCategories(intentData && intentData.categories, fields.dest);
+    placesDebug.categoriesUsed = categories;
+    placesDebug.status = 'intent_ok';
+    const placesData = await fetchPlaces(fields.dest, categories);
+    placesDebug.placesData = placesData;
+    if (placesData && placesData.length > 0) {
+      placesDebug.status = 'places_ok';
+      placesContext = '\n\nמקומות אמיתיים מאומתים מ-Google Places (השתמש בהם בעדיפות גבוהה):\n' +
+        placesData.map(cat =>
+          '\n' + cat.category + ':\n' +
+          cat.places.map(p =>
+            '- ' + p.name + ' | ' + p.address + (p.rating ? ' | דירוג: ' + p.rating : '')
+          ).join('\n')
+        ).join('\n') +
+        '\n\nהנחיה: השתמש במקומות הנ"ל כבסיס למסלול. מקומות אלו אומתו כקיימים. תוכל להוסיף מקומות נוספים מהידע שלך אך סמן אותם ב-⚠️';
+    } else {
+      placesDebug.status = 'places_empty';
+    }
 
-      // אימות Places API גם לאזורים משניים בסיור מרובה אזורים
-      const regionNamesForPlaces = Array.from(document.querySelectorAll('#region-rows .region-row'))
-        .map(row => {
-          const ridx = row.id.replace('region-row-', '');
-          const rNameEl = document.getElementById('region-name-' + ridx);
-          return rNameEl ? rNameEl.value.trim() : '';
-        })
-        .filter(n => n);
-      if (regionNamesForPlaces.length > 0) {
-        placesDebug.regionPlacesData = {};
-        for (const regionName of regionNamesForPlaces) {
-          try {
-            const regionPlaces = await fetchPlaces(regionName, intentData.categories);
-            placesDebug.regionPlacesData[regionName] = regionPlaces;
-            if (regionPlaces && regionPlaces.length > 0) {
-              placesContext += '\n\nמקומות אמיתיים מאומתים מ-Google Places באזור ' + regionName + ':\n' +
-                regionPlaces.map(cat =>
-                  '\n' + cat.category + ':\n' +
-                  cat.places.map(p =>
-                    '- ' + p.name + ' | ' + p.address + (p.rating ? ' | דירוג: ' + p.rating : '')
-                  ).join('\n')
-                ).join('\n');
-            }
-          } catch(eRegion) {
-            placesDebug.regionPlacesData[regionName] = { error: eRegion.message };
+    // אימות Places API גם לאזורים משניים בסיור מרובה אזורים
+    const regionNamesForPlaces = Array.from(document.querySelectorAll('#region-rows .region-row'))
+      .map(row => {
+        const ridx = row.id.replace('region-row-', '');
+        const rNameEl = document.getElementById('region-name-' + ridx);
+        return rNameEl ? rNameEl.value.trim() : '';
+      })
+      .filter(n => n);
+    if (regionNamesForPlaces.length > 0) {
+      placesDebug.regionPlacesData = {};
+      for (const regionName of regionNamesForPlaces) {
+        try {
+          const regionPlaces = await fetchPlaces(regionName, categories);
+          placesDebug.regionPlacesData[regionName] = regionPlaces;
+          if (regionPlaces && regionPlaces.length > 0) {
+            placesContext += '\n\nמקומות אמיתיים מאומתים מ-Google Places באזור ' + regionName + ':\n' +
+              regionPlaces.map(cat =>
+                '\n' + cat.category + ':\n' +
+                cat.places.map(p =>
+                  '- ' + p.name + ' | ' + p.address + (p.rating ? ' | דירוג: ' + p.rating : '')
+                ).join('\n')
+              ).join('\n');
           }
+        } catch(eRegion) {
+          placesDebug.regionPlacesData[regionName] = { error: eRegion.message };
         }
       }
-    } else {
-      placesDebug.status = 'intent_failed';
     }
   } catch(e) {
     placesDebug.status = 'error';
