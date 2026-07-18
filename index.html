@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.6 - 18/07/2026 - Multi day-trip rows per region (was single side-trip slot, now dynamic list via addSideTripRow); suggestSideTrip errors now shown inline near the button instead of the far-away global error-box; both calendars (main + region) now flip above the input when there's no room below the viewport -->
+<!-- City Trip Builder Claude - v4.8 - 18/07/2026 - Refactor: extracted shared fetchAiSuggestions() helper used by both suggestRegionCity() and suggestSideTrip(), removing duplicated fetch/parse/error-handling code. No behavior change - same prompts, same UI, same error messages -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -1533,7 +1533,12 @@ function addRegionRow() {
     '<div class="grid">' +
       '<div class="field full">' +
         '<label>עיר / אזור</label>' +
-        '<input type="text" id="region-name-' + idx + '" placeholder="לדוגמה: טארנוב" />' +
+        '<div style="display:flex;gap:6px">' +
+          '<input type="text" id="region-name-' + idx + '" placeholder="לדוגמה: טארנוב" style="flex:1" />' +
+          '<button type="button" id="region-name-suggest-btn-' + idx + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestRegionCity(' + idx + ')">✨ המלץ לי</button>' +
+        '</div>' +
+        '<div id="region-name-err-' + idx + '" style="font-size:11px;color:#991b1b;margin-top:4px"></div>' +
+        '<div id="region-name-suggestions-' + idx + '" style="margin-top:4px"></div>' +
       '</div>' +
       '<div class="field">' +
         '<label>תאריכים באזור זה</label>' +
@@ -1750,6 +1755,80 @@ function escapeHtmlLocal(s) {
 }
 
 window._sideTripSuggestions = {};
+window._regionCitySuggestions = {};
+
+// פונקציית עזר משותפת - קריאה ל-Claude API וחילוץ רשימת הצעות JSON.
+// זהה בשתי הפונקציות למטה, אוחד למקום אחד כדי למנוע כפילות קוד.
+async function fetchAiSuggestions(apiKey, prompt) {
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 500,
+      temperature: 0.3,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData?.error?.message || ('שגיאת שרת ' + res.status));
+  }
+  const data = await res.json();
+  const text = data.content?.map(b => b.text || '').join('') || '';
+  const clean = text.replace(/```json|```/g, '').trim();
+  const parsed = JSON.parse(clean);
+  const list = (parsed && parsed.suggestions) || [];
+  if (!list.length) throw new Error('לא התקבלו הצעות תקינות');
+  return list;
+}
+
+async function suggestRegionCity(idx) {
+  const errBox = document.getElementById('region-name-err-' + idx);
+  if (errBox) errBox.textContent = '';
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { if (errBox) errBox.textContent = 'יש להזין Anthropic API Key למעלה לפני קבלת המלצות'; return; }
+  const mainDest = document.getElementById('destination').value.trim();
+  if (!mainDest) { if (errBox) errBox.textContent = 'יש להזין תחילה את היעד הראשי של הסיור למעלה'; return; }
+  const interests = getInterests();
+  const btn = document.getElementById('region-name-suggest-btn-' + idx);
+  const box = document.getElementById('region-name-suggestions-' + idx);
+  if (btn) { btn.disabled = true; btn.textContent = 'טוען...'; }
+  if (box) box.innerHTML = '';
+
+  const prompt = `המלץ על 2-3 ערים/אזורים שונים שמתאימים כבסיס לינה נוסף בסיור, במרחקים שונים זה מזה מ-${mainDest} (בין כשעה לכ-3 שעות נסיעה בערך). התאם לתחומי עניין: ${interests}. לכל המלצה ציין זמן נסיעה משוער מ-${mainDest} וסיבה קצרה אחת למה כדאי. החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+{"suggestions":[{"name":"שם העיר/אזור","distance":"כ-X שעות נסיעה מ-${mainDest}","reason":"משפט קצר אחד למה כדאי"}]}`;
+
+  try {
+    const list = await fetchAiSuggestions(apiKey, prompt);
+    window._regionCitySuggestions[idx] = list;
+    if (box) {
+      box.innerHTML = list.map((s, i) =>
+        '<button type="button" class="rec-link maps" style="margin:4px 4px 4px 0;display:block;width:100%;text-align:right" onclick="applyRegionCitySuggestion(' + idx + ',' + i + ')">' +
+          '<strong>' + escapeHtmlLocal(s.name) + '</strong>' + (s.distance ? ' - ' + escapeHtmlLocal(s.distance) : '') +
+          (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
+        '</button>'
+      ).join('') + '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה</div>';
+    }
+  } catch(e) {
+    if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '✨ המלץ לי'; }
+}
+
+function applyRegionCitySuggestion(idx, i) {
+  const list = window._regionCitySuggestions[idx];
+  if (!list || !list[i]) return;
+  const input = document.getElementById('region-name-' + idx);
+  if (input) input.value = list[i].name;
+  const box = document.getElementById('region-name-suggestions-' + idx);
+  if (box) box.innerHTML = '';
+}
 
 async function suggestSideTrip(tid, regionIdx) {
   const errBox = document.getElementById('sidetrip-err-' + tid);
@@ -1768,32 +1847,7 @@ async function suggestSideTrip(tid, regionIdx) {
 {"suggestions":[{"name":"שם היעד","reason":"משפט קצר אחד למה כדאי"}]}`;
 
   try {
-    const res = await fetch(API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 500,
-        temperature: 0.3,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData?.error?.message || ('שגיאת שרת ' + res.status));
-    }
-    const data = await res.json();
-    const text = data.content?.map(b => b.text || '').join('') || '';
-    const clean = text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
-    const list = (parsed && parsed.suggestions) || [];
-    if (!list.length) throw new Error('לא התקבלו הצעות תקינות');
-
+    const list = await fetchAiSuggestions(apiKey, prompt);
     window._sideTripSuggestions[tid] = list;
     if (box) {
       box.innerHTML = list.map((s, i) =>
