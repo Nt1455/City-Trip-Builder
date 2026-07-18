@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.13 - 18/07/2026 - Added "save for comparison" (📌) on every AI suggestion in suggestSideTrip/suggestRegionCity, stored in a new, separate localStorage key ctb_saved_suggestions (does not touch ctb_history). New "📌 הצעות שמורות" panel groups saved items by tripName (the main destination field, same pattern as saveItinerary), with per-item remove -->
+<!-- City Trip Builder Claude - v4.14 - 18/07/2026 - Fix: the longer 2-3 sentence descriptions (from v4.12) overflowed the suggestion card horizontally in suggestSideTrip/suggestRegionCity, causing a page-wide horizontal scrollbar. Classic flexbox bug - flex:1 button had default min-width:auto which blocked text wrapping. Added min-width:0 + overflow-wrap:break-word to fix -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -1981,7 +1981,7 @@ async function suggestRegionCity(idx, isRefresh) {
     if (box) {
       box.innerHTML = list.map((s, i) =>
         '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
-          '<button type="button" class="rec-link maps" style="flex:1;text-align:right" onclick="applyRegionCitySuggestion(' + idx + ',' + i + ')">' +
+          '<button type="button" class="rec-link maps" style="flex:1;min-width:0;text-align:right;overflow-wrap:break-word" onclick="applyRegionCitySuggestion(' + idx + ',' + i + ')">' +
             '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
             (s.realDuration ? ' - ' + (s.tooFar ? '⚠️ ' : '') + escapeHtmlLocal(s.realDuration) + ' (מאומת)' : (s.distance ? ' - ' + escapeHtmlLocal(s.distance) : '')) +
             (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
@@ -2052,7 +2052,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
       const anyTooFar = list.some(s => s.tooFar);
       box.innerHTML = list.map((s, i) =>
         '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
-          '<button type="button" class="rec-link maps" style="flex:1;text-align:right" onclick="applySideTripSuggestion(' + tid + ',' + i + ')">' +
+          '<button type="button" class="rec-link maps" style="flex:1;min-width:0;text-align:right;overflow-wrap:break-word" onclick="applySideTripSuggestion(' + tid + ',' + i + ')">' +
             '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
             (s.realDuration ? ' <span style="font-size:10px;font-weight:400' + (s.tooFar ? ';color:#c0392b' : '') + '">(' + (s.tooFar ? '⚠️ ' : '') + escapeHtmlLocal(s.realDuration) + ')</span>' : '') +
             (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
