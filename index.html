@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.15 - 18/07/2026 - Fix (real root cause this time): the .rec-link CSS class sets white-space:nowrap globally, which overrode the overflow-wrap fix from v4.14 - text never wrapped at all, it just kept extending. Added explicit white-space:normal on the suggestion buttons' inline style to override the class -->
+<!-- City Trip Builder Claude - v4.17 - 18/07/2026 - Split single PDF button into "🖨 הדפס" + "💾 שמור PDF" (both call window.print() - the reliable native path, no PDF-generation library added due to known Hebrew/RTL text rendering bugs in jsPDF/html2pdf.js). Added dedicated print for the saved-suggestions panel (printSavedSuggestions(), body.printing-suggestions CSS mode) - previously that panel had no print path and, worse, wasn't explicitly excluded from the main itinerary print, so if left open it could leak into the itinerary PDF. Now both header/history-panel/saved-suggestions-panel are explicitly hidden in normal print -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -102,7 +102,7 @@ textarea{min-height:68px;resize:vertical}
 @media print{
   body{background:#fff;padding:0;font-size:12px}
   .container{max-width:100%}
-  #api-card,#form-card,.btn-build,.loading,.error,.result-btns,.tabs,.result-footer{display:none!important}
+  header,#history-panel,#saved-suggestions-panel,#api-card,#form-card,.btn-build,.loading,.error,.result-btns,.tabs,.result-footer{display:none!important}
   .result-card{display:block!important;border:none}
   .result-header{background:#eaf3e8;padding:8px 12px}
   .result-body{padding:0;font-size:12px;line-height:1.6}
@@ -112,6 +112,11 @@ textarea{min-height:68px;resize:vertical}
   .result-body ul{page-break-inside:avoid}
   .rec-body{display:none!important}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  /* מצב הדפסה נפרד - רק פאנל ההצעות השמורות, מופעל ע"י printSavedSuggestions() */
+  body.printing-suggestions .result-card{display:none!important}
+  body.printing-suggestions #saved-suggestions-panel{display:block!important;border:none;padding:0}
+  body.printing-suggestions #saved-suggestions-panel button{display:none!important}
 }
 
 /* Weather Widget */
@@ -159,7 +164,10 @@ textarea{min-height:68px;resize:vertical}
 <div id="saved-suggestions-panel" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
     <span style="font-size:14px;font-weight:600">הצעות שמורות להשוואה</span>
-    <button onclick="toggleSavedSuggestions()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px">&times;</button>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button onclick="printSavedSuggestions()" title="הדפס / שמור כ-PDF" style="background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--muted);font-size:12px;padding:3px 10px">🖨 הדפס</button>
+      <button onclick="toggleSavedSuggestions()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px">&times;</button>
+    </div>
   </div>
   <div id="saved-suggestions-list" style="font-size:14px;color:var(--muted)">אין הצעות שמורות עדיין - לחץ 📌 ליד כל הצעה כדי לשמור אותה כאן</div>
 </div>
@@ -365,7 +373,8 @@ textarea{min-height:68px;resize:vertical}
       <button class="rbtn rbtn-maps" onclick="openInMaps()">🗺 כל המסלול</button>
       <button class="rbtn rbtn-park" id="btn-parking" onclick="openParking()" style="display:none">🅿 חניונים</button>
       <button class="rbtn rbtn-wa" onclick="sendWhatsApp()">📱 וואטסאפ</button>
-      <button class="rbtn rbtn-pdf" onclick="window.print()">🖨 PDF</button>
+      <button class="rbtn rbtn-pdf" onclick="window.print()">🖨 הדפס</button>
+      <button class="rbtn rbtn-pdf" onclick="window.print()">💾 שמור PDF</button>
       <button class="rbtn rbtn-copy" onclick="copyResult()">העתק</button>
       <button class="rbtn" onclick="toggleDebug()" style="background:#444;color:#fff">🐞 Debug</button>
     </div>
@@ -396,6 +405,7 @@ textarea{min-height:68px;resize:vertical}
       <button class="btn-new" onclick="saveItinerary()">💾 שמור מסלול</button>
       <button class="btn-new" onclick="toggleEdit()">✏️ ערוך</button>
       <button class="btn-new" onclick="resetForm()">סיור חדש</button>
+      <button class="btn-new" onclick="toggleDebug()" style="background:#444;color:#fff;border-color:#444">🐞 Debug</button>
     </div>
   </div>
 </div>
@@ -1393,6 +1403,19 @@ function toggleSavedSuggestions() {
   if (panel.style.display === 'block') renderSavedSuggestionsList();
 }
 
+// מדפיס/שומר כ-PDF רק את פאנל ההצעות השמורות, בלי קשר למסלול הראשי - דרך מצב הדפסה ייעודי (CSS: body.printing-suggestions)
+function printSavedSuggestions() {
+  renderSavedSuggestionsList(); // לוודא תוכן עדכני גם אם הפאנל לא היה פתוח
+  document.body.classList.add('printing-suggestions');
+  const cleanup = () => {
+    document.body.classList.remove('printing-suggestions');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  setTimeout(cleanup, 3000); // גיבוי - לא כל הדפדפנים מיישמים afterprint באופן עקבי
+  window.print();
+}
+
 // מציג את ההצעות השמורות מקובצות לפי tripName (היעד הראשי בזמן השמירה) - כמו אקורדיון
 function renderSavedSuggestionsList() {
   const saved = getSavedSuggestions();
@@ -1906,6 +1929,19 @@ async function getTravelDistance(origin, destination) {
   }
 }
 
+// מאמתת מרחק אמיתי לכל פריט ברשימת הצעות, ומסמנת s.realDuration/s.realDurationMinutes/s.tooFar.
+// לא חוסמת: אם getTravelDistance נכשל לפריט מסוים, פשוט לא מסמנים אותו (נשאר בלי סימון מרחק).
+async function verifyDistances(list, origin, maxMinutesThreshold) {
+  await Promise.all(list.map(async (s) => {
+    const d = await getTravelDistance(origin, s.name);
+    if (d) {
+      s.realDuration = d.durationText;
+      s.realDurationMinutes = d.durationMinutes;
+      s.tooFar = d.durationMinutes != null && d.durationMinutes > maxMinutesThreshold;
+    }
+  }));
+}
+
 // פונקציית עזר משותפת - קריאה ל-Claude API וחילוץ רשימת הצעות JSON.
 // זהה בשתי הפונקציות למטה, אוחד למקום אחד כדי למנוע כפילות קוד.
 async function fetchAiSuggestions(apiKey, prompt) {
@@ -1968,15 +2004,7 @@ async function suggestRegionCity(idx, isRefresh) {
 
   try {
     const list = await fetchAiSuggestions(apiKey, prompt);
-    // אימות מרחק אמיתי מול DistanceMatrixService - לא חוסם אם נכשל, רק מוסיף מידע מאומת כשיש
-    await Promise.all(list.map(async (s) => {
-      const d = await getTravelDistance(mainDest, s.name);
-      if (d) {
-        s.realDuration = d.durationText;
-        s.realDurationMinutes = d.durationMinutes;
-        s.tooFar = d.durationMinutes != null && d.durationMinutes > 210; // חריגה משמעותית מ-3 שעות
-      }
-    }));
+    await verifyDistances(list, mainDest, 210); // חריגה משמעותית מ-3 שעות
     window._regionCitySuggestions[idx] = list;
     if (box) {
       box.innerHTML = list.map((s, i) =>
@@ -2037,20 +2065,38 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
 
   try {
-    const list = await fetchAiSuggestions(apiKey, prompt);
-    // אימות מרחק אמיתי מול DistanceMatrixService - לא חוסם אם נכשל, רק מוסיף סימון כשיש
-    await Promise.all(list.map(async (s) => {
-      const d = await getTravelDistance(baseName, s.name);
-      if (d) {
-        s.realDuration = d.durationText;
-        s.realDurationMinutes = d.durationMinutes;
-        s.tooFar = d.durationMinutes != null && d.durationMinutes > maxMinutesThreshold;
+    let list = await fetchAiSuggestions(apiKey, prompt);
+    await verifyDistances(list, baseName, maxMinutesThreshold);
+
+    // אם יש הצעות שחורגות בפועל מהסף - ניסיון חוזר יחיד עם משוב אמיתי ל-Claude (לא רק "אל תציע שוב",
+    // אלא כמה זמן זה לקח בפועל) - כדי לתת הזדמנות אמיתית לחלופה קרובה, לא רק לתייג ⚠️ ולהמשיך הלאה.
+    let retried = false;
+    const tooFarItems = list.filter(s => s.tooFar);
+    if (tooFarItems.length > 0 && btn) {
+      retried = true;
+      btn.textContent = 'מנסה שוב עם יעדים קרובים יותר...';
+      const tooFarDetail = tooFarItems.map(s => s.name + ' (בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף)').join('; ');
+      const allNamesSoFar = list.map(s => s.name);
+      const retryPrompt = `המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}. הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם. החזר JSON בלבד באותו פורמט:
+{"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
+      try {
+        const replacementList = await fetchAiSuggestions(apiKey, retryPrompt);
+        await verifyDistances(replacementList, baseName, maxMinutesThreshold);
+        let ri = 0;
+        list = list.map(s => (s.tooFar && ri < replacementList.length) ? replacementList[ri++] : s);
+      } catch (retryErr) {
+        console.warn('[suggestSideTrip] ניסיון חוזר נכשל, ממשיכים עם התוצאה המקורית:', retryErr);
+        // לא חוסם - ממשיכים עם הרשימה המקורית, כולל הסימונים המקוריים
       }
-    }));
+    }
+
     window._sideTripSuggestions[tid] = list;
     if (box) {
       const anyTooFar = list.some(s => s.tooFar);
-      box.innerHTML = list.map((s, i) =>
+      const banner = (retried && anyTooFar)
+        ? '<div style="font-size:11px;color:#c0392b;background:#fdf2f2;border:1px solid #f5c6c6;border-radius:6px;padding:6px 8px;margin-bottom:6px">⚠️ גם אחרי ניסיון נוסף, לא נמצאו מספיק יעדים בתוך הסף שקבעת (' + maxHours + ' שעות) - אלה הקרובים ביותר שנמצאו בפועל</div>'
+        : '';
+      box.innerHTML = banner + list.map((s, i) =>
         '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
           '<button type="button" class="rec-link maps" style="flex:1;min-width:0;text-align:right;white-space:normal;overflow-wrap:break-word" onclick="applySideTripSuggestion(' + tid + ',' + i + ')">' +
             '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
