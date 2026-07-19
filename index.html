@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.20 - 19/07/2026 - Added recordDebugError() helper and wired it into all 10 non-covered catch blocks (weather, fetchIntent, fetchPlaces loop, buildTrip, getSavedSuggestions, editItinerary, getTravelDistance, suggestRegionCity, suggestSideTrip retry, suggestSideTrip) so lastDebugInfo.lastError captures source/message/raw AI response even before buildTrip ever ran. fetchAiSuggestions now attaches the raw response text to thrown errors on JSON parse failure. toggleDebug() renders lastError alongside the existing main debug block without altering any existing user-facing error messages. No max_tokens change yet - pending live verification per plan -->
+<!-- City Trip Builder Claude - v4.21 - 19/07/2026 - Moved #debug-panel out of #result-card (which is display:none until a full itinerary is built) into a global always-visible location right above the "בנה מסלול מפורט" button, next to #error-box. Added a small standalone Debug button there. This fixes a real gap found via live-testing: the two existing Debug buttons (header/footer of result-card) and the panel itself were completely inaccessible for errors that occur before buildTrip ever runs, e.g. suggestRegionCity/suggestSideTrip failures - even though lastDebugInfo.lastError (added in v4.20) was correctly capturing the data. No other functionality touched -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -359,6 +359,10 @@ textarea{min-height:68px;resize:vertical}
 <div id="cal-popup-region" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #e2ddd6;border-radius:10px;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:280px"></div>
 
 <div class="error" id="error-box"></div>
+<div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+  <button type="button" onclick="toggleDebug()" style="background:#444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🐞 Debug</button>
+</div>
+<pre id="debug-panel" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;padding:1rem;margin:0 0 8px 0;background:#1a1814;color:#9fe89f;max-height:420px;overflow:auto;direction:ltr;border:1px solid var(--border);border-radius:8px"></pre>
 <button class="btn-build" id="build-btn" onclick="buildTrip()">בנה מסלול מפורט</button>
 
 <div class="loading" id="loading">
@@ -392,7 +396,6 @@ textarea{min-height:68px;resize:vertical}
     <button class="tab" onclick="switchTab('recommendations')">המלצות - לינה / אוכל / אטרקציות</button>
   </div>
   <div class="result-body" id="result-body"></div>
-  <pre id="debug-panel" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;padding:1rem;margin:0;background:#1a1814;color:#9fe89f;max-height:420px;overflow:auto;direction:ltr;border-top:1px solid var(--border)"></pre>
   <div class="rec-body" id="rec-body" style="display:none"></div>
   <div class="edit-section" id="edit-section" style="display:none;padding:1rem 1.25rem;border-top:1px solid var(--border)">
     <div style="font-size:13px;font-weight:500;color:var(--muted);margin-bottom:6px">בקשת עריכה</div>
