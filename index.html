@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.21 - 19/07/2026 - Moved #debug-panel out of #result-card (which is display:none until a full itinerary is built) into a global always-visible location right above the "בנה מסלול מפורט" button, next to #error-box. Added a small standalone Debug button there. This fixes a real gap found via live-testing: the two existing Debug buttons (header/footer of result-card) and the panel itself were completely inaccessible for errors that occur before buildTrip ever runs, e.g. suggestRegionCity/suggestSideTrip failures - even though lastDebugInfo.lastError (added in v4.20) was correctly capturing the data. No other functionality touched -->
+<!-- City Trip Builder Claude - v4.23 - 19/07/2026 - Raised max_tokens from 3000 to 5000 in fetchAiSuggestions (extra safety margin per user request, beyond what v4.22's live-confirmed fix already needed). Only this one call site changed; fetchIntent (500), buildTrip (16000), editItinerary (16000) untouched -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -1992,7 +1992,7 @@ async function fetchAiSuggestions(apiKey, prompt) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 900,
+      max_tokens: 5000,
       temperature: 0.3,
       messages: [{ role: 'user', content: prompt }]
     })
