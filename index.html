@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.19 - 18/07/2026 - Added "🖨 הדפס" and "💾 שמור PDF" buttons to the bottom result-footer row too (next to שמור מסלול/עריכה/סיור חדש/Debug), matching the header row. Added flex-wrap to the footer button row since it now holds 6 buttons -->
+<!-- City Trip Builder Claude - v4.20 - 19/07/2026 - Added recordDebugError() helper and wired it into all 10 non-covered catch blocks (weather, fetchIntent, fetchPlaces loop, buildTrip, getSavedSuggestions, editItinerary, getTravelDistance, suggestRegionCity, suggestSideTrip retry, suggestSideTrip) so lastDebugInfo.lastError captures source/message/raw AI response even before buildTrip ever ran. fetchAiSuggestions now attaches the raw response text to thrown errors on JSON parse failure. toggleDebug() renders lastError alongside the existing main debug block without altering any existing user-facing error messages. No max_tokens change yet - pending live verification per plan -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -570,6 +570,7 @@ async function fetchWeather() {
     content.innerHTML = html;
 
   } catch(e) {
+    recordDebugError('weather', e.message);
     if (e.message && e.message.includes('לא נמצא')) {
       content.innerHTML = '<span style="color:#e07">⚠️ לא נמצא יעד זה - בדוק את שם העיר</span>';
     } else {
@@ -631,6 +632,19 @@ function injectWeatherIntoResult() {
 
 let lastDebugInfo = null;
 
+// עוזרת משותפת - רושמת שגיאה מכל נקודת כשל בקוד (לא רק מ-buildTrip הראשי) ל-lastDebugInfo.lastError,
+// בלי לגעת בשדות הקיימים (sentAt/places_debug/request/response) ובלי לשנות אף תצוגת שגיאה קיימת למשתמש.
+// אם lastDebugInfo עוד null (buildTrip לא רץ אף פעם) - יוצרת אובייקט מינימלי כדי לא לאבד את השגיאה.
+function recordDebugError(source, message, rawResponse) {
+  if (!lastDebugInfo) lastDebugInfo = {};
+  lastDebugInfo.lastError = {
+    source: source,
+    message: message,
+    rawResponse: rawResponse || null,
+    time: new Date().toLocaleString('he-IL')
+  };
+}
+
 function toggleDebug() {
   const panel = document.getElementById('debug-panel');
   if (!panel) return;
@@ -638,14 +652,24 @@ function toggleDebug() {
     if (!lastDebugInfo) {
       panel.textContent = 'אין נתונים עדיין - בנה מסלול קודם.';
     } else {
-      panel.textContent =
-        '=== נשלח בתאריך: ' + lastDebugInfo.sentAt + ' ===\n\n' +
-        '--- PLACES DEBUG ---\n' +
-        JSON.stringify(lastDebugInfo.places_debug, null, 2) + '\n\n' +
-        '--- REQUEST (מה שנשלח למודל) ---\n' +
-        JSON.stringify(lastDebugInfo.request, null, 2) + '\n\n' +
-        '--- RESPONSE (תשובה גולמית) ---\n' +
-        JSON.stringify(lastDebugInfo.response, null, 2);
+      let out = '';
+      if (lastDebugInfo.sentAt) {
+        out +=
+          '=== נשלח בתאריך: ' + lastDebugInfo.sentAt + ' ===\n\n' +
+          '--- PLACES DEBUG ---\n' +
+          JSON.stringify(lastDebugInfo.places_debug, null, 2) + '\n\n' +
+          '--- REQUEST (מה שנשלח למודל) ---\n' +
+          JSON.stringify(lastDebugInfo.request, null, 2) + '\n\n' +
+          '--- RESPONSE (תשובה גולמית) ---\n' +
+          JSON.stringify(lastDebugInfo.response, null, 2);
+      }
+      if (lastDebugInfo.lastError) {
+        out += (out ? '\n\n' : '') +
+          '--- שגיאה אחרונה (מקור: ' + lastDebugInfo.lastError.source + ', ' + lastDebugInfo.lastError.time + ') ---\n' +
+          lastDebugInfo.lastError.message +
+          (lastDebugInfo.lastError.rawResponse ? '\n\n--- תשובה גולמית שהתקבלה בשגיאה הזו ---\n' + lastDebugInfo.lastError.rawResponse : '');
+      }
+      panel.textContent = out || 'אין נתונים עדיין - בנה מסלול קודם.';
     }
     panel.style.display = 'block';
     if (panel.scrollIntoView) panel.scrollIntoView({behavior:'smooth', block:'center'});
@@ -705,6 +729,7 @@ async function fetchIntent(fields, apiKey) {
     const clean = text.replace(/```json|```/g, '').trim();
     return JSON.parse(clean);
   } catch(e) {
+    recordDebugError('fetchIntent', e.message, text);
     return null;
   }
 }
@@ -790,6 +815,7 @@ async function fetchPlaces(dest, categories) {
         allPlaces.push({ category: cat.label, places: top });
       }
     } catch(e) {
+      recordDebugError('fetchPlaces (' + cat.label + ')', e.message);
       continue;
     }
   }
@@ -977,6 +1003,7 @@ async function buildTrip() {
     injectWeatherIntoResult();
     document.getElementById('result-card').scrollIntoView({behavior:'smooth',block:'start'});
   } catch(e) {
+    recordDebugError('buildTrip', e.message);
     showError('שגיאה: '+e.message);
   }
   setLoading(false);
@@ -1346,6 +1373,7 @@ function getSavedSuggestions() {
   try {
     return JSON.parse(localStorage.getItem('ctb_saved_suggestions') || '[]');
   } catch (e) {
+    recordDebugError('getSavedSuggestions', e.message);
     return [];
   }
 }
@@ -1512,6 +1540,7 @@ ${currentItinerary}
     itineraryVersion++;
     document.getElementById('version-tag').textContent = 'גרסה ' + itineraryVersion;
   } catch(e) {
+    recordDebugError('editItinerary', e.message);
     showError('שגיאה: ' + e.message);
   }
   setLoading(false);
@@ -1929,6 +1958,7 @@ async function getTravelDistance(origin, destination) {
     });
   } catch (e) {
     console.warn('[DistanceMatrix] נכשל:', e);
+    recordDebugError('getTravelDistance (' + origin + ' -> ' + destination + ')', e.message);
     return null;
   }
 }
@@ -1971,7 +2001,14 @@ async function fetchAiSuggestions(apiKey, prompt) {
   const data = await res.json();
   const text = data.content?.map(b => b.text || '').join('') || '';
   const clean = text.replace(/```json|```/g, '').trim();
-  const parsed = JSON.parse(clean);
+  let parsed;
+  try {
+    parsed = JSON.parse(clean);
+  } catch (parseErr) {
+    const err = new Error('תשובת JSON לא תקינה: ' + parseErr.message);
+    err.rawResponse = text;
+    throw err;
+  }
   const list = (parsed && parsed.suggestions) || [];
   if (!list.length) throw new Error('לא התקבלו הצעות תקינות');
   return list;
@@ -2028,6 +2065,7 @@ async function suggestRegionCity(idx, isRefresh) {
       '<button type="button" class="rec-link" style="margin-top:6px;font-size:11px" onclick="suggestRegionCity(' + idx + ',true)">🔄 עוד הצעות</button>';
     }
   } catch(e) {
+    recordDebugError('suggestRegionCity', e.message, e.rawResponse);
     if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message;
   }
   if (btn) { btn.disabled = false; btn.textContent = '✨ המלץ לי'; }
@@ -2098,6 +2136,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
         list = list.map(s => (s.tooFar && ri < replacementList.length) ? replacementList[ri++] : s);
       } catch (retryErr) {
         console.warn('[suggestSideTrip] ניסיון חוזר נכשל, ממשיכים עם התוצאה המקורית:', retryErr);
+        recordDebugError('suggestSideTrip-retry', retryErr.message, retryErr.rawResponse);
         // לא חוסם - ממשיכים עם הרשימה המקורית, כולל הסימונים המקוריים
       }
     }
@@ -2123,6 +2162,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
       '<button type="button" class="rec-link" style="margin-top:6px;font-size:11px" onclick="suggestSideTrip(' + tid + ',' + regionIdx + ',true)">🔄 עוד הצעות</button>';
     }
   } catch(e) {
+    recordDebugError('suggestSideTrip', e.message, e.rawResponse);
     if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message + ' - ניתן למלא ידנית';
   }
   if (btn) { btn.disabled = false; btn.textContent = '✨ המלץ לי'; }
