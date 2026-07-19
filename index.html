@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.24 - 19/07/2026 - Saved suggestions (📌) now also appear inline inside each region/side-trip box (new region-name-saved-<idx> / sidetrip-saved-<tid> containers), filtered to that specific box only, with a "select" and a "remove" button. Entries now store kind+containerId. Found and fixed a real staleness bug during testing: refreshAllInlineSavedBoxes() is now the single source of truth called after BOTH saving and deleting (not just deleting), because unshift/splice both reindex the whole array - refreshing only the touched box left other open boxes with stale baked-in indices, which could apply/delete the wrong item. Verified via isolated simulation reproducing the exact bug scenario, now passing -->
+<!-- City Trip Builder Claude - v4.26 - 19/07/2026 - Strengthened how the global "הבהרה כללית" clarify text is framed to the AI in all 3 prompt builders (suggestRegionCity, suggestSideTrip incl. retry, buildMultiRegionText): moved from a mid-sentence soft mention to an explicit "guiding principle" stated at the START of the prompt (primacy) with a short reminder near the END (recency), instead of buried mid-paragraph - a known prompting technique for improving instruction-following on long prompts. Verified via isolated assembly of the actual real prompt strings (not simplified test copies) - no broken punctuation, no double periods/spaces at any junction point -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -340,6 +340,10 @@ textarea{min-height:68px;resize:vertical}
         סיור מרובה אזורים (כמה עיירות / מלונות באותו סיור)
       </label>
       <div id="multi-region-container" style="display:none;margin-top:10px">
+        <div class="field full" style="margin-bottom:10px">
+          <label style="font-size:12px">הבהרה כללית לכל הסיור המרובה-אזורים (לא חובה)</label>
+          <input type="text" id="multi-region-clarify" placeholder="לדוגמה: זהו סיור כוכב מבוסס קרקוב, רוצים לחזור לקרקוב לליל הסילבסטר" style="font-size:12px;width:100%" />
+        </div>
         <div id="region-rows"></div>
         <button type="button" class="btn-add-region" onclick="addRegionRow()">+ הוסף אזור</button>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">
@@ -1298,12 +1302,30 @@ function buildDayMapButtons() {
 }
 
 // Save itinerary to localStorage
+// מחשבת ברירת מחדל חכמה יותר לשם המסלול בזמן שמירה: "עצירה ראשונה - עיר בסיס", לפי סדר
+// יצירת האזורים בטופס (לא לפי תאריכים - יש עמימות כשתאריך היעד הראשי חופף לתאריך האזור הראשון).
+// זו רק הצעת ברירת מחדל בחלון הקופץ הקיים - ניתנת לעריכה חופשית כמו היום.
+function computeDefaultItineraryTitle() {
+  const dest = (document.getElementById('destination') || {}).value?.trim() || '';
+  const multiOn = (document.getElementById('multi-region-toggle') || {}).checked;
+  if (!multiOn || !dest) return dest;
+  const rows = document.querySelectorAll('#region-rows .region-row');
+  if (!rows.length) return dest;
+  let firstRegionName = '';
+  for (const row of rows) {
+    const idx = row.id.replace('region-row-', '');
+    const name = (document.getElementById('region-name-' + idx) || {}).value?.trim();
+    if (name) { firstRegionName = name; break; }
+  }
+  return firstRegionName ? (firstRegionName + ' - ' + dest) : dest;
+}
+
 function saveItinerary() {
   const dest = document.getElementById('destination').value.trim();
   const text = document.getElementById('result-body').innerHTML;
   if (!text || !dest) return;
   
-  const name = prompt('שם המסלול:', dest + ' - ' + new Date().toLocaleDateString('he-IL'));
+  const name = prompt('שם המסלול:', computeDefaultItineraryTitle() + ' - ' + new Date().toLocaleDateString('he-IL'));
   if (!name) return;
   
   const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
@@ -1880,12 +1902,17 @@ function buildMultiRegionText() {
     parts.push(line);
   });
   if (!parts.length) return '';
-  return '\n\nמבנה הסיור (רב-אזורים - חובה לכבד את החלוקה הבאה בדיוק):\n' + parts.join('\n') +
+  const globalClarifyEl = document.getElementById('multi-region-clarify');
+  const globalClarifyText = globalClarifyEl ? globalClarifyEl.value.trim() : '';
+  const globalConstraintOpen = globalClarifyText ? 'עיקרון מנחה לכל הסיור המרובה-אזורים, שכל יום ורכיב במסלול חייב לשרת בפועל: "' + globalClarifyText + '".\n' : '';
+  const globalConstraintClose = globalClarifyText ? '\n\nחשוב: ודא שהמסלול כולו משרת בפועל את העיקרון המנחה שצוין בתחילת הסעיף הזה.' : '';
+  return '\n\n' + globalConstraintOpen + 'מבנה הסיור (רב-אזורים - חובה לכבד את החלוקה הבאה בדיוק):\n' + parts.join('\n') +
     '\n\nהוראות מחייבות למבנה רב-אזורים:\n' +
     '- בכל יום ציין בבירור בכותרת היום את אזור הלינה של אותו לילה.\n' +
     '- ביום טיול כוכב - כותרת היום תציין את יעד הטיול, אך סעיף הלינה בסוף היום נשאר אזור הבסיס (אין מעבר לינה באותו יום). ימים שלא צוינו כטיול כוכב ואינם יום המעבר בין אזורים - הסיור בהם מתבצע בעיר/אזור הבסיס עצמו.\n' +
     '- בכל מעבר קבוע בין אזורי לינה (לא טיול כוכב) - ציין בתחילת אותו יום את משך הנסיעה המשוער בין האזורים.\n' +
-    '- כאשר צוין "לא צוין - כלול המלצות לינה" לאזור מסוים - כלול 2-3 המלצות לינה קונקרטיות לאותו אזור בתוך היום הרלוונטי במסלול, לא רק בסוף המסמך.';
+    '- כאשר צוין "לא צוין - כלול המלצות לינה" לאזור מסוים - כלול 2-3 המלצות לינה קונקרטיות לאותו אזור בתוך היום הרלוונטי במסלול, לא רק בסוף המסמך.' +
+    globalConstraintClose;
 }
 
 // ===== לוח שנה נפרד לשדות אזור (לא נוגע ב-openCal/selectDate הראשיים, לא מפעיל fetchWeather) =====
@@ -2110,7 +2137,13 @@ async function suggestRegionCity(idx, isRefresh) {
   const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
   const clarifyClause = clarifyText ? ` הערה/העדפה נוספת מהמשתמש שיש להתחשב בה בבחירת ההצעות: "${clarifyText}".` : '';
 
-  const prompt = `המלץ על 2-3 ערים/אזורים שונים שמתאימים כבסיס לינה נוסף בסיור, במרחקים שונים זה מזה מ-${mainDest} (בין כשעה לכ-3 שעות נסיעה בערך).${excludeClause} התאם לתחומי עניין: ${interests}.${clarifyClause} לכל המלצה כתוב תיאור של 2-3 משפטים (לא רק משפט אחד) שכולל: זמן נסיעה משוער מ-${mainDest}, מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), ואווירת בתי קפה/מסעדות/פעילות ערב.${groupSizeClause} החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+  const globalClarifyEl = document.getElementById('multi-region-clarify');
+  const globalClarifyText = globalClarifyEl ? globalClarifyEl.value.trim() : '';
+  // עיקרון מנחה - בפתיחת הפרומפט (primacy) + תזכורת קצרה בסופו (recency), לא קבור באמצע משפט ארוך
+  const globalConstraintOpen = globalClarifyText ? `עיקרון מנחה שכל הצעה חייבת לשרת בפועל, לא רק להיות תואמת אליו באופן כללי: "${globalClarifyText}".\n\n` : '';
+  const globalConstraintClose = globalClarifyText ? ` חשוב: ודא שכל הצעה משרתת בפועל את העיקרון המנחה שצוין בתחילת ההודעה.` : '';
+
+  const prompt = `${globalConstraintOpen}המלץ על 2-3 ערים/אזורים שונים שמתאימים כבסיס לינה נוסף בסיור, במרחקים שונים זה מזה מ-${mainDest} (בין כשעה לכ-3 שעות נסיעה בערך).${excludeClause} התאם לתחומי עניין: ${interests}.${clarifyClause} לכל המלצה כתוב תיאור של 2-3 משפטים (לא רק משפט אחד) שכולל: זמן נסיעה משוער מ-${mainDest}, מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), ואווירת בתי קפה/מסעדות/פעילות ערב.${groupSizeClause}${globalConstraintClose} החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
 {"suggestions":[{"name":"שם העיר/אזור","distance":"כ-X שעות נסיעה מ-${mainDest}","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
 
   try {
@@ -2177,8 +2210,13 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
   const clarifyEl = document.getElementById('sidetrip-clarify-' + tid);
   const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
   const clarifyClause = clarifyText ? ` הערה/העדפה נוספת מהמשתמש שיש להתחשב בה בבחירת ההצעות: "${clarifyText}".` : '';
+  const globalClarifyEl = document.getElementById('multi-region-clarify');
+  const globalClarifyText = globalClarifyEl ? globalClarifyEl.value.trim() : '';
+  // עיקרון מנחה - בפתיחת הפרומפט (primacy) + תזכורת קצרה בסופו (recency), לא קבור באמצע משפט ארוך
+  const globalConstraintOpen = globalClarifyText ? `עיקרון מנחה שכל הצעה חייבת לשרת בפועל, לא רק להיות תואמת אליו באופן כללי: "${globalClarifyText}".\n\n` : '';
+  const globalConstraintClose = globalClarifyText ? ` חשוב: ודא שכל הצעה משרתת בפועל את העיקרון המנחה שצוין בתחילת ההודעה.` : '';
 
-  const prompt = `המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause}${clarifyClause} לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור. החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+  const prompt = `${globalConstraintOpen}המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause}${clarifyClause} לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור.${globalConstraintClose} החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
 
   try {
@@ -2194,7 +2232,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
       btn.textContent = 'מנסה שוב עם יעדים קרובים יותר...';
       const tooFarDetail = tooFarItems.map(s => s.name + ' (בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף)').join('; ');
       const allNamesSoFar = list.map(s => s.name);
-      const retryPrompt = `המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם. החזר JSON בלבד באותו פורמט:
+      const retryPrompt = `${globalConstraintOpen}המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם.${globalConstraintClose} החזר JSON בלבד באותו פורמט:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
       try {
         const replacementList = await fetchAiSuggestions(apiKey, retryPrompt);
