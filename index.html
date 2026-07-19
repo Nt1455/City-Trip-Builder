@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.23 - 19/07/2026 - Raised max_tokens from 3000 to 5000 in fetchAiSuggestions (extra safety margin per user request, beyond what v4.22's live-confirmed fix already needed). Only this one call site changed; fetchIntent (500), buildTrip (16000), editItinerary (16000) untouched -->
+<!-- City Trip Builder Claude - v4.24 - 19/07/2026 - Saved suggestions (📌) now also appear inline inside each region/side-trip box (new region-name-saved-<idx> / sidetrip-saved-<tid> containers), filtered to that specific box only, with a "select" and a "remove" button. Entries now store kind+containerId. Found and fixed a real staleness bug during testing: refreshAllInlineSavedBoxes() is now the single source of truth called after BOTH saving and deleting (not just deleting), because unshift/splice both reindex the whole array - refreshing only the touched box left other open boxes with stale baked-in indices, which could apply/delete the wrong item. Verified via isolated simulation reproducing the exact bug scenario, now passing -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -1396,6 +1396,8 @@ function saveSuggestionToCompare(btnEl, kind, containerId, i) {
     reason: s.reason || '',
     realDuration: s.realDuration || '',
     source,
+    kind,
+    containerId,
     savedAt: new Date().toLocaleDateString('he-IL')
   };
 
@@ -1406,6 +1408,7 @@ function saveSuggestionToCompare(btnEl, kind, containerId, i) {
 
   updateSavedSuggestionsBadge();
   if (document.getElementById('saved-suggestions-panel').style.display === 'block') renderSavedSuggestionsList();
+  refreshAllInlineSavedBoxes();
 
   if (btnEl) {
     const orig = btnEl.textContent;
@@ -1415,12 +1418,23 @@ function saveSuggestionToCompare(btnEl, kind, containerId, i) {
   }
 }
 
+// מרעננת את כל התיבות המקומיות שקיימות כרגע בעמוד - נקודת-אמת יחידה שנקראת אחרי כל שינוי
+// ב-localStorage (שמירה חדשה או מחיקה), כי unshift/splice מזיזים את כל האינדקסים הקיימים.
+// אם רק מרעננים את התיבה שהשתנתה - תיבות אחרות נשארות עם originalIndex "אפוי" וישן בתוך
+// כפתורי הבחירה/הסרה שלהן, ולחיצה עליהם תפגע בפריט הלא נכון. renderInlineSavedSuggestions
+// בודקת בעצמה אם ה-container קיים - row שהוסר מה-DOM לא יגרום לשגיאה.
+function refreshAllInlineSavedBoxes() {
+  for (let ri = 1; ri <= regionRowCount; ri++) renderInlineSavedSuggestions('region', ri);
+  for (let ti = 1; ti <= sideTripRowCount; ti++) renderInlineSavedSuggestions('sidetrip', ti);
+}
+
 function removeSavedSuggestion(index) {
   const saved = getSavedSuggestions();
   saved.splice(index, 1);
   localStorage.setItem('ctb_saved_suggestions', JSON.stringify(saved));
   updateSavedSuggestionsBadge();
   renderSavedSuggestionsList();
+  refreshAllInlineSavedBoxes();
 }
 
 function updateSavedSuggestionsBadge() {
@@ -1428,6 +1442,53 @@ function updateSavedSuggestionsBadge() {
   if (!btn) return;
   const count = getSavedSuggestions().length;
   btn.textContent = count > 0 ? '📌 הצעות שמורות (' + count + ')' : '📌 הצעות שמורות';
+}
+
+// מציגה בתוך תיבת ההצעות של אזור/יום-קפיצה ספציפי (containerId) את ההצעות שנשמרו (📌) עבורו בלבד -
+// כדי שאפשר יהיה לחזור ולבחור מהן בכל רגע, גם אחרי "עוד הצעות" שדורס את הרשימה הזמנית מה-fetch האחרון.
+// קוראת ישירות מ-localStorage (לא מ-window._regionCitySuggestions/_sideTripSuggestions הזמניים).
+function renderInlineSavedSuggestions(kind, containerId) {
+  const holderId = kind === 'sidetrip' ? ('sidetrip-saved-' + containerId) : ('region-name-saved-' + containerId);
+  const holder = document.getElementById(holderId);
+  if (!holder) return; // ה-row הזה לא קיים יותר (הוסר) - לא עושה כלום, לא זורק שגיאה
+  const saved = getSavedSuggestions();
+  const matches = [];
+  saved.forEach((item, originalIndex) => {
+    if (item.kind === kind && String(item.containerId) === String(containerId)) matches.push({ item, originalIndex });
+  });
+  if (!matches.length) { holder.innerHTML = ''; return; }
+  holder.innerHTML =
+    '<div style="font-size:10px;color:var(--muted);margin:6px 0 2px">📌 שמורות עבור התיבה הזו - לחץ כדי לבחור</div>' +
+    matches.map(({item, originalIndex}) =>
+      '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
+        '<button type="button" class="rec-link" style="flex:1;min-width:0;text-align:right;white-space:normal;overflow-wrap:break-word;background:#f5f0e8" onclick="applySavedInline(\'' + kind + '\',' + containerId + ',' + originalIndex + ')">' +
+          '<strong>' + escapeHtmlLocal(item.name) + '</strong>' +
+          (item.realDuration ? ' - ' + escapeHtmlLocal(item.realDuration) + ' (מאומת)' : '') +
+          (item.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(item.reason) + '</div>' : '') +
+        '</button>' +
+        '<button type="button" title="הסר משמורות" style="flex:0 0 auto;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;font-size:14px" onclick="removeInlineSavedSuggestion(\'' + kind + '\',' + containerId + ',' + originalIndex + ')">🗑</button>' +
+      '</div>'
+    ).join('');
+}
+
+// ממלאת את שדה העיר/אזור (או יעד יום-הקפיצה) בשם ההצעה השמורה, בלי לגעת בשאר הרשימה הזמנית
+function applySavedInline(kind, containerId, originalIndex) {
+  const saved = getSavedSuggestions();
+  const entry = saved[originalIndex];
+  if (!entry) return;
+  if (kind === 'sidetrip') {
+    const input = document.getElementById('sidetrip-dest-' + containerId);
+    if (input) input.value = entry.name;
+  } else {
+    const input = document.getElementById('region-name-' + containerId);
+    if (input) input.value = entry.name;
+  }
+}
+
+// מסירה מה-localStorage דרך נקודת-האמת היחידה (removeSavedSuggestion, שכבר מרעננת את כל התיבות),
+// ולא צריכה לרענן שוב בעצמה - נמנעת מכפילות קריאה
+function removeInlineSavedSuggestion(kind, containerId, originalIndex) {
+  removeSavedSuggestion(originalIndex);
 }
 
 function toggleSavedSuggestions() {
@@ -1708,6 +1769,7 @@ function addRegionRow() {
         '<input type="text" id="region-clarify-' + idx + '" placeholder="הבהרה נוספת להמלץ לי (לא חובה): לדוגמה \'בדרך בין וורוצלב לקרקוב\', \'קרוב לתחנת רכבת\'" style="margin-top:4px;font-size:12px;width:100%" />' +
         '<div id="region-name-err-' + idx + '" style="font-size:11px;color:#991b1b;margin-top:4px"></div>' +
         '<div id="region-name-suggestions-' + idx + '" style="margin-top:4px"></div>' +
+        '<div id="region-name-saved-' + idx + '" style="margin-top:4px"></div>' +
       '</div>' +
       '<div class="field">' +
         '<label>תאריכים באזור זה</label>' +
@@ -1768,7 +1830,8 @@ function addSideTripRow(regionIdx) {
     '<button type="button" class="btn-remove-region" onclick="removeSideTripRow(' + tid + ')">✕</button>' +
     '<input type="text" id="sidetrip-clarify-' + tid + '" placeholder="הבהרה נוספת להמלץ לי (לא חובה): לדוגמה \'בחזרה מזקופאנה לקרקוב\', \'רק טבע\'" style="width:100%;font-size:12px" />' +
     '<div id="sidetrip-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>' +
-    '<div id="sidetrip-suggestions-' + tid + '" style="width:100%"></div>';
+    '<div id="sidetrip-suggestions-' + tid + '" style="width:100%"></div>' +
+    '<div id="sidetrip-saved-' + tid + '" style="width:100%"></div>';
   container.appendChild(row);
 }
 
@@ -2067,6 +2130,7 @@ async function suggestRegionCity(idx, isRefresh) {
       ).join('') + '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה</div>' +
       '<button type="button" class="rec-link" style="margin-top:6px;font-size:11px" onclick="suggestRegionCity(' + idx + ',true)">🔄 עוד הצעות</button>';
     }
+    renderInlineSavedSuggestions('region', idx);
   } catch(e) {
     recordDebugError('suggestRegionCity', e.message, e.rawResponse);
     if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message;
@@ -2164,6 +2228,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
         (anyTooFar ? ' - ⚠️ = זמן נסיעה בפועל חורג מהיעד (עד כ-' + maxHours + ' שעות)' : '') + '</div>' +
       '<button type="button" class="rec-link" style="margin-top:6px;font-size:11px" onclick="suggestSideTrip(' + tid + ',' + regionIdx + ',true)">🔄 עוד הצעות</button>';
     }
+    renderInlineSavedSuggestions('sidetrip', tid);
   } catch(e) {
     recordDebugError('suggestSideTrip', e.message, e.rawResponse);
     if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message + ' - ניתן למלא ידנית';
