@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.32 - 30/07/2026 - Two visual-only changes to the multi-region area, no logic touched: (1) Moved the general "הערות נוספות" (id=notes) field up next to "מלון / לינה", away from the green multi-region block - it was positioned right after that block which visually implied a relationship that doesn't exist in the code (notes is read globally via fields.notes, unrelated to multi-region toggle state). Verified only one id="notes" exists post-move (no duplication). (2) .region-row class (used exclusively inside #region-rows, itself exclusively inside the multi-region block) restyled from neutral gray (#faf9f7, --border) to white background with --accent border, so region cards read as cohesive "cards" against the light-green multi-region-block background instead of clashing with mismatched neutral gray -->
+<!-- City Trip Builder Claude - v4.34 - 30/07/2026 - New feature: "🏛️ ריכוז אטרקציות" button in result-footer, toggles #attractions-summary-panel showing only places that are BOTH Google-verified (from placesDebug.placesData / regionPlacesData) AND actually appear by name in the final itinerary text (per Natalio's explicit requirement - "only what was actually chosen", not the full candidate list, since a full-candidate list has no organizational value). Matching via buildAttractionsSummary(text, placesDebug): simple substring match of p.name in text, deduped by place_id/name, grouped by category for display via renderAttractionsSummaryPanel (reuses existing escapeHtmlLocal for XSS safety on Google-sourced strings). Wired into both buildTrip (fresh summary + panel auto-closed on new build) and editItinerary (summary recomputed from lastDebugInfo.places_debug + panel re-rendered live if already open, since edits can change which places are actually included). resetForm() also clears the summary/panel. Known limitation, disclosed to Natalio: matching is a plain substring check - if Claude phrases a place name even slightly differently than the exact Google-returned name, it won't be detected as "included" even though it may be -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -415,6 +415,7 @@ textarea{min-height:68px;resize:vertical}
     <span id="version-tag" style="font-size:11px;color:var(--muted)">גרסה 1</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-new" onclick="saveItinerary()">💾 שמור מסלול</button>
+      <button class="btn-new" onclick="toggleAttractionsSummary()">🏛️ ריכוז אטרקציות</button>
       <button class="btn-new" onclick="toggleEdit()">✏️ ערוך</button>
       <button class="btn-new" onclick="resetForm()">סיור חדש</button>
       <button class="btn-new" onclick="window.print()">🖨 הדפס</button>
@@ -422,6 +423,7 @@ textarea{min-height:68px;resize:vertical}
       <button class="btn-new" onclick="toggleDebug()" style="background:#444;color:#fff;border-color:#444">🐞 Debug</button>
     </div>
   </div>
+  <div id="attractions-summary-panel" style="display:none;border-top:1px solid var(--border)"></div>
 </div>
 
 </div>
@@ -692,6 +694,81 @@ function toggleDebug() {
 
 const MAPS_KEY = 'AIzaSyAPr4VeTsgdLYQF7FXslrRWu6HMYQ-tNKg';
 
+// בונה רשימת מקומות "מאומתים וגם נכללו בפועל" - חיתוך בין placesDebug (המועמדים שסופקו מ-Google)
+// לבין text (המסלול הסופי שClaude החזיר) - התאמה לפי הופעת השם המדויק בטקסט.
+// מגבלה ידועה: אם Claude מנסח שם מקום קצת אחרת מהשם המדויק שגוגל החזיר - הוא לא יזוהה כאן, גם אם באמת נכלל.
+function buildAttractionsSummary(text, placesDebug) {
+  const flat = [];
+  if (placesDebug && Array.isArray(placesDebug.placesData)) {
+    placesDebug.placesData.forEach(cat => {
+      (cat.places || []).forEach(p => flat.push({ ...p, categoryLabel: cat.category }));
+    });
+  }
+  if (placesDebug && placesDebug.regionPlacesData) {
+    Object.keys(placesDebug.regionPlacesData).forEach(regionName => {
+      const regionCats = placesDebug.regionPlacesData[regionName];
+      if (Array.isArray(regionCats)) {
+        regionCats.forEach(cat => {
+          (cat.places || []).forEach(p => flat.push({ ...p, categoryLabel: cat.category + ' (' + regionName + ')' }));
+        });
+      }
+    });
+  }
+  if (!text) return [];
+  const used = flat.filter(p => p.name && text.includes(p.name));
+  const seen = new Set();
+  return used.filter(p => {
+    const key = p.place_id || p.name;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function renderAttractionsSummaryPanel() {
+  const panel = document.getElementById('attractions-summary-panel');
+  if (!panel) return;
+  const list = window.lastAttractionsSummary || [];
+  if (!list.length) {
+    panel.innerHTML = '<div style="padding:1rem 1.25rem;color:var(--muted);font-size:13px">' +
+      'לא זוהו מקומות מאומתים שנכללו בפועל במסלול (או שהמסלול לא נבנה עדיין).</div>';
+    return;
+  }
+  const groups = {};
+  list.forEach(p => { (groups[p.categoryLabel] = groups[p.categoryLabel] || []).push(p); });
+  let html = '<div style="padding:1rem 1.25rem">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+    '<span style="font-weight:600;font-size:14px">🏛️ ריכוז אטרקציות שנכללו במסלול</span>' +
+    '<button onclick="toggleAttractionsSummary()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px">&times;</button>' +
+    '</div>';
+  Object.keys(groups).forEach(cat => {
+    html += '<div style="margin-bottom:14px"><div style="font-weight:600;font-size:13px;margin-bottom:4px;color:var(--accent)">' +
+      escapeHtmlLocal(cat) + '</div><table style="width:100%;font-size:12px;border-collapse:collapse">';
+    groups[cat].forEach(p => {
+      html += '<tr style="border-bottom:1px solid var(--border)">' +
+        '<td style="padding:5px 4px 5px 0;font-weight:500">' + escapeHtmlLocal(p.name) + '</td>' +
+        '<td style="padding:5px 4px;color:var(--muted)">' + escapeHtmlLocal(p.address || '') + '</td>' +
+        '<td style="padding:5px 0 5px 4px;text-align:left;white-space:nowrap">' + (p.rating ? '⭐ ' + p.rating : '') + '</td>' +
+        '</tr>';
+    });
+    html += '</table></div>';
+  });
+  html += '</div>';
+  panel.innerHTML = html;
+}
+
+function toggleAttractionsSummary() {
+  const panel = document.getElementById('attractions-summary-panel');
+  if (!panel) return;
+  if (panel.style.display === 'none' || !panel.style.display) {
+    renderAttractionsSummaryPanel();
+    panel.style.display = 'block';
+    if (panel.scrollIntoView) panel.scrollIntoView({behavior:'smooth', block:'center'});
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
 // ===== PLACES API FUNCTIONS =====
 
 async function fetchIntent(fields, apiKey) {
@@ -706,8 +783,9 @@ async function fetchIntent(fields, apiKey) {
 
 החזר בפורמט הזה בדיוק:
 {
+  "destEn": "שם היעד באנגלית/לועזית, לדוגמה Milan או Krakow",
   "categories": [
-    {"keyword": "מילת חיפוש באנגלית", "type": "restaurant|cafe|tourist_attraction|museum|park|market|bar|lodging", "label": "תיאור בעברית"}
+    {"keyword": "מונח קטגוריה קצר באנגלית, בלי שם היעד", "type": "restaurant|cafe|tourist_attraction|museum|park|market|bar|lodging", "label": "תיאור בעברית"}
   ]
 }
 
@@ -717,7 +795,8 @@ async function fetchIntent(fields, apiKey) {
 - הוסף לפי תחומי עניין: מוזיאונים, פארקים, גלריות, ברים, אתרים היסטוריים
 - אל תכלול אטרקציות לילדים אם לא צוינו ילדים בקבוצה
 - מקסימום 6 קטגוריות
-- keyword באנגלית בלבד`;
+- keyword באנגלית בלבד, וחייב להיות מונח קטגוריה כללי בלבד (למשל "restaurant", "historic site", "live music venue") - אסור לכלול בו את שם היעד עצמו, הוא יתווסף אוטומטית בשלב החיפוש
+- destEn חובה - שם היעד באנגלית, גם אם היעד הוקלד בעברית (חיוני למניעת בלבול בחיפוש Google Places עם עסקים בשם דומה בישראל)`;
 
   const res = await fetch(API, {
     method: 'POST',
@@ -748,35 +827,43 @@ async function fetchIntent(fields, apiKey) {
 
 // אוכף שקטגוריות הליבה (מסעדות, בתי קפה, לינה) תמיד קיימות בחיפוש Places -
 // גם אם Claude לא כלל אותן בתשובתו, וגם אם fetchIntent נכשל לגמרי (categories=null/ריק)
-function ensureCoreCategories(categories, dest, interestsStr) {
+//
+// תיקון 30/07/2026 (בעקבות בדיקה חיה במילנו) - שינוי ארכיטקטוני, לא רק תיקון נקודתי:
+// A - keyword הוא מעכשיו מונח קטגוריה בלבד, בלי היעד מוטבע בתוכו (לא "restaurant Milan", רק "restaurant").
+//     קודם היעד הוטבע פה (בעברית הגולמית!) וגם שוב ב-fetchPlaces - כפילות שגרמה לחיפוש "cafe מילנו"
+//     שהחזיר עסקים ישראליים בשם "מילנו". עכשיו היעד מתווסף פעם אחת בלבד, במקום אחד (fetchPlaces),
+//     תמיד באנגלית (destEn) - נמנעת גם הכפילות וגם ערבוב השפות.
+// B - סדר עדיפויות בסינון: ליבה תמיד קבועה (restaurant/cafe/lodging) > קטגוריות Claude > תוספות שלנו
+//     (attraction_kids/adults, music, sports) - בעבר התוספות שלנו הודבקו ראשונות ודחקו בפועל
+//     קטגוריה חשובה שClaude כלל (כמו lodging, שהתבקש מפורשות) מחוץ לתקרת 8
+function ensureCoreCategories(categories, interestsStr) {
   const cats = Array.isArray(categories) ? categories.slice() : [];
   const hasType = t => cats.some(c => c && c.type === t);
-  const forced = [];
-  if (!hasType('restaurant')) forced.push({ keyword: 'restaurant ' + dest, type: 'restaurant', label: 'מסעדות מקומיות' });
-  if (!hasType('cafe')) forced.push({ keyword: 'cafe ' + dest, type: 'cafe', label: 'בתי קפה' });
-  if (!hasType('lodging')) forced.push({ keyword: 'hotel ' + dest, type: 'lodging', label: 'לינה / מלונות' });
-  // אטרקציות - נאכף רק אם המשתמש סימן את תחום העניין הרלוונטי (לא נאכף תמיד כמו הליבה למעלה)
-  // type פנימי נפרד לכל תת-קטגוריה (attraction_kids/attraction_adults) - למניעת סינון כפילויות שגוי במיזוג למטה
+
+  // ליבה - תמיד קבועה, עדיפות עליונה
+  const core = [];
+  if (!hasType('restaurant')) core.push({ keyword: 'restaurant', type: 'restaurant', label: 'מסעדות מקומיות' });
+  if (!hasType('cafe')) core.push({ keyword: 'cafe', type: 'cafe', label: 'בתי קפה' });
+  if (!hasType('lodging')) core.push({ keyword: 'hotel', type: 'lodging', label: 'לינה / מלונות' });
+
+  // תוספות שלנו - עדיפות נמוכה מקטגוריות Claude, לכן מתווספות בסוף המיזוג למטה, לא כאן בהתחלה
+  const extras = [];
   if (interestsStr && interestsStr.includes('אטרקציות - ילדים') && !hasType('attraction_kids')) {
-    forced.push({ keyword: 'attractions for kids ' + dest, type: 'attraction_kids', label: 'אטרקציות לילדים' });
+    extras.push({ keyword: 'attractions for kids', type: 'attraction_kids', label: 'אטרקציות לילדים' });
   }
   if (interestsStr && interestsStr.includes('אטרקציות - מבוגרים') && !hasType('attraction_adults')) {
-    forced.push({ keyword: 'tourist attractions ' + dest, type: 'attraction_adults', label: 'אטרקציות למבוגרים' });
+    extras.push({ keyword: 'tourist attractions', type: 'attraction_adults', label: 'אטרקציות למבוגרים' });
   }
-  // מוזיקה/ספורט - אלו תגיות תחום עניין קיימות שכבר משפיעות על כל הפרומפט (סגנון/אווירה) -
-  // כאן מתווספת להן, בנוסף (לא במקום), אכיפת Places למקום קונקרטי ומאומת מהקטגוריה
   if (interestsStr && interestsStr.includes('מוזיקה') && !hasType('interest_music')) {
-    forced.push({ keyword: 'live music venue ' + dest, type: 'interest_music', label: 'מקומות מוזיקה חיה' });
+    extras.push({ keyword: 'live music venue', type: 'interest_music', label: 'מקומות מוזיקה חיה' });
   }
   if (interestsStr && interestsStr.includes('ספורט') && !hasType('interest_sports')) {
-    forced.push({ keyword: 'sports venue ' + dest, type: 'interest_sports', label: 'אתרי ספורט' });
+    extras.push({ keyword: 'sports venue', type: 'interest_sports', label: 'אתרי ספורט' });
   }
-  let merged = forced.concat(cats);
+
+  // סדר המיזוג קובע מי נחתך ראשון בתקרה: ליבה > Claude > תוספות שלנו
+  let merged = core.concat(cats).concat(extras);
   const seen = new Set();
-  // סינון כפילויות לפי keyword (מנורמל לאותיות קטנות), לא לפי type -
-  // תוקן אחרי תקלה בפועל (מילנו, 30/07/2026): Claude עצמו הקצה type זהה (tourist_attraction)
-  // לשתי קטגוריות שונות לגמרי ("Jewish heritage" ו-"children attraction") - סינון לפי type מחק אחת מהן בטעות.
-  // keyword הוא הזיהוי הייחודי האמיתי של כל קטגוריה, type הוא רק תווית פנימית - לא תמיד ייחודית אצל Claude.
   merged = merged.filter(c => {
     if (!c || !c.keyword) return true;
     const key = c.keyword.toLowerCase().trim();
@@ -784,8 +871,6 @@ function ensureCoreCategories(categories, dest, interestsStr) {
     seen.add(key);
     return true;
   });
-  // תקרה הועלתה מ-6 ל-8 (30/07/2026) - עם עד 4 קטגוריות מותנות (ילדים/מבוגרים/מוזיקה/ספורט)
-  // בנוסף ל-3 הקבועות, תקרה של 6 הייתה דוחקת קטגוריות חשובות שClaude בחר בעצמו (כמו מורשת יהודית)
   return merged.slice(0, 8);
 }
 
@@ -947,10 +1032,13 @@ async function buildTrip() {
   try {
     const intentData = await fetchIntent(fields, apiKey);
     placesDebug.intentData = intentData;
-    const categories = ensureCoreCategories(intentData && intentData.categories, fields.dest, fields.interests);
+    const categories = ensureCoreCategories(intentData && intentData.categories, fields.interests);
     placesDebug.categoriesUsed = categories;
     placesDebug.status = 'intent_ok';
-    const placesData = await fetchPlaces(fields.dest, categories);
+    // עדיפות ל-destEn (אנגלית, מ-Claude) על פני fields.dest הגולמי - מונע ערבוב שפות בחיפוש Google Places
+    const searchDest = (intentData && intentData.destEn && intentData.destEn.trim()) ? intentData.destEn.trim() : fields.dest;
+    placesDebug.searchDest = searchDest;
+    const placesData = await fetchPlaces(searchDest, categories);
     placesDebug.placesData = placesData;
     if (placesData && placesData.length > 0) {
       placesDebug.status = 'places_ok';
@@ -1046,6 +1134,8 @@ async function buildTrip() {
     lastDebugInfo.response = data;
     const text = data.content?.map(b=>b.text||'').join('')||'';
     if (!text) throw new Error('לא התקבלה תשובה');
+    window.lastAttractionsSummary = buildAttractionsSummary(text, placesDebug);
+    document.getElementById('attractions-summary-panel').style.display = 'none';
     document.getElementById('result-body').innerHTML = renderMarkdown(text);
     document.getElementById('result-title').textContent = 'מסלול: '+fields.dest;
     document.getElementById('result-card').classList.add('visible');
@@ -1665,6 +1755,8 @@ ${currentItinerary}
     if (!text) throw new Error('לא התקבלה תשובה');
 
     document.getElementById('result-body').innerHTML = renderMarkdown(text);
+    window.lastAttractionsSummary = buildAttractionsSummary(text, lastDebugInfo && lastDebugInfo.places_debug);
+    if (document.getElementById('attractions-summary-panel').style.display === 'block') renderAttractionsSummaryPanel();
     document.getElementById('edit-request').value = '';
     itineraryVersion++;
     document.getElementById('version-tag').textContent = 'גרסה ' + itineraryVersion;
@@ -1677,6 +1769,8 @@ ${currentItinerary}
 
 function resetForm() {
   document.getElementById('result-card').classList.remove('visible');
+  window.lastAttractionsSummary = [];
+  const asp = document.getElementById('attractions-summary-panel'); if (asp) asp.style.display = 'none';
   document.getElementById('destination').value='';
   weatherData = null;
   const ww = document.getElementById('weather-widget'); if(ww) ww.classList.remove('visible');
