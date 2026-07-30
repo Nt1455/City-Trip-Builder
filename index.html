@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.27 - 30/07/2026 - Two additions: (1) Two new interest toggle buttons "אטרקציות - ילדים"/"אטרקציות - מבוגרים" conditionally enforce Places categories via new interestsStr param in ensureCoreCategories (internal types attraction_kids/attraction_adults, distinct to avoid the type-based dedup filter dropping one when both active - verified fetchPlaces never sends `type` to Google, it's internal-only). (2) fetchPlaces FIELD_MASK extended with places.userRatingCount + places.reviews; new shared formatPlaceLine() helper (replacing duplicated inline formatting in both the main-region and secondary-region injection blocks) appends rating count and up to 3 truncated (200 char) review snippets per place, with an inline instruction to rephrase-not-quote and preserve meaning; same instruction reinforced once more in the system prompt's אמינות מקומות section. Cost impact verified against official Google pricing (developers.google.com, checked 30/07/2026): existing rating field already billed at Text Search Enterprise ($35/1000); adding reviews moves it to Text Search Enterprise+Atmosphere ($40/1000) - same call count as before (no extra per-place Details calls), userRatingCount stays in the Enterprise tier already paid for -->
+<!-- City Trip Builder Claude - v4.30 - 30/07/2026 - Fix from comprehensive full-file QA pass: the second Google Maps script-loading spot (map display function, ~line 1236) had the Maps key hardcoded as a literal string instead of referencing the MAPS_KEY constant (unlike loadMapsApiForPlaces() which already used the constant correctly). Replaced with the same concatenation pattern MAPS_KEY + ... - single source of truth restored, so future key rotation only requires updating the one const declaration. Pre-existing issue, not introduced by v4.27-4.29 changes; found via full-file audit, not a targeted fix -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -289,6 +289,9 @@ textarea{min-height:68px;resize:vertical}
         <button type="button" class="interest-btn" onclick="toggleInterest(this)">ספורט</button>
         <button type="button" class="interest-btn" onclick="toggleInterest(this)">אדריכלות</button>
         <button type="button" class="interest-btn" onclick="toggleInterest(this)">חיי לילה</button>
+      </div>
+      <label style="font-size:12px;color:#888;margin-bottom:4px;display:block">אטרקציות</label>
+      <div id="attraction-interest-wrap" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px">
         <button type="button" class="interest-btn" onclick="toggleInterest(this)">אטרקציות - ילדים</button>
         <button type="button" class="interest-btn" onclick="toggleInterest(this)">אטרקציות - מבוגרים</button>
       </div>
@@ -760,6 +763,14 @@ function ensureCoreCategories(categories, dest, interestsStr) {
   if (interestsStr && interestsStr.includes('אטרקציות - מבוגרים') && !hasType('attraction_adults')) {
     forced.push({ keyword: 'tourist attractions ' + dest, type: 'attraction_adults', label: 'אטרקציות למבוגרים' });
   }
+  // מוזיקה/ספורט - אלו תגיות תחום עניין קיימות שכבר משפיעות על כל הפרומפט (סגנון/אווירה) -
+  // כאן מתווספת להן, בנוסף (לא במקום), אכיפת Places למקום קונקרטי ומאומת מהקטגוריה
+  if (interestsStr && interestsStr.includes('מוזיקה') && !hasType('interest_music')) {
+    forced.push({ keyword: 'live music venue ' + dest, type: 'interest_music', label: 'מקומות מוזיקה חיה' });
+  }
+  if (interestsStr && interestsStr.includes('ספורט') && !hasType('interest_sports')) {
+    forced.push({ keyword: 'sports venue ' + dest, type: 'interest_sports', label: 'אתרי ספורט' });
+  }
   let merged = forced.concat(cats);
   const seen = new Set();
   merged = merged.filter(c => {
@@ -1222,7 +1233,7 @@ function showMapPanel(places, dest, label) {
     mapsApiLoading = true;
     document.getElementById('map-canvas').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:420px;color:var(--muted);font-size:14px">⏳ טוען מפה...</div>';
     const script = document.createElement('script');
-    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyAPr4VeTsgdLYQF7FXslrRWu6HMYQ-tNKg&libraries=places&callback=onMapsReady&language=he';
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + MAPS_KEY + '&libraries=places&callback=onMapsReady&language=he';
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
