@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.26 - 19/07/2026 - Strengthened how the global "הבהרה כללית" clarify text is framed to the AI in all 3 prompt builders (suggestRegionCity, suggestSideTrip incl. retry, buildMultiRegionText): moved from a mid-sentence soft mention to an explicit "guiding principle" stated at the START of the prompt (primacy) with a short reminder near the END (recency), instead of buried mid-paragraph - a known prompting technique for improving instruction-following on long prompts. Verified via isolated assembly of the actual real prompt strings (not simplified test copies) - no broken punctuation, no double periods/spaces at any junction point -->
+<!-- City Trip Builder Claude - v4.27 - 30/07/2026 - Two additions: (1) Two new interest toggle buttons "אטרקציות - ילדים"/"אטרקציות - מבוגרים" conditionally enforce Places categories via new interestsStr param in ensureCoreCategories (internal types attraction_kids/attraction_adults, distinct to avoid the type-based dedup filter dropping one when both active - verified fetchPlaces never sends `type` to Google, it's internal-only). (2) fetchPlaces FIELD_MASK extended with places.userRatingCount + places.reviews; new shared formatPlaceLine() helper (replacing duplicated inline formatting in both the main-region and secondary-region injection blocks) appends rating count and up to 3 truncated (200 char) review snippets per place, with an inline instruction to rephrase-not-quote and preserve meaning; same instruction reinforced once more in the system prompt's אמינות מקומות section. Cost impact verified against official Google pricing (developers.google.com, checked 30/07/2026): existing rating field already billed at Text Search Enterprise ($35/1000); adding reviews moves it to Text Search Enterprise+Atmosphere ($40/1000) - same call count as before (no extra per-place Details calls), userRatingCount stays in the Enterprise tier already paid for -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -289,6 +289,8 @@ textarea{min-height:68px;resize:vertical}
         <button type="button" class="interest-btn" onclick="toggleInterest(this)">ספורט</button>
         <button type="button" class="interest-btn" onclick="toggleInterest(this)">אדריכלות</button>
         <button type="button" class="interest-btn" onclick="toggleInterest(this)">חיי לילה</button>
+        <button type="button" class="interest-btn" onclick="toggleInterest(this)">אטרקציות - ילדים</button>
+        <button type="button" class="interest-btn" onclick="toggleInterest(this)">אטרקציות - מבוגרים</button>
       </div>
       <input type="text" id="interests-extra" placeholder="תחומי עניין נוספים (אופציונלי)..." />
     </div>
@@ -743,13 +745,21 @@ async function fetchIntent(fields, apiKey) {
 
 // אוכף שקטגוריות הליבה (מסעדות, בתי קפה, לינה) תמיד קיימות בחיפוש Places -
 // גם אם Claude לא כלל אותן בתשובתו, וגם אם fetchIntent נכשל לגמרי (categories=null/ריק)
-function ensureCoreCategories(categories, dest) {
+function ensureCoreCategories(categories, dest, interestsStr) {
   const cats = Array.isArray(categories) ? categories.slice() : [];
   const hasType = t => cats.some(c => c && c.type === t);
   const forced = [];
   if (!hasType('restaurant')) forced.push({ keyword: 'restaurant ' + dest, type: 'restaurant', label: 'מסעדות מקומיות' });
   if (!hasType('cafe')) forced.push({ keyword: 'cafe ' + dest, type: 'cafe', label: 'בתי קפה' });
   if (!hasType('lodging')) forced.push({ keyword: 'hotel ' + dest, type: 'lodging', label: 'לינה / מלונות' });
+  // אטרקציות - נאכף רק אם המשתמש סימן את תחום העניין הרלוונטי (לא נאכף תמיד כמו הליבה למעלה)
+  // type פנימי נפרד לכל תת-קטגוריה (attraction_kids/attraction_adults) - למניעת סינון כפילויות שגוי במיזוג למטה
+  if (interestsStr && interestsStr.includes('אטרקציות - ילדים') && !hasType('attraction_kids')) {
+    forced.push({ keyword: 'attractions for kids ' + dest, type: 'attraction_kids', label: 'אטרקציות לילדים' });
+  }
+  if (interestsStr && interestsStr.includes('אטרקציות - מבוגרים') && !hasType('attraction_adults')) {
+    forced.push({ keyword: 'tourist attractions ' + dest, type: 'attraction_adults', label: 'אטרקציות למבוגרים' });
+  }
   let merged = forced.concat(cats);
   const seen = new Set();
   merged = merged.filter(c => {
@@ -791,7 +801,7 @@ async function fetchPlaces(dest, categories) {
   if (!categories || !categories.length) return [];
   const allPlaces = [];
   const PLACES_NEW_ENDPOINT = 'https://places.googleapis.com/v1/places:searchText';
-  const FIELD_MASK = 'places.displayName,places.formattedAddress,places.rating,places.id';
+  const FIELD_MASK = 'places.displayName,places.formattedAddress,places.rating,places.id,places.userRatingCount,places.reviews';
 
   for (const cat of categories) {
     try {
@@ -816,6 +826,11 @@ async function fetchPlaces(dest, categories) {
           name: p.displayName?.text || '',
           address: p.formattedAddress || '',
           rating: p.rating || null,
+          ratingCount: p.userRatingCount || null,
+          // עד 3 ביקורות, כל אחת מקוצרת ל-200 תו - מספיק חומר ל-Claude לעבד, בלי לנפח את הפרומפט
+          reviewSnippets: Array.isArray(p.reviews)
+            ? p.reviews.slice(0, 3).map(r => (r.text?.text || '').slice(0, 200)).filter(Boolean)
+            : [],
           place_id: p.id || '',
           label: cat.label
         }));
@@ -827,6 +842,19 @@ async function fetchPlaces(dest, categories) {
     }
   }
   return allPlaces;
+}
+
+// פירמוט שורת מקום בודד לפרומפט - כולל דירוג, מספר ביקורות, וציטוטי ביקורות מקוצרים (אם קיימים)
+// פונקציה משותפת - נמנעת מכפילות קוד בין שני מקומות ההזרקה (אזור ראשי + אזורים משניים)
+function formatPlaceLine(p) {
+  let line = '- ' + p.name + ' | ' + p.address;
+  if (p.rating) line += ' | דירוג: ' + p.rating;
+  if (p.ratingCount) line += ' (' + p.ratingCount + ' ביקורות)';
+  if (p.reviewSnippets && p.reviewSnippets.length) {
+    line += '\n  קטעי ביקורות אמיתיות (נסח מחדש במילים שלך, אל תשנה משמעות, אל תשמיט חלקים שליליים אם קיימים): ' +
+      p.reviewSnippets.map(r => '"' + r + '"').join(' / ');
+  }
+  return line;
 }
 
 async function buildTrip() {
@@ -880,6 +908,7 @@ async function buildTrip() {
 - כולל זמני מעבר ריאליים בין אתרים
 - מוסיף טיפ insider לכל אתר
 - אמינות מקומות (קריטי - אין לך מקור נתונים חי): אסור להמציא מקומות שלא קיימים. כשאתה ממליץ על מקום פחות מוכר ואינך בטוח שהוא קיים/פעיל היום - סמן ⚠ והוסף "(לאמת לפני הביקור)". אם אינך מכיר מספיק מקומות לא-תיירותיים אמינים - עדיף להציע קטגוריה ("שוק שכונתי באזור X", "בית קפה מקומי ברחוב Y") מאשר להמציא שם ספציפי שגוי
+- ביקורות אמיתיות שסופקו לצד מקום: מותר לנסח מחדש במילים שלך, אסור לשנות משמעות - אל תשמיט צד שלילי אם קיים, אל תוסיף שבחים או פרטים שלא מופיעים בביקורות עצמן
 - מסעדות - כללים קריטיים:
   * קרא תחילה את שדה ההערות - אם המשתמש ציין הזמנה קיימת (לדוגמה: "הזמנה בקפה קדוש ל-12:30") - אל תציע תחליף לאותה ארוחה, כתוב "הזמנה קיימת" בלבד
   * אם הסיור מתחיל תוך פחות מ-7 ימים: אסור להמליץ על מסעדות שדורשות הזמנה מראש של יותר מ-3 ימים (כולל "מחנה יהודה המסעדה", "מקו", "פרונטו" ודומיהן)
@@ -900,7 +929,7 @@ async function buildTrip() {
   try {
     const intentData = await fetchIntent(fields, apiKey);
     placesDebug.intentData = intentData;
-    const categories = ensureCoreCategories(intentData && intentData.categories, fields.dest);
+    const categories = ensureCoreCategories(intentData && intentData.categories, fields.dest, fields.interests);
     placesDebug.categoriesUsed = categories;
     placesDebug.status = 'intent_ok';
     const placesData = await fetchPlaces(fields.dest, categories);
@@ -910,9 +939,7 @@ async function buildTrip() {
       placesContext = '\n\nמקומות אמיתיים מאומתים מ-Google Places (השתמש בהם בעדיפות גבוהה):\n' +
         placesData.map(cat =>
           '\n' + cat.category + ':\n' +
-          cat.places.map(p =>
-            '- ' + p.name + ' | ' + p.address + (p.rating ? ' | דירוג: ' + p.rating : '')
-          ).join('\n')
+          cat.places.map(formatPlaceLine).join('\n')
         ).join('\n') +
         '\n\nהנחיה: השתמש במקומות הנ"ל כבסיס למסלול. מקומות אלו אומתו כקיימים. תוכל להוסיף מקומות נוספים מהידע שלך אך סמן אותם ב-⚠️';
     } else {
@@ -937,9 +964,7 @@ async function buildTrip() {
             placesContext += '\n\nמקומות אמיתיים מאומתים מ-Google Places באזור ' + regionName + ':\n' +
               regionPlaces.map(cat =>
                 '\n' + cat.category + ':\n' +
-                cat.places.map(p =>
-                  '- ' + p.name + ' | ' + p.address + (p.rating ? ' | דירוג: ' + p.rating : '')
-                ).join('\n')
+                cat.places.map(formatPlaceLine).join('\n')
               ).join('\n');
           }
         } catch(eRegion) {
