@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.36 - 31/07/2026 - Connected index.html to the existing Cloudflare Worker proxy (city-trip-proxy.rikmotnativ.workers.dev) for shared/limited access via a 4-digit access code, alongside the existing personal-API-key path (dual-path, not a replacement). Added: shared transport helper callClaudeAPI(payload, apiKey, accessCode) - routes to Anthropic directly with x-api-key if apiKey is present, otherwise to PROXY_API with accessCode injected into the body if accessCode is present; apiKey wins if both are filled. Reused by all 4 call sites (fetchIntent, buildTrip main call, editItinerary, fetchAiSuggestions) - replacing their individual inline fetch(API,...) blocks, removing per-site x-api-key/anthropic-version/anthropic-dangerous-direct-browser-access header duplication. Added UI: #access-code field (separate localStorage key ctb_accessCode, never mixed with ctb_key) and #quota-remaining display, populated from the proxy's `_remaining` response field via updateRemainingQuota(). Validation at every entry point (buildTrip/editItinerary/suggestRegionCity/suggestSideTrip) now accepts apiKey OR accessCode instead of requiring apiKey. 401/429 special-case error messages in buildTrip preserved via e.status on the thrown error. Not touched: fetchPlaces, ensureCoreCategories, destEn/searchDest logic (Milan fixes, v4.33) - verified byte-identical via diff. Verified: full diff against v4.35 reviewed line-by-line (only the above changed), node syntax check on extracted JS (2 script blocks) passed, div tag balance intact (146/146), all getElementById references resolve to existing IDs, no leftover fetch(API) or stray x-api-key outside callClaudeAPI's direct-key branch -->
+<!-- City Trip Builder Claude - v4.37 - 31/07/2026 - Three independent additions on top of v4.36, none touching the proxy/callClaudeAPI logic (verified via diff - callClaudeAPI and fetchIntent byte-identical to v4.36). (1) Copy-to-clipboard for the Debug panel: extracted the JSON-formatting logic from toggleDebug into a shared buildDebugText(), added copyDebugText(btn) using navigator.clipboard.writeText with try/catch and button-label feedback (checkmark on success, red X on failure, both revert after 1.5s); a "📋 העתק" button added next to all 3 existing Debug trigger buttons (main panel, result-card header, result-card footer) - avoids depending on manual selection or PDF export, which was observed to break RTL direction and markdown strikethrough (~~text~~) syntax. (2) Kid/live-music emoji tagging (👶/🎵): implemented as a system-prompt instruction telling Claude to prefix relevant itinerary-table rows with the emoji while writing the response - deliberately NOT implemented as after-the-fact text/keyword detection, since that fragile approach is exactly what was removed in v4.34 ("ריכוז אטרקציות"). (3) fetchPlaces silent-failure fix: the `if (!res.ok) continue;` line previously skipped failed Google Places category requests (401/403/429/etc) with zero record of what happened, leaving `error: null` in the debug JSON with no diagnostic value - this is what made a real Milan API failure (traced live today to a transient Google-side issue, confirmed via live curl test showing 403 API_KEY_HTTP_REFERRER_BLOCKED from referrer-less curl vs. successful browser-context fetch with real results) take an extended manual diagnosis session to explain. Now records via the existing recordDebugError(source, message) helper with the HTTP status/statusText before continuing the loop - kept as a single overwritten lastError (matching the existing single-error architecture) rather than an array, since in the observed failure pattern all categories fail with the same underlying cause/status, so one status code is sufficient signal; not treated as a reason to restructure the shared recordDebugError helper used by other call sites. QA: node syntax check passed on both script blocks, div tags balanced (146/146), button tags balanced (61/61), full diff against v4.36 reviewed line-by-line (only the 3 intended additions present) -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -376,6 +376,7 @@ textarea{min-height:68px;resize:vertical}
 <div class="error" id="error-box"></div>
 <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
   <button type="button" onclick="toggleDebug()" style="background:#444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🐞 Debug</button>
+  <button type="button" onclick="copyDebugText(this)" style="background:#666;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;margin-right:6px">📋 העתק</button>
 </div>
 <pre id="debug-panel" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;padding:1rem;margin:0 0 8px 0;background:#1a1814;color:#9fe89f;max-height:420px;overflow:auto;direction:ltr;border:1px solid var(--border);border-radius:8px"></pre>
 <button class="btn-build" id="build-btn" onclick="buildTrip()">בנה מסלול מפורט</button>
@@ -396,6 +397,7 @@ textarea{min-height:68px;resize:vertical}
       <button class="rbtn rbtn-pdf" onclick="window.print()">💾 שמור PDF</button>
       <button class="rbtn rbtn-copy" onclick="copyResult()">העתק</button>
       <button class="rbtn" onclick="toggleDebug()" style="background:#444;color:#fff">🐞 Debug</button>
+      <button class="rbtn" onclick="copyDebugText(this)" style="background:#666;color:#fff">📋 העתק Debug</button>
     </div>
   </div>
   <div id="day-maps-row" style="display:none;padding:6px 1.25rem;background:var(--accent-light);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;"></div>
@@ -426,6 +428,7 @@ textarea{min-height:68px;resize:vertical}
       <button class="btn-new" onclick="window.print()">🖨 הדפס</button>
       <button class="btn-new" onclick="window.print()">💾 שמור PDF</button>
       <button class="btn-new" onclick="toggleDebug()" style="background:#444;color:#fff;border-color:#444">🐞 Debug</button>
+      <button class="btn-new" onclick="copyDebugText(this)" style="background:#666;color:#fff;border-color:#666">📋 העתק Debug</button>
     </div>
   </div>
 </div>
@@ -700,36 +703,51 @@ function recordDebugError(source, message, rawResponse) {
   };
 }
 
+function buildDebugText() {
+  if (!lastDebugInfo) return 'אין נתונים עדיין - בנה מסלול קודם.';
+  let out = '';
+  if (lastDebugInfo.sentAt) {
+    out +=
+      '=== נשלח בתאריך: ' + lastDebugInfo.sentAt + ' ===\n\n' +
+      '--- PLACES DEBUG ---\n' +
+      JSON.stringify(lastDebugInfo.places_debug, null, 2) + '\n\n' +
+      '--- REQUEST (מה שנשלח למודל) ---\n' +
+      JSON.stringify(lastDebugInfo.request, null, 2) + '\n\n' +
+      '--- RESPONSE (תשובה גולמית) ---\n' +
+      JSON.stringify(lastDebugInfo.response, null, 2);
+  }
+  if (lastDebugInfo.lastError) {
+    out += (out ? '\n\n' : '') +
+      '--- שגיאה אחרונה (מקור: ' + lastDebugInfo.lastError.source + ', ' + lastDebugInfo.lastError.time + ') ---\n' +
+      lastDebugInfo.lastError.message +
+      (lastDebugInfo.lastError.rawResponse ? '\n\n--- תשובה גולמית שהתקבלה בשגיאה הזו ---\n' + lastDebugInfo.lastError.rawResponse : '');
+  }
+  return out || 'אין נתונים עדיין - בנה מסלול קודם.';
+}
+
 function toggleDebug() {
   const panel = document.getElementById('debug-panel');
   if (!panel) return;
   if (panel.style.display === 'none' || !panel.style.display) {
-    if (!lastDebugInfo) {
-      panel.textContent = 'אין נתונים עדיין - בנה מסלול קודם.';
-    } else {
-      let out = '';
-      if (lastDebugInfo.sentAt) {
-        out +=
-          '=== נשלח בתאריך: ' + lastDebugInfo.sentAt + ' ===\n\n' +
-          '--- PLACES DEBUG ---\n' +
-          JSON.stringify(lastDebugInfo.places_debug, null, 2) + '\n\n' +
-          '--- REQUEST (מה שנשלח למודל) ---\n' +
-          JSON.stringify(lastDebugInfo.request, null, 2) + '\n\n' +
-          '--- RESPONSE (תשובה גולמית) ---\n' +
-          JSON.stringify(lastDebugInfo.response, null, 2);
-      }
-      if (lastDebugInfo.lastError) {
-        out += (out ? '\n\n' : '') +
-          '--- שגיאה אחרונה (מקור: ' + lastDebugInfo.lastError.source + ', ' + lastDebugInfo.lastError.time + ') ---\n' +
-          lastDebugInfo.lastError.message +
-          (lastDebugInfo.lastError.rawResponse ? '\n\n--- תשובה גולמית שהתקבלה בשגיאה הזו ---\n' + lastDebugInfo.lastError.rawResponse : '');
-      }
-      panel.textContent = out || 'אין נתונים עדיין - בנה מסלול קודם.';
-    }
+    panel.textContent = buildDebugText();
     panel.style.display = 'block';
     if (panel.scrollIntoView) panel.scrollIntoView({behavior:'smooth', block:'center'});
   } else {
     panel.style.display = 'none';
+  }
+}
+
+// כפתור העתקה ליד Debug - מעתיק את כל טקסט ה-Debug ל-clipboard בלי תלות בסימון ידני/PDF
+// (PDF שובר כיווני RTL ותגי markdown כמו ~~מחיקה~~, כפי שנצפה בפועל)
+async function copyDebugText(btn) {
+  const text = buildDebugText();
+  const orig = btn ? btn.textContent : '';
+  try {
+    await navigator.clipboard.writeText(text);
+    if (btn) { btn.textContent = '✅ הועתק'; setTimeout(() => { btn.textContent = orig; }, 1500); }
+  } catch(e) {
+    recordDebugError('copyDebugText', e.message);
+    if (btn) { btn.textContent = '❌ שגיאה בהעתקה'; setTimeout(() => { btn.textContent = orig; }, 1500); }
   }
 }
 
@@ -882,7 +900,10 @@ async function fetchPlaces(dest, categories) {
           maxResultCount: 5
         })
       });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        recordDebugError('fetchPlaces (' + cat.label + ')', 'HTTP ' + res.status + (res.statusText ? ' - ' + res.statusText : ''));
+        continue;
+      }
       const data = await res.json();
       const results = data.places || [];
       if (results.length > 0) {
@@ -971,6 +992,7 @@ async function buildTrip() {
 - כותב טבלת שעות מסודרת לכל יום בפורמט מדויק: HH:MM-HH:MM | שם המקום + כתובת מלאה | פעולה
   דוגמה: 10:00-11:30 | שוק מחנה יהודה - רח' מחנה יהודה, ירושלים | סיור בשוק וסמטאות
   חובה: כל שורה בטבלה חייבת לכלול כתובת מדויקת - לא רק שם המקום
+  תיוג: אם שורה בטבלה רלוונטית באופן מובהק לילדים - הוסף 👶 בתחילת שם המקום. אם מדובר במקום עם מוזיקה חיה - הוסף 🎵. אפשר לשלב את שניהם אם רלוונטי. אל תוסיף תיוג "בערך" או לכל מקום - רק כשזה ברור וישיר.
 - כולל זמני מעבר ריאליים בין אתרים
 - מוסיף טיפ insider לכל אתר
 - אמינות מקומות (קריטי - אין לך מקור נתונים חי): אסור להמציא מקומות שלא קיימים. כשאתה ממליץ על מקום פחות מוכר ואינך בטוח שהוא קיים/פעיל היום - סמן ⚠ והוסף "(לאמת לפני הביקור)". אם אינך מכיר מספיק מקומות לא-תיירותיים אמינים - עדיף להציע קטגוריה ("שוק שכונתי באזור X", "בית קפה מקומי ברחוב Y") מאשר להמציא שם ספציפי שגוי
