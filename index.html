@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.35 - 30/07/2026 - Full removal of the v4.34 "ריכוז אטרקציות" feature, per Natalio's decision after cost/benefit evaluation (per newly-added standing instruction: evaluate before implementing, not implement-then-ask). Reasoning for removal: the summary duplicated info already organized (better, per-day/per-context) in the daily itinerary tables; the substring-match detection was fragile (a place phrased slightly differently by Claude than Google's exact name would silently vanish from the summary, risking a misleadingly incomplete list presented as complete); and it was built speculatively rather than against a concrete need. Removed: the toggle button, #attractions-summary-panel div, all three functions (buildAttractionsSummary/renderAttractionsSummaryPanel/toggleAttractionsSummary), and all 6 call sites across buildTrip/editItinerary/resetForm. Net result is functionally identical to v4.33 (Milan destEn/searchDest fixes fully intact, verified separately) - v4.34 is not being kept as dead code, it's fully gone. Verified via full removal-completeness scan (zero remaining references) plus complete QA re-run (syntax, tag balance, handlers, IDs, duplicate functions) -->
+<!-- City Trip Builder Claude - v4.36 - 31/07/2026 - Connected index.html to the existing Cloudflare Worker proxy (city-trip-proxy.rikmotnativ.workers.dev) for shared/limited access via a 4-digit access code, alongside the existing personal-API-key path (dual-path, not a replacement). Added: shared transport helper callClaudeAPI(payload, apiKey, accessCode) - routes to Anthropic directly with x-api-key if apiKey is present, otherwise to PROXY_API with accessCode injected into the body if accessCode is present; apiKey wins if both are filled. Reused by all 4 call sites (fetchIntent, buildTrip main call, editItinerary, fetchAiSuggestions) - replacing their individual inline fetch(API,...) blocks, removing per-site x-api-key/anthropic-version/anthropic-dangerous-direct-browser-access header duplication. Added UI: #access-code field (separate localStorage key ctb_accessCode, never mixed with ctb_key) and #quota-remaining display, populated from the proxy's `_remaining` response field via updateRemainingQuota(). Validation at every entry point (buildTrip/editItinerary/suggestRegionCity/suggestSideTrip) now accepts apiKey OR accessCode instead of requiring apiKey. 401/429 special-case error messages in buildTrip preserved via e.status on the thrown error. Not touched: fetchPlaces, ensureCoreCategories, destEn/searchDest logic (Milan fixes, v4.33) - verified byte-identical via diff. Verified: full diff against v4.35 reviewed line-by-line (only the above changed), node syntax check on extracted JS (2 script blocks) passed, div tag balance intact (146/146), all getElementById references resolve to existing IDs, no leftover fetch(API) or stray x-api-key outside callClaudeAPI's direct-key branch -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -177,7 +177,13 @@ textarea{min-height:68px;resize:vertical}
   <div class="field">
     <label>מפתח API של Claude (Anthropic) 🔑</label>
     <input type="password" id="api-key" placeholder="sk-ant-..." />
-    <span style="font-size:11px;color:var(--muted);margin-top:2px">המפתח לא נשמר ולא נשלח לשום מקום מלבד Anthropic</span>
+    <span style="font-size:11px;color:var(--muted);margin-top:2px">המפתח לא נשמר ולא נשלח לשום מקום מלבד Anthropic. השתמש במפתח שלך <strong>או</strong> בקוד גישה למטה (לא חובה למלא את שניהם).</span>
+  </div>
+  <div class="field">
+    <label>קוד גישה (במקום מפתח API) 🔢</label>
+    <input type="text" id="access-code" placeholder="הזן קוד גישה" />
+    <span style="font-size:11px;color:var(--muted);margin-top:2px">מוגבל ל-10 שימושים ביום, משותף לכל מי שמשתמש באותו קוד. משמש רק אם שדה המפתח למעלה ריק.</span>
+    <span id="quota-remaining" style="font-size:11px;color:var(--muted);margin-top:2px"></span>
   </div>
 </div>
 
@@ -427,12 +433,49 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 const API = 'https://api.anthropic.com/v1/messages';
+const PROXY_API = 'https://city-trip-proxy.rikmotnativ.workers.dev';
 
 window.addEventListener('load', () => {
   const k = localStorage.getItem('ctb_key');
   if (k) document.getElementById('api-key').value = k;
+  const ac = localStorage.getItem('ctb_accessCode');
+  if (ac) document.getElementById('access-code').value = ac;
   updateSavedSuggestionsBadge();
 });
+
+// פונקציית תחבורה משותפת - כל קריאה ל-Claude API עוברת דרכה.
+// אם יש מפתח API אישי - פונה ישירות ל-Anthropic (בלי הגבלה).
+// אחרת, אם יש קוד גישה - פונה דרך הפרוקסי ב-Cloudflare (מוגבל ל-10 בקשות/יום, משותף לכל המשתמשים בקוד).
+// מפתח API מנצח אם שניהם מלאים בו-זמנית.
+async function callClaudeAPI(payload, apiKey, accessCode) {
+  const useProxy = !apiKey && !!accessCode;
+  const url = useProxy ? PROXY_API : API;
+  const headers = { 'Content-Type': 'application/json' };
+  let body = payload;
+  if (useProxy) {
+    body = Object.assign({ accessCode }, payload);
+  } else {
+    headers['x-api-key'] = apiKey;
+    headers['anthropic-version'] = '2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  }
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => null);
+  if (useProxy && data && typeof data._remaining === 'number') updateRemainingQuota(data._remaining);
+  if (!res.ok) {
+    const msg = (data && data.error && data.error.message) || ('שגיאת שרת ' + res.status);
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+function updateRemainingQuota(n) {
+  const el = document.getElementById('quota-remaining');
+  if (!el) return;
+  el.textContent = n <= 0 ? 'המכסה היומית של קוד הגישה נוצלה - נסה שוב מחר' : ('נותרו ' + n + ' שימושים היום בקוד הגישה');
+}
 
 function toggleInterest(btn) { btn.classList.toggle('active'); }
 
@@ -694,7 +737,7 @@ const MAPS_KEY = 'AIzaSyAPr4VeTsgdLYQF7FXslrRWu6HMYQ-tNKg';
 
 // ===== PLACES API FUNCTIONS =====
 
-async function fetchIntent(fields, apiKey) {
+async function fetchIntent(fields, apiKey, accessCode) {
   const intentPrompt = `אתה עוזר לתכנון סיורים. בהתבסס על הנתונים הבאים, החזר JSON בלבד (ללא טקסט נוסף) עם קטגוריות לחיפוש ב-Google Places API.
 
 נתונים:
@@ -721,23 +764,18 @@ async function fetchIntent(fields, apiKey) {
 - keyword באנגלית בלבד, וחייב להיות מונח קטגוריה כללי בלבד (למשל "restaurant", "historic site", "live music venue") - אסור לכלול בו את שם היעד עצמו, הוא יתווסף אוטומטית בשלב החיפוש
 - destEn חובה - שם היעד באנגלית, גם אם היעד הוקלד בעברית (חיוני למניעת בלבול בחיפוש Google Places עם עסקים בשם דומה בישראל)`;
 
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
+  let data;
+  try {
+    data = await callClaudeAPI({
       model: 'claude-sonnet-4-6',
       max_tokens: 500,
       temperature: 0,
       messages: [{ role: 'user', content: intentPrompt }]
-    })
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
+    }, apiKey, accessCode);
+  } catch (e) {
+    recordDebugError('fetchIntent', e.message);
+    return null;
+  }
   const text = data.content?.map(b => b.text || '').join('') || '';
   try {
     const clean = text.replace(/```json|```/g, '').trim();
@@ -888,8 +926,10 @@ async function buildTrip() {
   document.getElementById('error-box').classList.remove('visible');
   if (!dest) { showError('יש להזין יעד נסיעה'); return; }
   const apiKey = document.getElementById('api-key').value.trim();
-  if (!apiKey) { showError('יש להזין Anthropic API Key'); return; }
-  localStorage.setItem('ctb_key', apiKey);
+  const accessCode = document.getElementById('access-code').value.trim();
+  if (!apiKey && !accessCode) { showError('יש להזין Anthropic API Key או קוד גישה'); return; }
+  if (apiKey) localStorage.setItem('ctb_key', apiKey);
+  if (accessCode) localStorage.setItem('ctb_accessCode', accessCode);
   setLoading(true);
 
   const ds = document.getElementById('date-start').value;
@@ -953,7 +993,7 @@ async function buildTrip() {
   let placesContext = '';
   let placesDebug = { status: 'not_started', intentData: null, placesData: null, error: null };
   try {
-    const intentData = await fetchIntent(fields, apiKey);
+    const intentData = await fetchIntent(fields, apiKey, accessCode);
     placesDebug.intentData = intentData;
     const categories = ensureCoreCategories(intentData && intentData.categories, fields.interests);
     placesDebug.categoriesUsed = categories;
@@ -1036,24 +1076,14 @@ async function buildTrip() {
   lastDebugInfo = { sentAt: new Date().toLocaleString('he-IL'), places_debug: placesDebug, request: payload, response: null };
 
   try {
-    const res = await fetch(API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      const msg = errData?.error?.message || 'שגיאת שרת ' + res.status;
-      if (res.status === 401) throw new Error('API Key שגוי או פג תוקף - בדוק את המפתח');
-      if (res.status === 429) throw new Error('חריגה ממגבלת שימוש - נסה שוב בעוד דקה');
-      throw new Error(msg);
+    let data;
+    try {
+      data = await callClaudeAPI(payload, apiKey, accessCode);
+    } catch (e) {
+      if (e.status === 401) throw new Error('API Key שגוי או פג תוקף - בדוק את המפתח');
+      if (e.status === 429) throw new Error('חריגה ממגבלת שימוש - נסה שוב בעוד דקה');
+      throw e;
     }
-    const data = await res.json();
     lastDebugInfo.response = data;
     const text = data.content?.map(b=>b.text||'').join('')||'';
     if (!text) throw new Error('לא התקבלה תשובה');
@@ -1636,7 +1666,8 @@ async function editItinerary() {
   const request = document.getElementById('edit-request').value.trim();
   if (!request) { alert('יש לכתוב בקשת עריכה'); return; }
   const apiKey = document.getElementById('api-key').value.trim();
-  if (!apiKey) { alert('יש להזין API Key'); return; }
+  const accessCode = document.getElementById('access-code').value.trim();
+  if (!apiKey && !accessCode) { alert('יש להזין API Key או קוד גישה'); return; }
 
   const currentItinerary = document.getElementById('result-body').textContent;
   const dest = document.getElementById('destination').value.trim();
@@ -1654,24 +1685,13 @@ ${currentItinerary}
 החזר את המסלול המלא עם השינוי הנדרש בלבד.`;
 
   try {
-    const res = await fetch(API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 16000,
-        temperature: 0.3,
-        system,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    if (!res.ok) throw new Error('שגיאת שרת: ' + res.status);
-    const data = await res.json();
+    const data = await callClaudeAPI({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 16000,
+      temperature: 0.3,
+      system,
+      messages: [{ role: 'user', content: prompt }]
+    }, apiKey, accessCode);
     const text = data.content?.map(b => b.text || '').join('') || '';
     if (!text) throw new Error('לא התקבלה תשובה');
 
@@ -2125,27 +2145,13 @@ async function verifyDistances(list, origin, maxMinutesThreshold) {
 
 // פונקציית עזר משותפת - קריאה ל-Claude API וחילוץ רשימת הצעות JSON.
 // זהה בשתי הפונקציות למטה, אוחד למקום אחד כדי למנוע כפילות קוד.
-async function fetchAiSuggestions(apiKey, prompt) {
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 5000,
-      temperature: 0.3,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData?.error?.message || ('שגיאת שרת ' + res.status));
-  }
-  const data = await res.json();
+async function fetchAiSuggestions(apiKey, accessCode, prompt) {
+  const data = await callClaudeAPI({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 5000,
+    temperature: 0.3,
+    messages: [{ role: 'user', content: prompt }]
+  }, apiKey, accessCode);
   const text = data.content?.map(b => b.text || '').join('') || '';
   const clean = text.replace(/```json|```/g, '').trim();
   let parsed;
@@ -2165,7 +2171,8 @@ async function suggestRegionCity(idx, isRefresh) {
   const errBox = document.getElementById('region-name-err-' + idx);
   if (errBox) errBox.textContent = '';
   const apiKey = document.getElementById('api-key').value.trim();
-  if (!apiKey) { if (errBox) errBox.textContent = 'יש להזין Anthropic API Key למעלה לפני קבלת המלצות'; return; }
+  const accessCode = document.getElementById('access-code').value.trim();
+  if (!apiKey && !accessCode) { if (errBox) errBox.textContent = 'יש להזין Anthropic API Key או קוד גישה למעלה לפני קבלת המלצות'; return; }
   const mainDest = document.getElementById('destination').value.trim();
   if (!mainDest) { if (errBox) errBox.textContent = 'יש להזין תחילה את היעד הראשי של הסיור למעלה'; return; }
   const interests = getInterests();
@@ -2201,7 +2208,7 @@ async function suggestRegionCity(idx, isRefresh) {
 {"suggestions":[{"name":"שם העיר/אזור","distance":"כ-X שעות נסיעה מ-${mainDest}","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
 
   try {
-    const list = await fetchAiSuggestions(apiKey, prompt);
+    const list = await fetchAiSuggestions(apiKey, accessCode, prompt);
     await verifyDistances(list, mainDest, 210); // חריגה משמעותית מ-3 שעות
     window._regionCitySuggestions[idx] = list;
     if (box) {
@@ -2238,7 +2245,8 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
   const errBox = document.getElementById('sidetrip-err-' + tid);
   if (errBox) errBox.textContent = '';
   const apiKey = document.getElementById('api-key').value.trim();
-  if (!apiKey) { if (errBox) errBox.textContent = 'יש להזין Anthropic API Key למעלה לפני קבלת המלצות'; return; }
+  const accessCode = document.getElementById('access-code').value.trim();
+  if (!apiKey && !accessCode) { if (errBox) errBox.textContent = 'יש להזין Anthropic API Key או קוד גישה למעלה לפני קבלת המלצות'; return; }
   const nameEl = document.getElementById('region-name-' + regionIdx);
   const baseName = nameEl ? nameEl.value.trim() : '';
   if (!baseName) { if (errBox) errBox.textContent = 'נא למלא קודם את שם העיר/אזור למעלה לפני בקשת המלצה'; return; }
@@ -2274,7 +2282,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
 
   try {
-    let list = await fetchAiSuggestions(apiKey, prompt);
+    let list = await fetchAiSuggestions(apiKey, accessCode, prompt);
     await verifyDistances(list, baseName, maxMinutesThreshold);
 
     // אם יש הצעות שחורגות בפועל מהסף - ניסיון חוזר יחיד עם משוב אמיתי ל-Claude (לא רק "אל תציע שוב",
@@ -2289,7 +2297,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
       const retryPrompt = `${globalConstraintOpen}המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם.${globalConstraintClose} החזר JSON בלבד באותו פורמט:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
       try {
-        const replacementList = await fetchAiSuggestions(apiKey, retryPrompt);
+        const replacementList = await fetchAiSuggestions(apiKey, accessCode, retryPrompt);
         await verifyDistances(replacementList, baseName, maxMinutesThreshold);
         let ri = 0;
         list = list.map(s => (s.tooFar && ri < replacementList.length) ? replacementList[ri++] : s);
