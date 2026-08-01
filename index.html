@@ -1,4 +1,4 @@
-<!-- City Trip Builder Claude - v4.37 - 31/07/2026 - Three independent additions on top of v4.36, none touching the proxy/callClaudeAPI logic (verified via diff - callClaudeAPI and fetchIntent byte-identical to v4.36). (1) Copy-to-clipboard for the Debug panel: extracted the JSON-formatting logic from toggleDebug into a shared buildDebugText(), added copyDebugText(btn) using navigator.clipboard.writeText with try/catch and button-label feedback (checkmark on success, red X on failure, both revert after 1.5s); a "📋 העתק" button added next to all 3 existing Debug trigger buttons (main panel, result-card header, result-card footer) - avoids depending on manual selection or PDF export, which was observed to break RTL direction and markdown strikethrough (~~text~~) syntax. (2) Kid/live-music emoji tagging (👶/🎵): implemented as a system-prompt instruction telling Claude to prefix relevant itinerary-table rows with the emoji while writing the response - deliberately NOT implemented as after-the-fact text/keyword detection, since that fragile approach is exactly what was removed in v4.34 ("ריכוז אטרקציות"). (3) fetchPlaces silent-failure fix: the `if (!res.ok) continue;` line previously skipped failed Google Places category requests (401/403/429/etc) with zero record of what happened, leaving `error: null` in the debug JSON with no diagnostic value - this is what made a real Milan API failure (traced live today to a transient Google-side issue, confirmed via live curl test showing 403 API_KEY_HTTP_REFERRER_BLOCKED from referrer-less curl vs. successful browser-context fetch with real results) take an extended manual diagnosis session to explain. Now records via the existing recordDebugError(source, message) helper with the HTTP status/statusText before continuing the loop - kept as a single overwritten lastError (matching the existing single-error architecture) rather than an array, since in the observed failure pattern all categories fail with the same underlying cause/status, so one status code is sufficient signal; not treated as a reason to restructure the shared recordDebugError helper used by other call sites. QA: node syntax check passed on both script blocks, div tags balanced (146/146), button tags balanced (61/61), full diff against v4.36 reviewed line-by-line (only the 3 intended additions present) -->
+<!-- City Trip Builder Claude - v4.38 - 01/08/2026 - Full silent-error-swallowing scan across the entire file (per SECTION 11 standing rule), performed before this being declared the final version for the current work cycle - not limited to the diff area. Found one genuine finding: callClaudeAPI's `res.json().catch(() => null)` swallowed malformed-JSON-from-server failures with zero log at the point of failure (it would still surface eventually via the outer buildTrip/editItinerary catch, but as a generic JS TypeError, not a clear "invalid JSON from server" message) - fixed by logging via the existing recordDebugError(source, message) helper before returning null, no behavior change otherwise. All other catch/return-null/continue sites in the file were already logging via recordDebugError or placesDebug.error (visible in Debug) - no further findings. Two further changes bundled in this version, unrelated to the scan and independently approved: (1) businessStatus added to fetchPlaces' existing FIELD_MASK (Places API, no additional API call - same request) and used to filter out CLOSED_PERMANENTLY/CLOSED_TEMPORARILY results before they reach the Claude prompt; places missing the field are not excluded, only explicit closures are filtered. (2) Multi-region toggle label reworded from the technical "סיור מרובה אזורים (כמה עיירות / מלונות באותו סיור)" to the warmer "טיול נודד (עוברים בין כמה אזורים / עיירות / מלונות באותו טיול)", plus the matching internal clarification-field label updated for consistency ("לכל הטיול הנודד" instead of "לכל הסיור המרובה-אזורים") - deliberately did NOT rename to "סיור כוכב" as first proposed, since the feature explicitly supports sequential multi-base trips (e.g. Katowice→Kraków), not just a single-hub star pattern, and "כוכב" would have narrowed the meaning incorrectly; internal code comments and the placeholder example text (which correctly uses "סיור כוכב" as one example of a nomadic trip) were left untouched, as was every internal variable/id/function name (multi-region-toggle, toggleMultiRegion, etc.) - purely a user-facing label change. QA: node syntax check passed, div/button/label tags balanced (146/146, 61/61, 27/27), full diff against v4.37 reviewed line-by-line (only these 3 items present, 15 lines total), no leftover references to the old label text in any user-facing string -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -353,11 +353,11 @@ textarea{min-height:68px;resize:vertical}
     <div class="field full" id="multi-region-block" style="background:var(--accent-light);border:1px solid var(--accent);border-radius:var(--radius);padding:12px 14px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:var(--text)">
         <input type="checkbox" id="multi-region-toggle" onchange="toggleMultiRegion()" style="width:16px;height:16px;cursor:pointer" />
-        סיור מרובה אזורים (כמה עיירות / מלונות באותו סיור)
+        טיול נודד (עוברים בין כמה אזורים / עיירות / מלונות באותו טיול)
       </label>
       <div id="multi-region-container" style="display:none;margin-top:10px">
         <div class="field full" style="margin-bottom:10px">
-          <label style="font-size:12px">הבהרה כללית לכל הסיור המרובה-אזורים (לא חובה)</label>
+          <label style="font-size:12px">הבהרה כללית לכל הטיול הנודד (לא חובה)</label>
           <input type="text" id="multi-region-clarify" placeholder="לדוגמה: זהו סיור כוכב מבוסס קרקוב, רוצים לחזור לקרקוב לליל הסילבסטר" style="font-size:12px;width:100%" />
         </div>
         <div id="region-rows"></div>
@@ -463,7 +463,10 @@ async function callClaudeAPI(payload, apiKey, accessCode) {
     headers['anthropic-dangerous-direct-browser-access'] = 'true';
   }
   const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => null);
+  const data = await res.json().catch((e) => {
+    recordDebugError('callClaudeAPI (JSON פגום מהשרת)', e.message);
+    return null;
+  });
   if (useProxy && data && typeof data._remaining === 'number') updateRemainingQuota(data._remaining);
   if (!res.ok) {
     const msg = (data && data.error && data.error.message) || ('שגיאת שרת ' + res.status);
@@ -883,7 +886,7 @@ async function fetchPlaces(dest, categories) {
   if (!categories || !categories.length) return [];
   const allPlaces = [];
   const PLACES_NEW_ENDPOINT = 'https://places.googleapis.com/v1/places:searchText';
-  const FIELD_MASK = 'places.displayName,places.formattedAddress,places.rating,places.id,places.userRatingCount,places.reviews';
+  const FIELD_MASK = 'places.displayName,places.formattedAddress,places.rating,places.id,places.userRatingCount,places.reviews,places.businessStatus';
 
   for (const cat of categories) {
     try {
@@ -905,7 +908,9 @@ async function fetchPlaces(dest, categories) {
         continue;
       }
       const data = await res.json();
-      const results = data.places || [];
+      // מסננים מקומות שגוגל כבר מסמן כסגורים - אין תוספת קריאת API, businessStatus כבר חלק מאותה תשובה.
+      // אם השדה חסר (לא כל הקטגוריות מחזירות אותו) - לא פוסלים, רק מסננים כשיש קביעה מפורשת שסגור.
+      const results = (data.places || []).filter(p => p.businessStatus !== 'CLOSED_PERMANENTLY' && p.businessStatus !== 'CLOSED_TEMPORARILY');
       if (results.length > 0) {
         const top = results.map(p => ({
           name: p.displayName?.text || '',
