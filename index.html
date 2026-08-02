@@ -1,4 +1,5 @@
-<!-- City Trip Builder Claude - v4.38 - 01/08/2026 - Full silent-error-swallowing scan across the entire file (per SECTION 11 standing rule), performed before this being declared the final version for the current work cycle - not limited to the diff area. Found one genuine finding: callClaudeAPI's `res.json().catch(() => null)` swallowed malformed-JSON-from-server failures with zero log at the point of failure (it would still surface eventually via the outer buildTrip/editItinerary catch, but as a generic JS TypeError, not a clear "invalid JSON from server" message) - fixed by logging via the existing recordDebugError(source, message) helper before returning null, no behavior change otherwise. All other catch/return-null/continue sites in the file were already logging via recordDebugError or placesDebug.error (visible in Debug) - no further findings. Two further changes bundled in this version, unrelated to the scan and independently approved: (1) businessStatus added to fetchPlaces' existing FIELD_MASK (Places API, no additional API call - same request) and used to filter out CLOSED_PERMANENTLY/CLOSED_TEMPORARILY results before they reach the Claude prompt; places missing the field are not excluded, only explicit closures are filtered. (2) Multi-region toggle label reworded from the technical "סיור מרובה אזורים (כמה עיירות / מלונות באותו סיור)" to the warmer "טיול נודד (עוברים בין כמה אזורים / עיירות / מלונות באותו טיול)", plus the matching internal clarification-field label updated for consistency ("לכל הטיול הנודד" instead of "לכל הסיור המרובה-אזורים") - deliberately did NOT rename to "סיור כוכב" as first proposed, since the feature explicitly supports sequential multi-base trips (e.g. Katowice→Kraków), not just a single-hub star pattern, and "כוכב" would have narrowed the meaning incorrectly; internal code comments and the placeholder example text (which correctly uses "סיור כוכב" as one example of a nomadic trip) were left untouched, as was every internal variable/id/function name (multi-region-toggle, toggleMultiRegion, etc.) - purely a user-facing label change. QA: node syntax check passed, div/button/label tags balanced (146/146, 61/61, 27/27), full diff against v4.37 reviewed line-by-line (only these 3 items present, 15 lines total), no leftover references to the old label text in any user-facing string -->
+<!-- City Trip Builder Claude - v4.41 - 02/08/2026 - תיקון נקודתי שאותר בסריקת עומק מלאה של הקובץ (לא קשור לבאג ההחרגה של v4.39/v4.40): 4 קריאות JSON.parse(localStorage.getItem('ctb_history')) ב-saveItinerary/renderHistory/loadItinerary/deleteItinerary היו לא מוגנות ב-try/catch, בניגוד לתבנית הקיימת ב-getSavedSuggestions() (מפתח localStorage אחר, ctb_saved_suggestions) שכן מוגנת. סיכון: אם ctb_history ייפגם אי פעם (עריכה ידנית, תקלה עתידית) - כל פיצ'ר "מסלולים שמורים" (📂) היה קורס בשקט עם שגיאה לא תפוסה, בלי תיעוד ב-Debug panel. התיקון: פונקציית עזר חדשה getHistory() - עוטפת את הקריאה ב-try/catch עם recordDebugError, בדיוק כמו התבנית ב-getSavedSuggestions(). 4 מקומות הקריאה הישירה הוחלפו בקריאה ל-getHistory(). שום התנהגות קיימת לא השתנתה כש-JSON תקין. QA: node --check עבר, אין כפילות id חדשה, כל 4 מקומות הקריאה אומתו שמפנים ל-getHistory() בפועל. -->
+
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -307,6 +308,11 @@ textarea{min-height:68px;resize:vertical}
     <div class="field full">
       <label>אזורים - רחובות שווקים מעניינים ומיוחדים</label>
       <input type="text" id="areas" placeholder="לדוגמה: נחלאות, שוק מחנה יהודה, העיר העתיקה..." />
+    </div>
+
+    <div class="field full">
+      <label>להימנע מ / להחריג (אופציונלי)</label>
+      <input type="text" id="exclude" placeholder="לדוגמה: אתרי שואה, קניונים, מסעדות בשר..." />
     </div>
 
     <div class="field">
@@ -767,6 +773,7 @@ async function fetchIntent(fields, apiKey, accessCode) {
 - תחומי עניין: ${fields.interests}
 - אוכל: ${fields.food}
 - תקציב: ${fields.budget}
+- להחריג לגמרי (הגבלה מחייבת, לא העדפה): ${fields.exclude || 'אין'}
 
 החזר בפורמט הזה בדיוק:
 {
@@ -780,6 +787,7 @@ async function fetchIntent(fields, apiKey, accessCode) {
 - תמיד כלול: מסעדות (restaurant), בתי קפה (cafe), לינה/מלונות (lodging)
 - שווקים (market) - כלול לפי רלוונטיות ליעד ולתחומי עניין, לא באופן קבוע
 - הוסף לפי תחומי עניין: מוזיאונים, פארקים, גלריות, ברים, אתרים היסטוריים
+- אם יש שדה "להחריג" - אל תיצור keyword/type שסביר להניח שיחזיר בעיקר תוצאות מהנושא המוחרג (למשל אם הוחרג "אתרי שואה" - אל תיצור קטגוריה כללית "historic site"/"memorial" שתמשוך בעיקר אתרים כאלה; אפשר עדיין "museum" כללי אם רלוונטי לתחומי עניין אחרים)
 - אל תכלול אטרקציות לילדים אם לא צוינו ילדים בקבוצה
 - מקסימום 6 קטגוריות
 - keyword באנגלית בלבד, וחייב להיות מונח קטגוריה כללי בלבד (למשל "restaurant", "historic site", "live music venue") - אסור לכלול בו את שם היעד עצמו, הוא יתווסף אוטומטית בשלב החיפוש
@@ -947,6 +955,65 @@ function formatPlaceLine(p) {
   return line;
 }
 
+// שלב 3 בטיפול בבאג ההחרגה (ראו הערת גרסה בשורה 1) - שכבה קשיחה, ברמת קוד, לא תלוית ציות המודל.
+// מסננת מקומות מוחרגים מתוך placesData *לפני* שהם נכנסים לפרומפט הראשי של buildTrip - באותו עיקרון
+// שכבר קיים ב-fetchPlaces לסינון CLOSED_PERMANENTLY/CLOSED_TEMPORARILY (v4.38), רק שכאן הקריטריון
+// סמנטי (זקוק לשיפוט של Claude) ולא שדה בוליאני פשוט מה-API.
+// כשל בקריאה עצמה = fail-open במכוון (מוחזר placesData המקורי ללא שינוי + תיעוד ל-Debug) -
+// תקלת רשת/JSON בסינון לא אמורה לחסום בניית מסלול שלמה או למחוק מקומות תקינים בטעות.
+async function filterExcludedPlaces(placesData, excludeStr, apiKey, accessCode) {
+  if (!excludeStr || !placesData || !placesData.length) {
+    return { filtered: placesData || [], removed: [], error: null };
+  }
+  const allNames = [];
+  placesData.forEach(cat => (cat.places || []).forEach(p => { if (p.name) allNames.push(p.name); }));
+  const uniqueNames = Array.from(new Set(allNames));
+  if (!uniqueNames.length) return { filtered: placesData, removed: [], error: null };
+
+  const filterPrompt = `להלן רשימת שמות מקומות אמיתיים ביעד תיירותי, ולצדם נושא להחרגה מלאה מהמסלול.
+
+נושא ההחרגה: "${excludeStr}"
+
+רשימת מקומות:
+${uniqueNames.map(n => '- ' + n).join('\n')}
+
+סמן אילו מהמקומות ברשימה שייכים מבחינה נושאית/תוכנית להחרגה - שפוט לפי המשמעות, לא רק לפי התאמת מילים. לדוגמה: אם ההחרגה היא "מחנות", "Auschwitz-Birkenau Memorial and Museum" כן שייך להחרגה למרות שהמילה "מחנה" לא מופיעה בשמו באנגלית.
+
+החזר JSON בלבד, ללא טקסט נוסף, בפורמט הזה בדיוק:
+{"excludeNames": ["שם מדויק כפי שמופיע ברשימה למעלה", "..."]}
+אם אף מקום לא שייך להחרגה - החזר {"excludeNames": []}`;
+
+  let data;
+  try {
+    data = await callClaudeAPI({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 800,
+      temperature: 0,
+      messages: [{ role: 'user', content: filterPrompt }]
+    }, apiKey, accessCode);
+  } catch (e) {
+    recordDebugError('filterExcludedPlaces', e.message);
+    return { filtered: placesData, removed: [], error: e.message };
+  }
+  const text = data.content?.map(b => b.text || '').join('') || '';
+  let excludeNames;
+  try {
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    excludeNames = Array.isArray(parsed.excludeNames) ? parsed.excludeNames : [];
+  } catch(e) {
+    recordDebugError('filterExcludedPlaces', e.message, text);
+    return { filtered: placesData, removed: [], error: e.message };
+  }
+  if (!excludeNames.length) return { filtered: placesData, removed: [], error: null };
+
+  const excludeSet = new Set(excludeNames);
+  const filtered = placesData
+    .map(cat => ({ category: cat.category, places: (cat.places || []).filter(p => !excludeSet.has(p.name)) }))
+    .filter(cat => cat.places.length > 0);
+  return { filtered, removed: excludeNames, error: null };
+}
+
 async function buildTrip() {
   const dest = document.getElementById('destination').value.trim();
   document.getElementById('error-box').classList.remove('visible');
@@ -977,6 +1044,7 @@ async function buildTrip() {
     budget: document.getElementById('budget').value || 'לא צוין',
     interests: getInterests(),
     areas: document.getElementById('areas').value || '',
+    exclude: document.getElementById('exclude').value || '',
     hours: hs+' עד '+he+(lunch?' (כולל הפסקת צהריים)':''),
     familiarity: document.getElementById('familiarity_level').value || 'level1',
     visited: document.getElementById('visited').value || '',
@@ -991,6 +1059,8 @@ async function buildTrip() {
 - level2 (מכיר חלקית): עד שליש מהמסלול מ-DEFAULT_LIST, השאר מקומות פחות מוכרים.
 - level3 (מנוסה מאוד): אסור להשתמש במקומות מ-DEFAULT_LIST כלל (אלא אם המשתמש ביקש מפורשות בהערות). התמקד אך ורק במקומות מקומיים, שכונתיים ופחות תיירותיים.
   חשוב: מקומות שסופקו ברשימת Google Places - חובה להשתמש בהם בשמם המלא, גם ברמת level3. האיסור על DEFAULT_LIST חל רק על מקומות שאתה מוסיף מהידע שלך.
+
+הוראת החרגה (אם קיימת בנתונים למטה, בשדה "להחריג") - הגבלה מחייבת, לא העדפה: אם מקום כלשהו - כולל מקום שסופק ברשימת Google Places המאומתת - שייך מבחינה נושאית/תוכנית לנושא שהוחרג (גם אם שם המקום עצמו לא מכיל את מילת ההחרגה במפורש, למשל הוחרג "מחנות" ושם המקום הוא "Auschwitz-Birkenau Memorial and Museum") - אסור לכלול אותו במסלול בשום צורה, ואסור להציע לו תחליף מאותו נושא. הוראה זו גוברת על ההנחיה למעלה להשתמש בשמם המלא של מקומות מאומתים.
 
 הכללים שלך:
 - בונה מסלול ריאלי - לא דוחס יותר מדי אתרים
@@ -1030,10 +1100,16 @@ async function buildTrip() {
     placesDebug.searchDest = searchDest;
     const placesData = await fetchPlaces(searchDest, categories);
     placesDebug.placesData = placesData;
-    if (placesData && placesData.length > 0) {
+    let placesDataForPrompt = placesData;
+    if (fields.exclude) {
+      const filterResult = await filterExcludedPlaces(placesData, fields.exclude, apiKey, accessCode);
+      placesDataForPrompt = filterResult.filtered;
+      placesDebug.excludeFilter = { excludeStr: fields.exclude, removed: filterResult.removed, error: filterResult.error };
+    }
+    if (placesDataForPrompt && placesDataForPrompt.length > 0) {
       placesDebug.status = 'places_ok';
       placesContext = '\n\nמקומות אמיתיים מאומתים מ-Google Places (השתמש בהם בעדיפות גבוהה):\n' +
-        placesData.map(cat =>
+        placesDataForPrompt.map(cat =>
           '\n' + cat.category + ':\n' +
           cat.places.map(formatPlaceLine).join('\n')
         ).join('\n') +
@@ -1056,9 +1132,17 @@ async function buildTrip() {
         try {
           const regionPlaces = await fetchPlaces(regionName, categories);
           placesDebug.regionPlacesData[regionName] = regionPlaces;
-          if (regionPlaces && regionPlaces.length > 0) {
+          let regionPlacesForPrompt = regionPlaces;
+          if (fields.exclude && regionPlaces && regionPlaces.length > 0) {
+            const regionFilterResult = await filterExcludedPlaces(regionPlaces, fields.exclude, apiKey, accessCode);
+            regionPlacesForPrompt = regionFilterResult.filtered;
+            if (!placesDebug.excludeFilter) placesDebug.excludeFilter = { excludeStr: fields.exclude, removed: [], error: null };
+            placesDebug.excludeFilter.removed = placesDebug.excludeFilter.removed.concat(regionFilterResult.removed);
+            if (regionFilterResult.error) placesDebug.excludeFilter.error = regionFilterResult.error;
+          }
+          if (regionPlacesForPrompt && regionPlacesForPrompt.length > 0) {
             placesContext += '\n\nמקומות אמיתיים מאומתים מ-Google Places באזור ' + regionName + ':\n' +
-              regionPlaces.map(cat =>
+              regionPlacesForPrompt.map(cat =>
                 '\n' + cat.category + ':\n' +
                 cat.places.map(formatPlaceLine).join('\n')
               ).join('\n');
@@ -1089,6 +1173,7 @@ async function buildTrip() {
 - תקציב: ${fields.budget}
 - תחומי עניין: ${fields.interests}
 - אזורים מועדפים: ${fields.areas||'לא צוין'}
+- להחריג לגמרי מהמסלול (הגבלה מחייבת): ${fields.exclude || 'אין'}
 - מלון: ${fields.hotel}
 - הערות: ${fields.notes}${placesContext}${placesNote}${multiRegionText}
 לכל יום: כותרת + טבלת שעות + המלצות אוכל (בוקר/צהריים/ערב) + טיפ insider + טיפ היום + אפשרות בונוס.`;
@@ -1431,6 +1516,17 @@ function computeDefaultItineraryTitle() {
   return firstRegionName ? (firstRegionName + ' - ' + dest) : dest;
 }
 
+// קריאת ctb_history מ-localStorage - עטופה ב-try/catch (תואם את התבנית הקיימת ב-getSavedSuggestions),
+// כדי שנתונים פגומים לא יקרסו את כל פיצ'ר "מסלולים שמורים" בשקט וללא תיעוד ב-Debug.
+function getHistory() {
+  try {
+    return JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  } catch (e) {
+    recordDebugError('getHistory', e.message);
+    return [];
+  }
+}
+
 function saveItinerary() {
   const dest = document.getElementById('destination').value.trim();
   const text = document.getElementById('result-body').innerHTML;
@@ -1439,7 +1535,7 @@ function saveItinerary() {
   const name = prompt('שם המסלול:', computeDefaultItineraryTitle() + ' - ' + new Date().toLocaleDateString('he-IL'));
   if (!name) return;
   
-  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  const saved = getHistory();
   saved.unshift({ name, dest, html: text, date: new Date().toLocaleDateString('he-IL'), version: itineraryVersion });
   if (saved.length > 10) saved.pop(); // max 10
   localStorage.setItem('ctb_history', JSON.stringify(saved));
@@ -1459,7 +1555,7 @@ function toggleHistory() {
 
 // Render history list
 function renderHistory() {
-  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  const saved = getHistory();
   const list = document.getElementById('history-list');
   
   if (saved.length === 0) {
@@ -1483,7 +1579,7 @@ function renderHistory() {
 
 // Load saved itinerary
 function loadItinerary(index) {
-  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  const saved = getHistory();
   const item = saved[index];
   if (!item) return;
   
@@ -1497,7 +1593,7 @@ function loadItinerary(index) {
 
 // Delete saved itinerary
 function deleteItinerary(index) {
-  const saved = JSON.parse(localStorage.getItem('ctb_history') || '[]');
+  const saved = getHistory();
   saved.splice(index, 1);
   localStorage.setItem('ctb_history', JSON.stringify(saved));
   renderHistory();
@@ -1743,6 +1839,7 @@ function resetForm() {
   document.getElementById('num-people').value='2';
   document.getElementById('interests-extra').value='';
   document.getElementById('areas').value='';
+  document.getElementById('exclude').value='';
   document.getElementById('familiarity_level').value='level1';
   document.getElementById('visited').value='';
   document.getElementById('hotel').value='';
