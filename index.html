@@ -1,3 +1,7 @@
+<!-- City Trip Builder Claude - v4.43 - 03/08/2026 - שלושה תיקונים שאותרו בסריקת עומק מלאה (יזומה, לא קשורה לבאג ספציפי): (1) אבטחה/עקביות: fetchWeather() הכניס את קלט המשתמש הגולמי dest (שדה היעד) ל-innerHTML בלי escapeHtmlLocal, בניגוד לתבנית העקבית ב-9 מקומות אחרים בקובץ שכן משתמשים בה לתוכן שמגיע מ-AI/API. תוקן: נוסף escapeHtmlLocal(dest). (2) Edge case: loadMapsApiForPlaces() - אם הטעינה הראשונה של סקריפט Google Maps תקועה (mapsApiLoading=true, mapsApiLoaded אף פעם לא הופך true), ה-setInterval הפנימי המשיך לבדוק כל 200ms ללא הגבלה - המשתמש נתקע על "מחפש תחזית..." בלי הודעת שגיאה, כי ה-Promise (רק resolve, בלי reject) אף פעם לא הסתיים. תוקן: נוסף reject לחוזה ה-Promise, מונה ניסיונות עם timeout של 15 שניות (75x200ms), ו-script.onerror לתפיסת כשל טעינה מיידי. שני קוראי הפונקציה (fetchWeather שורה ~557, getTravelDistance שורה ~2231) כבר עטופים ב-try/catch שמטפל בשגיאה - אומת לפני השינוי. (3) פער תיעוד: ההוראה הקבועה טענה שהגרסה בהערת HTML "מתפשטת אוטומטית לכותרת" - בפועל לא היה קוד שעושה זאת (תג <title> היה טקסט קבוע). נוסף קבוע APP_VERSION בתחילת ה-script הראשי שמעדכן את document.title בפועל - מקור אמת יחיד לעדכן מעכשיו בכל שינוי גרסה, יחד עם הערת ה-HTML הזו. QA: diff מול v4.42 אישר 4 שינויים בלבד (3 התיקונים + שורת הגרסה עצמה), שום קוד קיים אחר לא נגע. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
+<!-- City Trip Builder Claude - v4.42 - 03/08/2026 - תיקון הודעת שגיאה מטעה בחריגת מכסה (429) בנתיב הפרוקסי (קוד גישה משותף). באג: if (e.status === 429) הציגה תמיד טקסט קבוע "חריגה ממגבלת שימוש - נסה שוב בעוד דקה" - שגוי, כי המגבלה בפועל היא יומית (DAILY_LIMIT=10 ב-Worker), לא לדקה. התיקון: הוסר הטקסט הקבוע, ובמקומו מוצג e.message - ההודעה האמיתית שכבר חוזרת מה-Worker ("הגעת למגבלה היומית (10 בקשות), נסה שוב מחר") ונבנית כראוי ב-callClaudeAPI (data.error.message). נשאר fallback טקסט גנרי רק למקרה ש-e.message ריק. שינוי שורה אחת בלבד. QA: diff מול הגרסה הקודמת אישר ששום קוד אחר לא נגע; נסרקו כל 6 בלוקי catch(e) בקובץ וכל 2 מקומות !res.ok - כולם מתעדים ב-recordDebugError או console.warn, אין בליעת שגיאות שקטה. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
 <!-- City Trip Builder Claude - v4.41 - 02/08/2026 - תיקון נקודתי שאותר בסריקת עומק מלאה של הקובץ (לא קשור לבאג ההחרגה של v4.39/v4.40): 4 קריאות JSON.parse(localStorage.getItem('ctb_history')) ב-saveItinerary/renderHistory/loadItinerary/deleteItinerary היו לא מוגנות ב-try/catch, בניגוד לתבנית הקיימת ב-getSavedSuggestions() (מפתח localStorage אחר, ctb_saved_suggestions) שכן מוגנת. סיכון: אם ctb_history ייפגם אי פעם (עריכה ידנית, תקלה עתידית) - כל פיצ'ר "מסלולים שמורים" (📂) היה קורס בשקט עם שגיאה לא תפוסה, בלי תיעוד ב-Debug panel. התיקון: פונקציית עזר חדשה getHistory() - עוטפת את הקריאה ב-try/catch עם recordDebugError, בדיוק כמו התבנית ב-getSavedSuggestions(). 4 מקומות הקריאה הישירה הוחלפו בקריאה ל-getHistory(). שום התנהגות קיימת לא השתנתה כש-JSON תקין. QA: node --check עבר, אין כפילות id חדשה, כל 4 מקומות הקריאה אומתו שמפנים ל-getHistory() בפועל. -->
 
 <!DOCTYPE html>
@@ -441,6 +445,10 @@ textarea{min-height:68px;resize:vertical}
 
 </div>
 <script>
+// מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
+const APP_VERSION = 'v4.43';
+document.title = 'City Trip Builder Claude ' + APP_VERSION;
+
 const API = 'https://api.anthropic.com/v1/messages';
 const PROXY_API = 'https://city-trip-proxy.rikmotnativ.workers.dev';
 
@@ -547,7 +555,7 @@ async function fetchWeather() {
   const widget = document.getElementById('weather-widget');
   const content = document.getElementById('weather-content');
   widget.classList.add('visible');
-  content.innerHTML = '<span class="weather-loading">מחפש תחזית עבור ' + dest + '...</span>';
+  content.innerHTML = '<span class="weather-loading">מחפש תחזית עבור ' + escapeHtmlLocal(dest) + '...</span>';
   weatherData = null;
 
   try {
@@ -865,14 +873,19 @@ function ensureCoreCategories(categories, interestsStr) {
 }
 
 function loadMapsApiForPlaces() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     if (window.google && window.google.maps && window.google.maps.places) {
       resolve(); return;
     }
     if (mapsApiLoaded) { resolve(); return; }
     if (mapsApiLoading) {
+      // הגבלת המתנה ל-15 שניות (75 בדיקות של 200ms) - למניעת polling אינסופי אם הטעינה תקועה.
+      let attempts = 0;
+      const MAX_ATTEMPTS = 75;
       const check = setInterval(() => {
-        if (mapsApiLoaded) { clearInterval(check); resolve(); }
+        attempts++;
+        if (mapsApiLoaded) { clearInterval(check); resolve(); return; }
+        if (attempts >= MAX_ATTEMPTS) { clearInterval(check); reject(new Error('טעינת Google Maps נכשלה (timeout) - בדוק חיבור לאינטרנט')); }
       }, 200);
       return;
     }
@@ -881,6 +894,7 @@ function loadMapsApiForPlaces() {
     script.src = 'https://maps.googleapis.com/maps/api/js?key=' + MAPS_KEY + '&libraries=places&callback=onMapsReady&language=he';
     script.async = true;
     script.defer = true;
+    script.onerror = function() { mapsApiLoading = false; reject(new Error('טעינת Google Maps נכשלה - בדוק חיבור לאינטרנט')); };
     const origReady = window.onMapsReady;
     window.onMapsReady = function() {
       if (origReady) origReady();
@@ -1193,7 +1207,7 @@ async function buildTrip() {
       data = await callClaudeAPI(payload, apiKey, accessCode);
     } catch (e) {
       if (e.status === 401) throw new Error('API Key שגוי או פג תוקף - בדוק את המפתח');
-      if (e.status === 429) throw new Error('חריגה ממגבלת שימוש - נסה שוב בעוד דקה');
+      if (e.status === 429) throw new Error(e.message || 'חריגה ממגבלת שימוש');
       throw e;
     }
     lastDebugInfo.response = data;
