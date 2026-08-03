@@ -1,3 +1,7 @@
+<!-- City Trip Builder Claude - v4.45 - 03/08/2026 - שדה "קוד גישה" הפך למוסתר (type="password" במקום type="text"), כמו שדה מפתח ה-API, כדי שהקוד לא יוצג כטקסט גלוי על המסך בזמן הקלדה. שינוי תכונת HTML יחידה, אין השפעה על קריאת הערך ב-JS (element.value זהה בשני הסוגים). QA: diff מול v4.44 אישר שינוי תכונה אחת בלבד. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
+<!-- City Trip Builder Claude - v4.44 - 03/08/2026 - תיקון חילוץ הודעת שגיאה ב-callClaudeAPI, התגלה תוך כדי אבחון תקלת timeout 524. באג: const msg = (data && data.error && data.error.message) || ... ציפה ש-data.error יהיה תמיד אובייקט עם שדה .message - אבל שגיאות שה-Worker עצמו יוצר (401/429/504 וכו') מחזירות error כמחרוזת ישירה, לא כאובייקט. מחרוזות ב-JS אין להן .message, אז ה-fallback הגנרי ("שגיאת שרת XXX") הוצג תמיד במקום ההודעה האמיתית מה-Worker - כולל תיקון ה-429 מ-v4.43 שהתברר כלא עבד בפועל בבדיקה חיה. חשוב: המקרה השני (שגיאה מועברת ישירות מ-Anthropic API, למשל עומס/בקשה שגויה) כן מחזיר error כאובייקט עם .message - התיקון חייב לתמוך בשני הפורמטים. התיקון: errField = data.error; msg = מחרוזת ישירה אם היא מחרוזת, אחרת errField.message אם קיים, אחרת fallback גנרי. QA: diff מול v4.43 אישר שינוי לוגי יחיד (שורה אחת הוחלפה בשתיים), שום קוד אחר לא נגע. בדיקה חיה טרם בוצעה - ממתין להעלאה. מקביל: worker.js דורש עדכון נפרד (הגנת try/catch על anthropicRes.json, מטופל ע"י המשתמש ישירות בעורך Cloudflare). -->
+
 <!-- City Trip Builder Claude - v4.43 - 03/08/2026 - שלושה תיקונים שאותרו בסריקת עומק מלאה (יזומה, לא קשורה לבאג ספציפי): (1) אבטחה/עקביות: fetchWeather() הכניס את קלט המשתמש הגולמי dest (שדה היעד) ל-innerHTML בלי escapeHtmlLocal, בניגוד לתבנית העקבית ב-9 מקומות אחרים בקובץ שכן משתמשים בה לתוכן שמגיע מ-AI/API. תוקן: נוסף escapeHtmlLocal(dest). (2) Edge case: loadMapsApiForPlaces() - אם הטעינה הראשונה של סקריפט Google Maps תקועה (mapsApiLoading=true, mapsApiLoaded אף פעם לא הופך true), ה-setInterval הפנימי המשיך לבדוק כל 200ms ללא הגבלה - המשתמש נתקע על "מחפש תחזית..." בלי הודעת שגיאה, כי ה-Promise (רק resolve, בלי reject) אף פעם לא הסתיים. תוקן: נוסף reject לחוזה ה-Promise, מונה ניסיונות עם timeout של 15 שניות (75x200ms), ו-script.onerror לתפיסת כשל טעינה מיידי. שני קוראי הפונקציה (fetchWeather שורה ~557, getTravelDistance שורה ~2231) כבר עטופים ב-try/catch שמטפל בשגיאה - אומת לפני השינוי. (3) פער תיעוד: ההוראה הקבועה טענה שהגרסה בהערת HTML "מתפשטת אוטומטית לכותרת" - בפועל לא היה קוד שעושה זאת (תג <title> היה טקסט קבוע). נוסף קבוע APP_VERSION בתחילת ה-script הראשי שמעדכן את document.title בפועל - מקור אמת יחיד לעדכן מעכשיו בכל שינוי גרסה, יחד עם הערת ה-HTML הזו. QA: diff מול v4.42 אישר 4 שינויים בלבד (3 התיקונים + שורת הגרסה עצמה), שום קוד קיים אחר לא נגע. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
 
 <!-- City Trip Builder Claude - v4.42 - 03/08/2026 - תיקון הודעת שגיאה מטעה בחריגת מכסה (429) בנתיב הפרוקסי (קוד גישה משותף). באג: if (e.status === 429) הציגה תמיד טקסט קבוע "חריגה ממגבלת שימוש - נסה שוב בעוד דקה" - שגוי, כי המגבלה בפועל היא יומית (DAILY_LIMIT=10 ב-Worker), לא לדקה. התיקון: הוסר הטקסט הקבוע, ובמקומו מוצג e.message - ההודעה האמיתית שכבר חוזרת מה-Worker ("הגעת למגבלה היומית (10 בקשות), נסה שוב מחר") ונבנית כראוי ב-callClaudeAPI (data.error.message). נשאר fallback טקסט גנרי רק למקרה ש-e.message ריק. שינוי שורה אחת בלבד. QA: diff מול הגרסה הקודמת אישר ששום קוד אחר לא נגע; נסרקו כל 6 בלוקי catch(e) בקובץ וכל 2 מקומות !res.ok - כולם מתעדים ב-recordDebugError או console.warn, אין בליעת שגיאות שקטה. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
@@ -186,7 +190,7 @@ textarea{min-height:68px;resize:vertical}
   </div>
   <div class="field">
     <label>קוד גישה (במקום מפתח API) 🔢</label>
-    <input type="text" id="access-code" placeholder="הזן קוד גישה" />
+    <input type="password" id="access-code" placeholder="הזן קוד גישה" />
     <span style="font-size:11px;color:var(--muted);margin-top:2px">מוגבל ל-10 שימושים ביום, משותף לכל מי שמשתמש באותו קוד. משמש רק אם שדה המפתח למעלה ריק.</span>
     <span id="quota-remaining" style="font-size:11px;color:var(--muted);margin-top:2px"></span>
   </div>
@@ -446,7 +450,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.43';
+const APP_VERSION = 'v4.45';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -483,7 +487,8 @@ async function callClaudeAPI(payload, apiKey, accessCode) {
   });
   if (useProxy && data && typeof data._remaining === 'number') updateRemainingQuota(data._remaining);
   if (!res.ok) {
-    const msg = (data && data.error && data.error.message) || ('שגיאת שרת ' + res.status);
+    const errField = data && data.error;
+    const msg = (typeof errField === 'string' && errField) || (errField && errField.message) || ('שגיאת שרת ' + res.status);
     const err = new Error(msg);
     err.status = res.status;
     throw err;
