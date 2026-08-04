@@ -1,3 +1,7 @@
+<!-- City Trip Builder Claude - v4.47 - 04/08/2026 - הרחבת תיקון v4.46 (כפילות ספורט) לשלושת תחומי העניין הנוספים באותה פונקציה: ילדים (attraction_kids), מבוגרים (attraction_adults), מוזיקה (interest_music) - אותו דפוס באג מבני היה קיים בכולם: הבדיקה !hasType(...) בדקה רק type מדויק, לא תוכן, ולכן לא הייתה תופסת מצב שבו Claude מחזיר קטגוריה עם type שונה אך אותו נושא בפועל (בדיוק כמו "sports stadium"/tourist_attraction מול "sports venue"/interest_sports ב-v4.46). לא אומת עדיין live בכפילות ממשית עבור שלושת התחומים האלה (רק בספורט יש הוכחה מ-Debug בפועל) - זו הגנה מבנית מונעת, לא תיקון תגובתי מאומת. התיקון: הופשטה לפונקציית עזר משותפת hasSimilarCategory(re) שמחליפה את hasSportsAlready הייעודי מ-v4.46, ומופעלת בכל ארבע הבדיקות עם regex ייעודי לכל תחום (kid|child|family / tourist|attraction|landmark|sight / music|concert|jazz / sport|stadium). מגבלה ידועה: מילות המפתח ש-Claude בפועל משתמש בהן לא תמיד תואמות את הרג'קס (למשל "family attractions" יתפוס kids, אבל "playground" לא) - זו הפחתת סיכון, לא ערבות מוחלטת לאפס כפילויות. עדיין לא פותר את מנגנון ה-524 עצמו - נדרש streaming (תיעוד קודם) לפתרון שורש. QA: diff מול v4.46 אישר שהשינוי מוגבל לארבע שורות התנאי בתוך ensureCoreCategories בלבד, שום קוד אחר לא נגע. תחביר JS אומת (new Function על שני בלוקי ה-script). בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
+<!-- City Trip Builder Claude - v4.46 - 04/08/2026 - תיקון כפילות בקטגוריית ספורט: ensureCoreCategories() הוסיף קטגוריית "sports venue" (type: interest_sports) גם כש-Claude כבר החזיר קטגוריה תוכנית זהה בשם/type שונה (למשל "sports stadium", type: tourist_attraction) - הבדיקה הקיימת !hasType('interest_sports') בדקה רק type מדויק, לא תוכן. התגלה תוך כדי אבחון תקלת timeout 524 בבדיקה חיה (מסלול לונדון, 4 ימים, תחומי עניין: אוכל/שופינג/ספורט) - קובץ Debug גולמי הראה 5 מקומות זהים (כולל כל טקסטי הביקורות) מוכפלים תחת שתי קטגוריות שונות, מכפיל את נפח הבקשה ל-Claude. תוקן: נוספה בדיקת hasSportsAlready לפי regex על שדה keyword (/sport|stadium/i) לפני הוספת הקטגוריה. QA: diff מול v4.45 אישר שינוי לוגי יחיד (שורה אחת הוחלפה בשתיים בתוך ensureCoreCategories), שום קוד אחר לא נגע. תחביר JS אומת (new Function על כל בלוקי ה-script). לא פותר את מנגנון ה-524 עצמו (עדיין דורש streaming, ראו תיעוד קודם) - רק מצמצם את אחד הגורמים המיותרים לנפח הבקשה. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
 <!-- City Trip Builder Claude - v4.45 - 03/08/2026 - שדה "קוד גישה" הפך למוסתר (type="password" במקום type="text"), כמו שדה מפתח ה-API, כדי שהקוד לא יוצג כטקסט גלוי על המסך בזמן הקלדה. שינוי תכונת HTML יחידה, אין השפעה על קריאת הערך ב-JS (element.value זהה בשני הסוגים). QA: diff מול v4.44 אישר שינוי תכונה אחת בלבד. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
 
 <!-- City Trip Builder Claude - v4.44 - 03/08/2026 - תיקון חילוץ הודעת שגיאה ב-callClaudeAPI, התגלה תוך כדי אבחון תקלת timeout 524. באג: const msg = (data && data.error && data.error.message) || ... ציפה ש-data.error יהיה תמיד אובייקט עם שדה .message - אבל שגיאות שה-Worker עצמו יוצר (401/429/504 וכו') מחזירות error כמחרוזת ישירה, לא כאובייקט. מחרוזות ב-JS אין להן .message, אז ה-fallback הגנרי ("שגיאת שרת XXX") הוצג תמיד במקום ההודעה האמיתית מה-Worker - כולל תיקון ה-429 מ-v4.43 שהתברר כלא עבד בפועל בבדיקה חיה. חשוב: המקרה השני (שגיאה מועברת ישירות מ-Anthropic API, למשל עומס/בקשה שגויה) כן מחזיר error כאובייקט עם .message - התיקון חייב לתמוך בשני הפורמטים. התיקון: errField = data.error; msg = מחרוזת ישירה אם היא מחרוזת, אחרת errField.message אם קיים, אחרת fallback גנרי. QA: diff מול v4.43 אישר שינוי לוגי יחיד (שורה אחת הוחלפה בשתיים), שום קוד אחר לא נגע. בדיקה חיה טרם בוצעה - ממתין להעלאה. מקביל: worker.js דורש עדכון נפרד (הגנת try/catch על anthropicRes.json, מטופל ע"י המשתמש ישירות בעורך Cloudflare). -->
@@ -450,7 +454,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.45';
+const APP_VERSION = 'v4.47';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -851,16 +855,21 @@ function ensureCoreCategories(categories, interestsStr) {
 
   // תוספות שלנו - עדיפות נמוכה מקטגוריות Claude, לכן מתווספות בסוף המיזוג למטה, לא כאן בהתחלה
   const extras = [];
-  if (interestsStr && interestsStr.includes('אטרקציות - ילדים') && !hasType('attraction_kids')) {
+  // בדיקת חפיפה לפי keyword (לא רק type מדויק) - מונעת כפילות תוכן כמו שנמצאה בפועל בתחום הספורט
+  // (Claude החזיר "sports stadium"/type:tourist_attraction, והתוספת שלנו "sports venue"/type:interest_sports -
+  // types שונים אז hasType() פספס, אבל אותו נושא בפועל -> אותם מקומות/ביקורות הוכפלו במלואם)
+  const hasSimilarCategory = re => cats.some(c => c && typeof c.keyword === 'string' && re.test(c.keyword));
+
+  if (interestsStr && interestsStr.includes('אטרקציות - ילדים') && !hasType('attraction_kids') && !hasSimilarCategory(/kid|child|family/i)) {
     extras.push({ keyword: 'attractions for kids', type: 'attraction_kids', label: 'אטרקציות לילדים' });
   }
-  if (interestsStr && interestsStr.includes('אטרקציות - מבוגרים') && !hasType('attraction_adults')) {
+  if (interestsStr && interestsStr.includes('אטרקציות - מבוגרים') && !hasType('attraction_adults') && !hasSimilarCategory(/tourist|attraction|landmark|sight/i)) {
     extras.push({ keyword: 'tourist attractions', type: 'attraction_adults', label: 'אטרקציות למבוגרים' });
   }
-  if (interestsStr && interestsStr.includes('מוזיקה') && !hasType('interest_music')) {
+  if (interestsStr && interestsStr.includes('מוזיקה') && !hasType('interest_music') && !hasSimilarCategory(/music|concert|jazz/i)) {
     extras.push({ keyword: 'live music venue', type: 'interest_music', label: 'מקומות מוזיקה חיה' });
   }
-  if (interestsStr && interestsStr.includes('ספורט') && !hasType('interest_sports')) {
+  if (interestsStr && interestsStr.includes('ספורט') && !hasType('interest_sports') && !hasSimilarCategory(/sport|stadium/i)) {
     extras.push({ keyword: 'sports venue', type: 'interest_sports', label: 'אתרי ספורט' });
   }
 
