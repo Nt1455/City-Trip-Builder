@@ -1,4 +1,24 @@
-<!-- City Trip Builder Claude - v4.47 - 04/08/2026 - הרחבת תיקון v4.46 (כפילות ספורט) לשלושת תחומי העניין הנוספים באותה פונקציה: ילדים (attraction_kids), מבוגרים (attraction_adults), מוזיקה (interest_music) - אותו דפוס באג מבני היה קיים בכולם: הבדיקה !hasType(...) בדקה רק type מדויק, לא תוכן, ולכן לא הייתה תופסת מצב שבו Claude מחזיר קטגוריה עם type שונה אך אותו נושא בפועל (בדיוק כמו "sports stadium"/tourist_attraction מול "sports venue"/interest_sports ב-v4.46). לא אומת עדיין live בכפילות ממשית עבור שלושת התחומים האלה (רק בספורט יש הוכחה מ-Debug בפועל) - זו הגנה מבנית מונעת, לא תיקון תגובתי מאומת. התיקון: הופשטה לפונקציית עזר משותפת hasSimilarCategory(re) שמחליפה את hasSportsAlready הייעודי מ-v4.46, ומופעלת בכל ארבע הבדיקות עם regex ייעודי לכל תחום (kid|child|family / tourist|attraction|landmark|sight / music|concert|jazz / sport|stadium). מגבלה ידועה: מילות המפתח ש-Claude בפועל משתמש בהן לא תמיד תואמות את הרג'קס (למשל "family attractions" יתפוס kids, אבל "playground" לא) - זו הפחתת סיכון, לא ערבות מוחלטת לאפס כפילויות. עדיין לא פותר את מנגנון ה-524 עצמו - נדרש streaming (תיעוד קודם) לפתרון שורש. QA: diff מול v4.46 אישר שהשינוי מוגבל לארבע שורות התנאי בתוך ensureCoreCategories בלבד, שום קוד אחר לא נגע. תחביר JS אומת (new Function על שני בלוקי ה-script). בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+<!-- City Trip Builder Claude - v4.49 - 05/08/2026 - שדה "מספר אנשים" הוחלף מ-input מספרי ל-select עם
+רשימה נפתחת (1-50), כדי לתת מראה עקבי עם שאר תיבות הבחירה בטופס (אותו chevron) ולחסוך הקלדה ידנית בנייד -
+לפי בקשה מפורשת. ניסיון ראשון (כפתורי +/-) נפסל בפועל כי המשתמש רצה chevron תואם לשאר השדות, לא כפתורי
+הגדלה/הקטנה. שינוי ויזואלי-מבני: ה-id="num-people" נשאר זהה, כך שכל הקוד הקיים שקורא .value (buildTrip,
+resetForm, groupSizeClause) ממשיך לעבוד ללא שינוי - select.value מתנהג כמו string בדיוק כמו input קודם.
+QA: diff מול v4.48 מוגבל לאזור ה-HTML של השדה (שורות ~265-268) בלבד - שום קוד קיים אחר לא נגע. תחביר JS
+אומת. בדיקה חיה טרם בוצעה - ממתין להעלאה.
+
+City Trip Builder Claude - v4.48 - 05/08/2026 - תיקון כפילות מקומות ברמת התוצאה, לא רק ברמת מילות מפתח.
+אושש live (מסלול פריז, נייד, 5 ימים, כל תחומי העניין): "מוזאון הלובר" הופיע גם תחת "מוזיאונים וגלריות אמנות"
+וגם תחת "אטרקציות למבוגרים", ו"שער הניצחון בפריז" גם תחת "אתרים היסטוריים" וגם תחת "אטרקציות למבוגרים" -
+2 מקומות כפולים (עם אותן ביקורות) מתוך 40. הסיבה: hasSimilarCategory (v4.47) בודקת חפיפת מילות מפתח בין
+קטגוריות (regex על cat.keyword) - לא תופסת מקרה שבו אותו מקום פיזי חוזר משני חיפושי טקסט שונים בגוגל, כי
+זו חפיפת תוצאה בפועל ולא חפיפת ניסוח (למשל "museum" ו-"tourist attractions" הם regex שונים לגמרי, אבל
+שניהם יכולים להחזיר את אותו מקום). התיקון: דה-דופליקציה לפי place_id אמיתי בתוך fetchPlaces - Set של
+seenPlaceIds נשמר על פני כל הקטגוריות; מקום שכבר נראה מדולג בקטגוריות הבאות; קטגוריה שמתרוקנת לגמרי
+(כל תוצאותיה כבר הופיעו) לא נכנסת ל-placesData כקטגוריה ריקה. מכיוון שסדר הקטגוריות קבוע (ליבה → קטגוריות
+Claude → extras), המקום נשאר בקטגוריה הראשונה/הספציפית ומדולג בקטגוריית ה-extras הרחבה יותר שמגיעה אחריה.
+זו תוספת ל-hasSimilarCategory (שנשארת, מונעת קריאת API מיותרת מראש), לא תחליף לה. QA: diff מול v4.47 מוגבל
+ל-fetchPlaces בלבד - שינוי בתוך ה-map הקיים + משתנה seenPlaceIds חדש; שום קוד אחר לא נגע. תחביר JS אומת
+(node --check על בלוק ה-script). אין catch ריק חדש. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
 
 <!-- City Trip Builder Claude - v4.46 - 04/08/2026 - תיקון כפילות בקטגוריית ספורט: ensureCoreCategories() הוסיף קטגוריית "sports venue" (type: interest_sports) גם כש-Claude כבר החזיר קטגוריה תוכנית זהה בשם/type שונה (למשל "sports stadium", type: tourist_attraction) - הבדיקה הקיימת !hasType('interest_sports') בדקה רק type מדויק, לא תוכן. התגלה תוך כדי אבחון תקלת timeout 524 בבדיקה חיה (מסלול לונדון, 4 ימים, תחומי עניין: אוכל/שופינג/ספורט) - קובץ Debug גולמי הראה 5 מקומות זהים (כולל כל טקסטי הביקורות) מוכפלים תחת שתי קטגוריות שונות, מכפיל את נפח הבקשה ל-Claude. תוקן: נוספה בדיקת hasSportsAlready לפי regex על שדה keyword (/sport|stadium/i) לפני הוספת הקטגוריה. QA: diff מול v4.45 אישר שינוי לוגי יחיד (שורה אחת הוחלפה בשתיים בתוך ensureCoreCategories), שום קוד אחר לא נגע. תחביר JS אומת (new Function על כל בלוקי ה-script). לא פותר את מנגנון ה-524 עצמו (עדיין דורש streaming, ראו תיעוד קודם) - רק מצמצם את אחד הגורמים המיותרים לנפח הבקשה. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
 
@@ -245,7 +265,7 @@ textarea{min-height:68px;resize:vertical}
         </div>
         <div style="flex:1;display:flex;flex-direction:column;gap:5px">
           <label>מספר אנשים</label>
-          <input type="number" id="num-people" min="1" max="50" value="2" />
+          <select id="num-people"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option><option value="32">32</option><option value="33">33</option><option value="34">34</option><option value="35">35</option><option value="36">36</option><option value="37">37</option><option value="38">38</option><option value="39">39</option><option value="40">40</option><option value="41">41</option><option value="42">42</option><option value="43">43</option><option value="44">44</option><option value="45">45</option><option value="46">46</option><option value="47">47</option><option value="48">48</option><option value="49">49</option><option value="50">50</option></select>
         </div>
       </div>
     </div>
@@ -923,6 +943,13 @@ async function fetchPlaces(dest, categories) {
   const allPlaces = [];
   const PLACES_NEW_ENDPOINT = 'https://places.googleapis.com/v1/places:searchText';
   const FIELD_MASK = 'places.displayName,places.formattedAddress,places.rating,places.id,places.userRatingCount,places.reviews,places.businessStatus';
+  // דה-דופליקציה לפי place_id אמיתי (v4.48) - משלימה את hasSimilarCategory ב-ensureCoreCategories.
+  // hasSimilarCategory בודקת חפיפת מילות מפתח בין קטגוריות (למשל "sport" מול "stadium") - לא תופסת מקרה
+  // שבו אותו מקום פיזי חוזר משני חיפושי טקסט שונים בגוגל (למשל "מוזאון הלובר" גם תחת "museum" וגם תחת
+  // "tourist attractions") - זו לא חפיפת ניסוח, זו חפיפת תוצאה בפועל שאי אפשר לצפות מראש לפי מילות מפתח.
+  // סדר הקטגוריות כבר קבוע (ליבה → קטגוריות Claude → extras) - שמירת ההופעה הראשונה משאירה כל מקום
+  // בקטגוריה הספציפית שבה הוא הופיע ראשון, ומדלגת עליו בקטגוריות הרחבות/extras שמגיעות אחריה.
+  const seenPlaceIds = new Set();
 
   for (const cat of categories) {
     try {
@@ -948,19 +975,28 @@ async function fetchPlaces(dest, categories) {
       // אם השדה חסר (לא כל הקטגוריות מחזירות אותו) - לא פוסלים, רק מסננים כשיש קביעה מפורשת שסגור.
       const results = (data.places || []).filter(p => p.businessStatus !== 'CLOSED_PERMANENTLY' && p.businessStatus !== 'CLOSED_TEMPORARILY');
       if (results.length > 0) {
-        const top = results.map(p => ({
-          name: p.displayName?.text || '',
-          address: p.formattedAddress || '',
-          rating: p.rating || null,
-          ratingCount: p.userRatingCount || null,
-          // עד 3 ביקורות, כל אחת מקוצרת ל-200 תו - מספיק חומר ל-Claude לעבד, בלי לנפח את הפרומפט
-          reviewSnippets: Array.isArray(p.reviews)
-            ? p.reviews.slice(0, 3).map(r => (r.text?.text || '').slice(0, 200)).filter(Boolean)
-            : [],
-          place_id: p.id || '',
-          label: cat.label
-        }));
-        allPlaces.push({ category: cat.label, places: top });
+        // מדלגים על מקום שכבר הופיע בקטגוריה קודמת (place_id ריק - אין דרך לזהות כפילות, לא מסננים)
+        const top = results
+          .filter(p => !p.id || !seenPlaceIds.has(p.id))
+          .map(p => {
+            if (p.id) seenPlaceIds.add(p.id);
+            return {
+              name: p.displayName?.text || '',
+              address: p.formattedAddress || '',
+              rating: p.rating || null,
+              ratingCount: p.userRatingCount || null,
+              // עד 3 ביקורות, כל אחת מקוצרת ל-200 תו - מספיק חומר ל-Claude לעבד, בלי לנפח את הפרומפט
+              reviewSnippets: Array.isArray(p.reviews)
+                ? p.reviews.slice(0, 3).map(r => (r.text?.text || '').slice(0, 200)).filter(Boolean)
+                : [],
+              place_id: p.id || '',
+              label: cat.label
+            };
+          });
+        // אם כל תוצאות הקטגוריה הזו כבר הופיעו קודם - לא מוסיפים קטגוריה ריקה בלי מקומות
+        if (top.length > 0) {
+          allPlaces.push({ category: cat.label, places: top });
+        }
       }
     } catch(e) {
       recordDebugError('fetchPlaces (' + cat.label + ')', e.message);
