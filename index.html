@@ -1,3 +1,7 @@
+<!-- City Trip Builder Claude - v4.56 - 08/08/2026 - שלב 1+2 (מתוך 5) בפיצ'ר "יום/ימי קפיצה מהיעד הראשי" - UI+ולידציה בלבד, בלי נגיעה בפרומפט/Places (זה נשאר לשלב הבא, מתוכנן עם Opus 5 + Effort Max בגלל שהוא נוגע ב-buildTrip). מה נבנה: (1) checkbox עצמאי חדש "main-daytrip-toggle" בטופס הראשי, נפרד לגמרי מ"טיול נודד" - נועד לפתור את הפער מבדיקת קרקוב (עריכה לא הצליחה להוסיף יום מחוץ לעיר, כי אין נתיב UI ישיר ליום קפיצה בודד מהיעד הראשי בלי לעבור דרך "הוסף אזור"). (2) רכיב שורה addMainDayTripRow() - וריאציה עצמאית (לא רפקטור/איחוד) של addSideTripRow הקיים: תאריך חובה + יעד ידני/ריק + "✨ המלץ לי" (suggestMainDayTrip - מבוסס בדיוק על suggestSideTrip הקיים, כולל אימות מרחק אמיתי דרך Google Distance Matrix) + עד X שעות + הבהרה חופשית + הסרת שורה. הוחלט להשאיר קוד כפול קטן במקום איחוד/רפקטור עם buildMultiRegionText - כדי לא לגעת בפונקציה קיימת שכבר עובדת. (3) namespace נפרד window._mainDayTripSuggestions/_mainDayTripExcluded - נמנע מהתנגשות tid מול window._sideTripSuggestions (שני מונים עצמאיים, mainDayTripRowCount מול sideTripRowCount, עלולים לייצר אותו tid ולדרוס הצעות זה את זה). (4) חסימה הדדית דו-כיוונית מול "טיול נודד" (toggleMultiRegion מנטרל main-daytrip-toggle וההפך) - לא ניתן לסמן שניהם יחד, לפי החלטת המשתמש. (5) ולידציה חדשה בתחילת buildTrip(): תאריך חובה לכל יום קפיצה + בתוך טווח תאריכי הטיול (אותו דפוס פרסינג DD/MM/YYYY שכבר קיים לחישוב daysUntilTrip) - נבדק לפני setLoading(true) בכוונה, כדי שכשל ולידציה לא יתקע spinner. (6) תיקון נלווה נדרש: הוספת prefix 'maindt-date-' ל-whitelist הקיים בפונקציית closeCalRegion (שכבר כלל region-date-start-/region-date-end-/sidetrip-date-) - אחרת הלוח שנה היה נסגר מוקדם מדי בלחיצה על השדה החדש. הוחלט במפורש להשמיט את כפתור "📌 שמור להשוואה" מהשורה החדשה - saveSuggestionToCompare/renderInlineSavedSuggestions/applySavedInline נבדקו בקוד ותומכות רק ב-kind 'sidetrip'/'region' (לא גנריות ל-kind שלישי), הוספת תמיכה הייתה דורשת נגיעה בפונקציות משותפות מחוץ להיקף השלב הזה - אפשר להוסיף כתוספת נפרדת בעתיד אם יידרש. QA: node --check עבר (אחרי תיקון באג שנתפס עצמאית - str_replace הראשון מחק בטעות את שורת ההצהרה "function addRegionRow() {" עצמה, הבדיקה זיהתה SyntaxError מיד ותוקן לפני מסירה); 0 כפילויות פונקציה אמיתיות; כפילות id יחידה שנבדקה היא false positive ידוע (num-people בהערת HTML); איזון תגיות div/script/table/select/textarea תקין; כל onclick/onchange (כולל suggestMainDayTrip/removeMainDayTripRow/applyMainDayTripSuggestion/toggleMainDayTrip/addMainDayTripRow החדשים) מפנים לפונקציות קיימות; getElementById מול IDs תקין (maindt-row- מזוהה כ-ID דינמי צפוי, כמו region-row-/sidetrip-row-); נבדקו כל 21 בלוקי catch(e) בקובץ - 0 ריקים, כולם מתעדים; אומת שכל תיקוני v4.55 (DAY_COLORS/getDayColor/getDayMarkerIcon, 3 כפתורי Debug, max_tokens=35000/16000, APP_VERSION, ensureCoreCategories/filterExcludedPlaces/loadMapsApiForPlaces) לא נדרסו; אומתה חסימה הדדית דו-כיוונית (mainDtToggle.disabled + multiToggle.disabled שניהם קיימים). לא בוצע: קריאת Places בפועל ליעד יום הקפיצה, הזרקת הטקסט לפרומפט buildTrip - זה שלבים 4-5, ממתינים למעבר ל-Opus 5. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
+<!-- City Trip Builder Claude - v4.55 - 08/08/2026 - 5 שינויים מבדיקה חיה על מסלול קרקוב (11 ימים, מלון + אוטובוס מושכר), כל אחד לפי אישור נפרד: (1) UX - מיזוג כפתורי "🐞 Debug" ו-"📋 העתק Debug" הצמודים (3 מיקומים: header, result-btns, result-footer) לכפתור יחיד toggleDebug(btn) - לחיצה כשהפאנל סגור פותחת ומעתיקה ל-clipboard באותה פעולה, לחיצה כשהפאנל פתוח רק סוגרת בלי להעתיק שוב. copyDebugText הוסרה - נבלעה לגמרי לתוך toggleDebug. (2) UX - צביעת ימים עקבית: פלטת DAY_COLORS קבועה (10 צבעים במחזור), כפתורי "מפה ליום" (buildDayMapButtons) מקבלים border צבעוני לפי אינדקס היום, ונעצי Google Maps (renderMap, getDayMarkerIcon - SVG path מותאם עם fillColor דינמי) צבועים באותו צבע. openInMaps עודכן להעביר {place, dayIndex} במקום מחרוזת בלבד, גם למצב "כל המסלול" (dayIndex לפי אינדקס הטבלה). (3) UX - הבהרת חלון עריכת מסלול: כותרת "✏️ עריכת המסלול הנוכחי המוצג למעלה", אזהרה מפורשת שהוספת יום/ימים מחוץ לעיר היעד לא ניתנת דרך העריכה (חייבת "טיול נודד" מהטופס לפני בנייה), כפתור השליחה שונה מ"עדכן מסלול" ל"▶️ בצע עדכון על המסלול הנוכחי", וכפתור הפתיחה שונה מ"✏️ ערוך" ל"✏️ ערוך מסלול נוכחי". (4) גיוון מטבחים מעוגן בנתונים אמיתיים (לא הזיה) - fetchIntent מקבל כלל חדש: חובה לפחות 2 קטגוריות מסעדה נפרדות (מטבח מקומי + מטבח נוסף רלוונטי ליעד) במקום קטגוריית "restaurant" כללית יחידה, כדי ש-Google Places יחזיר בפועל מטבחים מגוונים. system prompt של buildTrip קיבל הנחיה מקבילה: בבחירת 2-3 אפשרויות לאותה ארוחה, להעדיף גיוון מטבחים מתוך המקומות שסופקו בפועל, לא להמציא. (5) הבלטת checkbox "טיול נודד" בטופס - נוספה הערת אזהרה תחת ה-checkbox שמבהירה שזה נדרש גם עבור יום קפיצה בודד (לא רק טיול רב-בסיסי) וחייב סימון לפני בניית המסלול, לא ניתן להוסיף אחרי דרך עריכה. QA: node --check עבר על בלוק ה-script המלא; נבדקו כפילויות id/function (0 אמיתיות - false positive יחיד על "num-people" הוא אזכור בתוך הערת HTML ישנה, לא id כפול בפועל; ID-ים דינמיים region-row-/sidetrip-row- נבנים ב-JS בזמן ריצה ולא ב-HTML הסטטי, כצפוי); איזון תגיות div/script/table/select/textarea תקין; כל onclick/onchange מפנים לפונקציות קיימות; כל getElementById מול ID-ים קיימים; נסרקו מחדש כל 18 בלוקי catch(e) וכל 2 מקומות !res.ok בקובץ - כולם עדיין מתעדים (recordDebugError/console.warn), אין catch ריק; אומת ש-APP_VERSION/max_tokens=35000 (buildTrip)/max_tokens=16000 (editItinerary, פתוח, לא נגעתי בו)/ensureCoreCategories/filterExcludedPlaces/loadMapsApiForPlaces - כל התיקונים הקודמים קיימים ולא נדרסו. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
 <!-- City Trip Builder Claude - v4.54 - 05/08/2026 - תיקון חיתוך תשובה בבדיקה חיה של v4.53 (מסלול פריז 6 ימים): stop_reason='max_tokens', output_tokens=16000 בדיוק - אישור ודאי שהתשובה נקטעה באמצע (הפסיקה בטבלת "טיפים לכרטיסים ולוגיסטיקה" בלי תוכן). הסיבה: תוספות v4.52 (ארוחת ערב נפרדת בכל יום) + v4.53 (טבלת מסעדות מובילות) הגדילו את אורך התשובה הטיפוסי למסלולים ארוכים (5+ ימים) מעבר לתקרת ה-max_tokens=16000 הישנה שנקבעה לפני התוספות האלה. תוקן: הועלה max_tokens ב-buildTrip (הקריאה הראשית שבונה את המסלול) מ-16000 ל-35000. עלות שולית - Anthropic מחייבת לפי טוקנים שבאמת נוצרו, לא לפי התקרה; התקרה הגבוהה יותר רק מונעת חיתוך, לא מייצרת עלות נוספת בפועל אלא אם התשובה באמת ארוכה יותר. QA: node --check עבר; שינוי שורה אחת בלבד (16000→35000) בפונקציה אחת; לא נגעו שאר קריאות ה-max_tokens בקובץ (fetchIntent=500, suggestRegionCity=800, editItinerary=16000 עדיין, suggestSideTrip=5000) - זוהה ש-editItinerary (עריכת מסלול קיים) חשוף לאותה בעיית חיתוך פוטנציאלית מאותה סיבה בדיוק, אך לא תוקן כאן - טרם אושר ע"י המשתמש. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
 
 <!-- City Trip Builder Claude - v4.53 - 05/08/2026 - שיפור ארוחת ערב (המשך v4.52) + פיצ'ר חדש, לאחר דיון והערכה: (1) הוספה דטרמיניסטית ב-JS (לא ע"י Claude) של פונקציה buildTopRatedRestaurantsTable - מסננת placesData לפי type==='restaurant' (לא label טקסטואלי, שדינמי), עם סף יורד בהדרגה (4.5/1000 → 4.3/500 → 4.0/100 → הכל) עד שנמצאות לפחות 3 מסעדות; מוחזר null אם אין מסעדות בכלל (הטבלה מושמטת, לא מוצג ריק). התוצאה מוזרקת לפרומפט כטקסט קבוע שClaude רק מציג בסוף המסלול (יחד עם חניה/כרטיסים) בלי לסנן/לשנות בעצמו - עקבי עם עקרון "דיוק מעל הזיה" שכבר מנחה ensureCoreCategories/filterExcludedPlaces. (2) הרחבת כלל ארוחת הערב מ-v4.52: נוספה העדפה רכה (לא חובה) לקרבה לאזור שבו הסתיימה הפעילות האחרונה של אותו יום - Claude שופט לפי כתובת/אזור בלבד, אין חישוב מרחק אמיתי (הוערכה ונדחתה אופציית Distance Matrix אמיתי - סיכון גבוה: קריאת Claude כפולה תחצה את מכסת הפרוקסי היומית של החבר בחצי, ~40 קריאות Distance Matrix נוספות למסלול, ומשטח כשל חדש בפונקציה המרכזית ביותר באפליקציה - לא שווה את זה ביחס לתועלת). נוספה גם הנחיית גיוון סוג מטבח בין ימים עוקבים. QA: node --check עבר; שינוי מוגבל לפונקציה חדשה + hook-in ב-buildTrip + system/prompt templates, שום קוד קיים אחר לא נגע. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
@@ -398,11 +402,24 @@ textarea{min-height:68px;resize:vertical}
       <textarea id="notes" placeholder="לדוגמה: ילד בן 5, מגבלות ניידות, אלרגיות..."></textarea>
     </div>
 
+    <div class="field full" id="main-daytrip-block" style="background:var(--accent-light);border:1px solid var(--accent);border-radius:var(--radius);padding:12px 14px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:var(--text)">
+        <input type="checkbox" id="main-daytrip-toggle" onchange="toggleMainDayTrip()" style="width:16px;height:16px;cursor:pointer" />
+        יום/ימי קפיצה מהיעד הראשי (נסיעה וחזרה לאותה לינה בערב)
+      </label>
+      <div id="main-daytrip-conflict-note" style="font-size:11px;color:var(--muted);margin-top:4px;margin-right:24px">⚠️ לא ניתן לשלב עם "טיול נודד" למטה - יש לבחור אחת מהאפשרויות.</div>
+      <div id="main-daytrip-container" style="display:none;margin-top:10px">
+        <div id="main-daytrip-rows"></div>
+        <button type="button" class="btn-add-region" onclick="addMainDayTripRow()">+ הוסף יום קפיצה נוסף</button>
+      </div>
+    </div>
+
     <div class="field full" id="multi-region-block" style="background:var(--accent-light);border:1px solid var(--accent);border-radius:var(--radius);padding:12px 14px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:var(--text)">
         <input type="checkbox" id="multi-region-toggle" onchange="toggleMultiRegion()" style="width:16px;height:16px;cursor:pointer" />
         טיול נודד (עוברים בין כמה אזורים / עיירות / מלונות באותו טיול)
       </label>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;margin-right:24px">⚠️ חובה לסמן גם עבור יום קפיצה בודד מחוץ לעיר הבסיס (למשל סיור יום לעיר סמוכה) - לא רק עבור טיול עם כמה בסיסי לינה. סימון זה חייב להיעשות <b>לפני</b> בניית המסלול - לא ניתן להוסיף יום קפיצה דרך "עריכת מסלול" בשלב מאוחר יותר.</div>
       <div id="multi-region-container" style="display:none;margin-top:10px">
         <div class="field full" style="margin-bottom:10px">
           <label style="font-size:12px">הבהרה כללית לכל הטיול הנודד (לא חובה)</label>
@@ -423,8 +440,7 @@ textarea{min-height:68px;resize:vertical}
 
 <div class="error" id="error-box"></div>
 <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
-  <button type="button" onclick="toggleDebug()" style="background:#444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🐞 Debug</button>
-  <button type="button" onclick="copyDebugText(this)" style="background:#666;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;margin-right:6px">📋 העתק</button>
+  <button type="button" onclick="toggleDebug(this)" title="לחיצה: פתיחה + העתקה ל-clipboard. לחיצה נוספת: סגירה" style="background:#444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🐞 Debug</button>
 </div>
 <pre id="debug-panel" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;padding:1rem;margin:0 0 8px 0;background:#1a1814;color:#9fe89f;max-height:420px;overflow:auto;direction:ltr;border:1px solid var(--border);border-radius:8px"></pre>
 <button class="btn-build" id="build-btn" onclick="buildTrip()">בנה מסלול מפורט</button>
@@ -444,8 +460,7 @@ textarea{min-height:68px;resize:vertical}
       <button class="rbtn rbtn-pdf" onclick="window.print()">🖨 הדפס</button>
       <button class="rbtn rbtn-pdf" onclick="window.print()">💾 שמור PDF</button>
       <button class="rbtn rbtn-copy" onclick="copyResult()">העתק</button>
-      <button class="rbtn" onclick="toggleDebug()" style="background:#444;color:#fff">🐞 Debug</button>
-      <button class="rbtn" onclick="copyDebugText(this)" style="background:#666;color:#fff">📋 העתק Debug</button>
+      <button class="rbtn" onclick="toggleDebug(this)" title="לחיצה: פתיחה + העתקה ל-clipboard. לחיצה נוספת: סגירה" style="background:#444;color:#fff">🐞 Debug</button>
     </div>
   </div>
   <div id="day-maps-row" style="display:none;padding:6px 1.25rem;background:var(--accent-light);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;"></div>
@@ -463,20 +478,20 @@ textarea{min-height:68px;resize:vertical}
   <div class="result-body" id="result-body"></div>
   <div class="rec-body" id="rec-body" style="display:none"></div>
   <div class="edit-section" id="edit-section" style="display:none;padding:1rem 1.25rem;border-top:1px solid var(--border)">
-    <div style="font-size:13px;font-weight:500;color:var(--muted);margin-bottom:6px">בקשת עריכה</div>
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">✏️ עריכת המסלול הנוכחי המוצג למעלה</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">⚠️ הוספת יום/ימים מחוץ לעיר היעד (כמו יום קפיצה לעיר סמוכה) - לא ניתנת דרך כאן. יש לחזור לטופס למעלה, לסמן "טיול נודד" ולבנות מסלול חדש, כדי שהמערכת תאמת נתונים אמיתיים למקום החדש.</div>
     <textarea id="edit-request" placeholder="לדוגמה: הזז את הביקור במוזיאון ליום 2 בשעה 14:00 / החלף את המסעדה בצהריים ביום 1..." style="min-height:72px;margin-bottom:8px"></textarea>
-    <button class="btn-build" style="margin:0" onclick="editItinerary()">עדכן מסלול</button>
+    <button class="btn-build" style="margin:0" onclick="editItinerary()">▶️ בצע עדכון על המסלול הנוכחי</button>
   </div>
   <div class="result-footer">
     <span id="version-tag" style="font-size:11px;color:var(--muted)">גרסה 1</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-new" onclick="saveItinerary()">💾 שמור מסלול</button>
-      <button class="btn-new" onclick="toggleEdit()">✏️ ערוך</button>
+      <button class="btn-new" onclick="toggleEdit()">✏️ ערוך מסלול נוכחי</button>
       <button class="btn-new" onclick="resetForm()">סיור חדש</button>
       <button class="btn-new" onclick="window.print()">🖨 הדפס</button>
       <button class="btn-new" onclick="window.print()">💾 שמור PDF</button>
-      <button class="btn-new" onclick="toggleDebug()" style="background:#444;color:#fff;border-color:#444">🐞 Debug</button>
-      <button class="btn-new" onclick="copyDebugText(this)" style="background:#666;color:#fff;border-color:#666">📋 העתק Debug</button>
+      <button class="btn-new" onclick="toggleDebug(this)" title="לחיצה: פתיחה + העתקה ל-clipboard. לחיצה נוספת: סגירה" style="background:#444;color:#fff;border-color:#444">🐞 Debug</button>
     </div>
   </div>
 </div>
@@ -484,7 +499,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.54';
+const APP_VERSION = 'v4.56';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -781,29 +796,26 @@ function buildDebugText() {
   return out || 'אין נתונים עדיין - בנה מסלול קודם.';
 }
 
-function toggleDebug() {
+// v4.55 - מיזוג toggleDebug + copyDebugText (בוצע בטעות בנפרד עד עכשיו, שני כפתורים צמודים בלבלו).
+// התנהגות: לחיצה כשהפאנל סגור = פותח ומעתיק ל-clipboard באותה פעולה. לחיצה כשהפאנל פתוח = רק סוגר, בלי העתקה נוספת.
+async function toggleDebug(btn) {
   const panel = document.getElementById('debug-panel');
   if (!panel) return;
-  if (panel.style.display === 'none' || !panel.style.display) {
+  const wasHidden = panel.style.display === 'none' || !panel.style.display;
+  if (wasHidden) {
     panel.textContent = buildDebugText();
     panel.style.display = 'block';
     if (panel.scrollIntoView) panel.scrollIntoView({behavior:'smooth', block:'center'});
+    const orig = btn ? btn.textContent : '';
+    try {
+      await navigator.clipboard.writeText(panel.textContent);
+      if (btn) { btn.textContent = '✅ הועתק'; setTimeout(() => { btn.textContent = orig; }, 1500); }
+    } catch(e) {
+      recordDebugError('toggleDebug', e.message);
+      if (btn) { btn.textContent = '❌ שגיאה בהעתקה'; setTimeout(() => { btn.textContent = orig; }, 1500); }
+    }
   } else {
     panel.style.display = 'none';
-  }
-}
-
-// כפתור העתקה ליד Debug - מעתיק את כל טקסט ה-Debug ל-clipboard בלי תלות בסימון ידני/PDF
-// (PDF שובר כיווני RTL ותגי markdown כמו ~~מחיקה~~, כפי שנצפה בפועל)
-async function copyDebugText(btn) {
-  const text = buildDebugText();
-  const orig = btn ? btn.textContent : '';
-  try {
-    await navigator.clipboard.writeText(text);
-    if (btn) { btn.textContent = '✅ הועתק'; setTimeout(() => { btn.textContent = orig; }, 1500); }
-  } catch(e) {
-    recordDebugError('copyDebugText', e.message);
-    if (btn) { btn.textContent = '❌ שגיאה בהעתקה'; setTimeout(() => { btn.textContent = orig; }, 1500); }
   }
 }
 
@@ -832,6 +844,7 @@ async function fetchIntent(fields, apiKey, accessCode) {
 
 כללים:
 - תמיד כלול: מסעדות (restaurant), בתי קפה (cafe), לינה/מלונות (lodging)
+- מסעדות - גיוון מטבחים: אל תכלול רק קטגוריית "restaurant" כללית אחת. כלול לפחות 2 קטגוריות מסעדה נפרדות (עדיין type="restaurant"), עם keyword שונה שמבטא סוג מטבח שונה - למשל מטבח מקומי/מסורתי ליעד (כגון "polish restaurant" עבור קרקוב) בנוסף לקטגוריה נוספת אחת לפחות ממטבח אחר שסביר שקיים ביעד (כגון "italian restaurant", "seafood restaurant", "french restaurant", "modern restaurant" - לפי מה שהגיוני ליעד הספציפי). המטרה: לתת בסיס אמיתי (לא מומצא) לגיוון בין אפשרויות הארוחה שיוצעו בהמשך.
 - שווקים (market) - כלול לפי רלוונטיות ליעד ולתחומי עניין, לא באופן קבוע
 - הוסף לפי תחומי עניין: מוזיאונים, פארקים, גלריות, ברים, אתרים היסטוריים
 - אם יש שדה "להחריג" - אל תיצור keyword/type שסביר להניח שיחזיר בעיקר תוצאות מהנושא המוחרג (למשל אם הוחרג "אתרי שואה" - אל תיצור קטגוריה כללית "historic site"/"memorial" שתמשוך בעיקר אתרים כאלה; אפשר עדיין "museum" כללי אם רלוונטי לתחומי עניין אחרים)
@@ -1137,6 +1150,36 @@ async function buildTrip() {
   const apiKey = document.getElementById('api-key').value.trim();
   const accessCode = document.getElementById('access-code').value.trim();
   if (!apiKey && !accessCode) { showError('יש להזין Anthropic API Key או קוד גישה'); return; }
+
+  // v4.56 - ולידציית "יום/ימי קפיצה מהיעד הראשי": תאריך חובה + בתוך טווח תאריכי הטיול.
+  // נבדק לפני setLoading(true) בכוונה - כשל ולידציה לא אמור לתקוע spinner טעינה על כלום.
+  const mainDtOn = (document.getElementById('main-daytrip-toggle') || {}).checked;
+  if (mainDtOn) {
+    const dsForValidation = document.getElementById('date-start').value;
+    const deForValidation = document.getElementById('date-end').value;
+    if (!dsForValidation) { showError('יש להזין תאריך התחלה לטיול לפני הוספת יום קפיצה'); return; }
+    const parseDDMMYYYY = (str) => {
+      const parts = (str||'').split('/');
+      if (parts.length !== 3) return null;
+      const d = new Date(+parts[2], +parts[1]-1, +parts[0]);
+      return isNaN(d.getTime()) ? null : d;
+    };
+    const tripStart = parseDDMMYYYY(dsForValidation);
+    const tripEnd = deForValidation ? parseDDMMYYYY(deForValidation) : tripStart;
+    const dtRows = document.querySelectorAll('#main-daytrip-rows .maindt-row');
+    for (const row of dtRows) {
+      const tid = row.id.replace('maindt-row-', '');
+      const dateEl = document.getElementById('maindt-date-' + tid);
+      const dateVal = dateEl ? dateEl.value.trim() : '';
+      if (!dateVal) { showError('יש לבחור תאריך לכל יום קפיצה מהיעד הראשי (שורה ' + tid + ')'); return; }
+      const dtDate = parseDDMMYYYY(dateVal);
+      if (!dtDate || !tripStart || !tripEnd || dtDate < tripStart || dtDate > tripEnd) {
+        showError('תאריך יום הקפיצה (' + dateVal + ') חייב להיות בתוך טווח תאריכי הטיול (' + dsForValidation + (deForValidation ? ' עד ' + deForValidation : '') + ')');
+        return;
+      }
+    }
+  }
+
   if (apiKey) localStorage.setItem('ctb_key', apiKey);
   if (accessCode) localStorage.setItem('ctb_accessCode', accessCode);
   setLoading(true);
@@ -1218,6 +1261,7 @@ async function buildTrip() {
 - ארוחת ערב - חריגה מכוונת לכלל השעות: בניגוד לפעילויות בילוי, ארוחת ערב היא צורך קבוע של הקבוצה בכל יום, גם אם שעת סיום הסיור מוקדמת. לכן בכל יום, בנוסף לבוקר וצהריים, כלול תמיד סעיף נפרד "🍽️ ארוחת ערב" עם 2-3 אפשרויות מלאות (מקום + כתובת + תיאור מבוסס ביקורות + תיוג הזמנה) - בדיוק כמו ארוחות הבוקר/צהריים. סעיף זה הוא המלצה לצריכה עצמאית אחרי סיום הסיור הרשמי, ולכן אינו נכנס לטבלת השעות ואינו כפוף למגבלת שעת הסיום.
   * מיקום ארוחת הערב: העדף (במידת האפשר, לפי הכתובות שסופקו - אין לך חישוב מרחק מדויק, רק שיפוט לפי כתובת/אזור) מסעדות קרובות לאזור שבו הסתיימה הפעילות האחרונה בטבלת השעות של אותו יום. זו העדפה, לא חובה נוקשה - אם אין אפשרות טובה קרובה, בחר את הטובה ביותר בכל מקום.
   * גיוון סוג מטבח: השתדל שלא לחזור על אותו סוג מטבח (איטלקי, מקומי, ים תיכוני וכו') בארוחות הערב של ימים עוקבים - גיוון בין הימים עדיף.
+- גיוון מטבחים בתוך אותה ארוחה (חשוב, בנוסף לגיוון בין ימים למעלה): כשבוחר 2-3 אפשרויות לאותה ארוחה (צהריים/ערב), אל תבחר 2-3 מסעדות מאותו סוג מטבח בדיוק (למשל 3 מסעדות פולניות מסורתיות) אם קיימות בנתוני המקומות שסופקו מסעדות מסוג שונה - הצע לפחות אפשרות אחת ממטבח מקומי/מסורתי ולפחות אפשרות אחת נוספת ממטבח אחר (בינלאומי, דגים, מודרני וכו'). זה חל רק על מקומות שסופקו בפועל ברשימת ה-Places - אל תמציא מסעדה ממטבח שלא סופק רק כדי ליצור גיוון.
 - לכל ארוחת בוקר/צהריים (בתוך חלון השעות שצוין בלבד) הצע 2-3 אפשרויות ברמות תקציב/סגנון שונים
 - כבד את רמת ההיכרות שהוגדרה (level1/2/3) לפי המנגנון בשלב הפנימי - זו הוראה בעדיפות גבוהה
 - אם צוין מלון/לינה - הוסף בתחילת המסלול סעיף "חניה" עם 2-3 חניונים ציבוריים קרובים למלון:
@@ -1506,10 +1550,12 @@ function openInMaps(dayIndex) {
   const tables = resultBody.querySelectorAll('table');
 
   if (dayIndex !== undefined && tables[dayIndex]) {
-    places = extractPlacesFromTable(tables[dayIndex], dest);
+    extractPlacesFromTable(tables[dayIndex], dest).forEach(p => places.push({place: p, dayIndex}));
   } else {
-    tables.forEach(t => {
-      extractPlacesFromTable(t, dest).forEach(p => { if (!places.includes(p)) places.push(p); });
+    tables.forEach((t, ti) => {
+      extractPlacesFromTable(t, dest).forEach(p => {
+        if (!places.some(x => x.place === p)) places.push({place: p, dayIndex: ti});
+      });
     });
   }
 
@@ -1563,6 +1609,26 @@ function onMapsReady() {
   }
 }
 
+// v4.55 - פלטת צבעים קבועה ליום, לשימוש גם בכפתורי "מפה ליום" וגם בנעצים במפה (פריט #5)
+const DAY_COLORS = ['#e74c3c','#2980b9','#27ae60','#e67e22','#8e44ad','#16a085','#c0392b','#2c3e50','#d35400','#00838f'];
+function getDayColor(dayIndex) {
+  if (dayIndex === undefined || dayIndex === null || dayIndex < 0) return '#555';
+  return DAY_COLORS[dayIndex % DAY_COLORS.length];
+}
+function getDayMarkerIcon(color) {
+  return {
+    path: 'M12 0C7.31 0 3.5 3.81 3.5 8.5c0 6.5 8.5 15.5 8.5 15.5s8.5-9 8.5-15.5C20.5 3.81 16.69 0 12 0z',
+    fillColor: color,
+    fillOpacity: 1,
+    strokeColor: '#fff',
+    strokeWeight: 1.5,
+    scale: 1.4,
+    anchor: new google.maps.Point(12, 24),
+    labelOrigin: new google.maps.Point(12, 9)
+  };
+}
+
+// places: מערך של {place, dayIndex} - dayIndex קובע את צבע הנעץ (עקבי עם צבעי כפתורי "מפה ליום")
 function renderMap(places, dest) {
   const canvas = document.getElementById('map-canvas');
   canvas.innerHTML = '';
@@ -1579,7 +1645,9 @@ function renderMap(places, dest) {
   let resolved = 0;
   const total = places.length;
 
-  places.forEach((place, i) => {
+  places.forEach((item, i) => {
+    const place = item.place;
+    const color = getDayColor(item.dayIndex);
     geocoder.geocode({address: place, region: 'IL'}, function(results, status) {
       resolved++;
       if (status === 'OK' && results[0]) {
@@ -1588,7 +1656,8 @@ function renderMap(places, dest) {
         const marker = new google.maps.Marker({
           map: map,
           position: pos,
-          label: {text: String(i + 1), color: '#fff', fontWeight: 'bold'},
+          icon: getDayMarkerIcon(color),
+          label: {text: String(i + 1), color: '#fff', fontWeight: 'bold', fontSize: '11px'},
           title: place
         });
         const infoWindow = new google.maps.InfoWindow({
@@ -1643,8 +1712,10 @@ function buildDayMapButtons() {
 
   dayHeadings.forEach((h, i) => {
     const label = h.textContent.trim().substring(0, 20);
+    const color = getDayColor(i);
     const btn = document.createElement('button');
     btn.className = 'rbtn-day';
+    btn.style.borderRight = '4px solid ' + color;
     btn.textContent = '📍 ' + label;
     btn.onclick = () => openInMaps(i);
     dayRow.appendChild(btn);
@@ -2116,10 +2187,148 @@ let regionRowCount = 0;
 function toggleMultiRegion() {
   const on = document.getElementById('multi-region-toggle').checked;
   document.getElementById('multi-region-container').style.display = on ? 'block' : 'none';
+  // v4.56 - חסימה הדדית מול "יום קפיצה מהיעד הראשי" (לא שני המנגנונים יחד, ראה פריט #2/#4)
+  const mainDtToggle = document.getElementById('main-daytrip-toggle');
+  if (mainDtToggle) mainDtToggle.disabled = on;
   if (on && document.getElementById('region-rows').children.length === 0) {
     addRegionRow();
     addRegionRow();
   }
+}
+
+// v4.56 - "יום/ימי קפיצה מהיעד הראשי" - עצמאי מ"טיול נודד" (פריט #2/#4 מבדיקת קרקוב).
+// הערה: כפתור "📌 שמור להשוואה" הושמט בכוונה כאן - saveSuggestionToCompare/renderInlineSavedSuggestions
+// תומכות רק ב-kind 'sidetrip'/'region' (בדוק בקוד, לא הנחה), הוספת kind שלישי דורשת נגיעה בפונקציות
+// משותפות שמחוץ להיקף השלב הזה. אפשר להוסיף בעתיד כתוספת נפרדת אם יידרש.
+let mainDayTripRowCount = 0;
+
+function toggleMainDayTrip() {
+  const on = document.getElementById('main-daytrip-toggle').checked;
+  document.getElementById('main-daytrip-container').style.display = on ? 'block' : 'none';
+  const multiToggle = document.getElementById('multi-region-toggle');
+  if (multiToggle) multiToggle.disabled = on;
+  if (on && document.getElementById('main-daytrip-rows').children.length === 0) {
+    addMainDayTripRow();
+  }
+}
+
+function addMainDayTripRow() {
+  const container = document.getElementById('main-daytrip-rows');
+  if (!container) return;
+  mainDayTripRowCount++;
+  const tid = mainDayTripRowCount;
+  const row = document.createElement('div');
+  row.className = 'maindt-row';
+  row.id = 'maindt-row-' + tid;
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap';
+  row.innerHTML =
+    '<input type="text" id="maindt-date-' + tid + '" placeholder="DD/MM/YYYY *חובה" readonly style="cursor:pointer;background:#faf9f7;width:120px" onclick="openCalRegion(\'maindt-date-' + tid + '\')" />' +
+    '<input type="text" id="maindt-dest-' + tid + '" placeholder="לדוגמה: אושוויץ, או השאר ריק והמלץ לי" style="flex:1;min-width:140px" />' +
+    '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);white-space:nowrap">עד <input type="number" id="maindt-maxhours-' + tid + '" value="2" min="0.5" max="12" step="0.5" style="width:48px;padding:2px 4px" /> שעות</label>' +
+    '<button type="button" id="maindt-suggest-btn-' + tid + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestMainDayTrip(' + tid + ')">✨ המלץ לי</button>' +
+    '<button type="button" class="btn-remove-region" onclick="removeMainDayTripRow(' + tid + ')">✕</button>' +
+    '<input type="text" id="maindt-clarify-' + tid + '" placeholder="הבהרה נוספת להמלץ לי (לא חובה): לדוגמה \'רק היסטוריה\', \'מתאים לילדים\'" style="width:100%;font-size:12px" />' +
+    '<div id="maindt-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>' +
+    '<div id="maindt-suggestions-' + tid + '" style="width:100%"></div>';
+  container.appendChild(row);
+}
+
+function removeMainDayTripRow(tid) {
+  const el = document.getElementById('maindt-row-' + tid);
+  if (el) el.remove();
+}
+
+async function suggestMainDayTrip(tid, isRefresh) {
+  const errBox = document.getElementById('maindt-err-' + tid);
+  if (errBox) errBox.textContent = '';
+  const apiKey = document.getElementById('api-key').value.trim();
+  const accessCode = document.getElementById('access-code').value.trim();
+  if (!apiKey && !accessCode) { if (errBox) errBox.textContent = 'יש להזין Anthropic API Key או קוד גישה למעלה לפני קבלת המלצות'; return; }
+  const baseName = document.getElementById('destination').value.trim();
+  if (!baseName) { if (errBox) errBox.textContent = 'נא למלא קודם את יעד הטיול הראשי למעלה לפני בקשת המלצה'; return; }
+  const btn = document.getElementById('maindt-suggest-btn-' + tid);
+  const box = document.getElementById('maindt-suggestions-' + tid);
+  if (btn) { btn.disabled = true; btn.textContent = 'טוען...'; }
+  if (box) box.innerHTML = '';
+
+  if (isRefresh) {
+    const prevList = window._mainDayTripSuggestions[tid] || [];
+    window._mainDayTripExcluded[tid] = (window._mainDayTripExcluded[tid] || []).concat(prevList.map(s => s.name));
+  } else {
+    window._mainDayTripExcluded[tid] = [];
+  }
+  const excludeNames = window._mainDayTripExcluded[tid];
+  const excludeClause = excludeNames.length ? ` אל תציע שוב את היעדים הבאים שכבר הוצעו: ${excludeNames.join(', ')}.` : '';
+
+  const maxHoursInput = document.getElementById('maindt-maxhours-' + tid);
+  let maxHours = maxHoursInput ? parseFloat(maxHoursInput.value) : NaN;
+  if (!maxHours || isNaN(maxHours) || maxHours <= 0) maxHours = 2;
+  const maxMinutesThreshold = Math.round(maxHours * 60 * 1.25);
+
+  const clarifyEl = document.getElementById('maindt-clarify-' + tid);
+  const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
+  const clarifyClause = clarifyText ? ` הערה/העדפה נוספת מהמשתמש שיש להתחשב בה בבחירת ההצעות: "${clarifyText}".` : '';
+
+  const prompt = `המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause}${clarifyClause} לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות, אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור. החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+{"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
+
+  try {
+    let list = await fetchAiSuggestions(apiKey, accessCode, prompt);
+    await verifyDistances(list, baseName, maxMinutesThreshold);
+
+    let retried = false;
+    const tooFarItems = list.filter(s => s.tooFar);
+    if (tooFarItems.length > 0 && btn) {
+      retried = true;
+      btn.textContent = 'מנסה שוב עם יעדים קרובים יותר...';
+      const tooFarDetail = tooFarItems.map(s => s.name + ' (בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף)').join('; ');
+      const allNamesSoFar = list.map(s => s.name);
+      const retryPrompt = `המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם. החזר JSON בלבד באותו פורמט:
+{"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
+      try {
+        const replacementList = await fetchAiSuggestions(apiKey, accessCode, retryPrompt);
+        await verifyDistances(replacementList, baseName, maxMinutesThreshold);
+        let ri = 0;
+        list = list.map(s => (s.tooFar && ri < replacementList.length) ? replacementList[ri++] : s);
+      } catch (retryErr) {
+        console.warn('[suggestMainDayTrip] ניסיון חוזר נכשל, ממשיכים עם התוצאה המקורית:', retryErr);
+        recordDebugError('suggestMainDayTrip-retry', retryErr.message, retryErr.rawResponse);
+      }
+    }
+
+    window._mainDayTripSuggestions[tid] = list;
+    if (box) {
+      const anyTooFar = list.some(s => s.tooFar);
+      const banner = (retried && anyTooFar)
+        ? '<div style="font-size:11px;color:#c0392b;background:#fdf2f2;border:1px solid #f5c6c6;border-radius:6px;padding:6px 8px;margin-bottom:6px">⚠️ גם אחרי ניסיון נוסף, לא נמצאו מספיק יעדים בתוך הסף שקבעת (' + maxHours + ' שעות) - אלה הקרובים ביותר שנמצאו בפועל</div>'
+        : '';
+      box.innerHTML = banner + list.map((s, i) =>
+        '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
+          '<button type="button" class="rec-link maps" style="flex:1;min-width:0;text-align:right;white-space:normal;overflow-wrap:break-word" onclick="applyMainDayTripSuggestion(' + tid + ',' + i + ')">' +
+            '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
+            (s.realDuration ? ' <span style="font-size:10px;font-weight:400' + (s.tooFar ? ';color:#c0392b' : '') + '">(' + (s.tooFar ? '⚠️ ' : '') + escapeHtmlLocal(s.realDuration) + ')</span>' : '') +
+            (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
+          '</button>' +
+        '</div>'
+      ).join('') +
+      '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה, ניתן גם לערוך ידנית' +
+        (anyTooFar ? ' - ⚠️ = זמן נסיעה בפועל חורג מהיעד (עד כ-' + maxHours + ' שעות)' : '') + '</div>' +
+      '<button type="button" class="rec-link" style="margin-top:6px;font-size:11px" onclick="suggestMainDayTrip(' + tid + ',true)">🔄 עוד הצעות</button>';
+    }
+  } catch(e) {
+    recordDebugError('suggestMainDayTrip', e.message, e.rawResponse);
+    if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message + ' - ניתן למלא ידנית';
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '✨ המלץ לי'; }
+}
+
+function applyMainDayTripSuggestion(tid, i) {
+  const list = window._mainDayTripSuggestions[tid];
+  if (!list || !list[i]) return;
+  const input = document.getElementById('maindt-dest-' + tid);
+  if (input) input.value = list[i].name;
+  const box = document.getElementById('maindt-suggestions-' + tid);
+  if (box) box.innerHTML = '';
 }
 
 function addRegionRow() {
@@ -2310,7 +2519,8 @@ function closeCalRegion(e) {
   const isRegionDateInput = t.id && (
     t.id.indexOf('region-date-start-') === 0 ||
     t.id.indexOf('region-date-end-') === 0 ||
-    t.id.indexOf('sidetrip-date-') === 0
+    t.id.indexOf('sidetrip-date-') === 0 ||
+    t.id.indexOf('maindt-date-') === 0
   );
   if (!popup.contains(t) && !isRegionDateInput) {
     popup.style.display = 'none';
@@ -2371,6 +2581,11 @@ window._sideTripSuggestions = {};
 window._regionCitySuggestions = {};
 window._sideTripExcluded = {};
 window._regionCityExcluded = {};
+// v4.56 - namespace נפרד ל"יום קפיצה מהיעד הראשי" (פריט #2/#4 מבדיקת קרקוב), כדי לא להתנגש
+// עם window._sideTripSuggestions/_sideTripExcluded - שני מנגנוני tid עצמאיים (mainDayTripRowCount
+// מול sideTripRowCount) עלולים לייצר אותו מספר tid, ואז לדרוס הצעות של מנגנון אחד עם השני.
+window._mainDayTripSuggestions = {};
+window._mainDayTripExcluded = {};
 
 let distanceMatrixService = null;
 
