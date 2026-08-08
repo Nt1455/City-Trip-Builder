@@ -1,3 +1,7 @@
+<!-- City Trip Builder Claude - v4.59 - 08/08/2026 - השלמת תיקון v4.58: אותם 2 באגים בדיוק (החרגה לא מוזרקת + גיוון מבודד per-row) תוקנו גם ב-suggestSideTrip (יום קפיצה מאזור בטיול נודד) - הועתקה משם במקור ב-v4.56, לא נבדקה/תוקנה ב-v4.58 כי המשתמש בדק ואישר אז רק suggestMainDayTrip. (1) excludeTopicClause (ניסוח זהה ל-suggestMainDayTrip, כולל דוגמת אושוויץ) נוסף לפרומפט הראשי ולפרומפט ה-retry. (2) גיוון בין שורות: querySelectorAll('.sidetrip-row') (בכל האזורים, לא רק באותו אזור) אוסף יעדים שכבר מולאו/הוצעו בשורות אחרות, לפני שליחת הבקשה. הבדל מ-v4.58: כאן יש כבר globalConstraintOpen/Close קיים (multi-region-clarify, שדה נפרד מ-exclude) - excludeTopicClause נוסף כתוספת, לא כתחליף. QA: node --check עבר; 0 כפילויות id/function; onclick/onchange תקין; 0 catch ריקים; אומת ששני המקומות (main-daytrip מ-v4.58 ו-sidetrip מהיום) מכילים את קריאת getElementById('exclude') החדשה. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
+<!-- City Trip Builder Claude - v4.58 - 08/08/2026 - 2 תיקונים אמיתיים מבדיקה חיה שלישית על מסלול קרקוב (v4.57, בדיקת "יום קפיצה מהיעד הראשי" בפועל): (1) UX - כפתור Debug: לחיצה ראשונה מציגה "✅ הועתק" (ברור), אבל לחיצה שנייה (סגירה בלבד) לא נתנה שום משוב - בלבול לגבי "כן/לא העתיק הפעם". תוקן: הודעה זמנית "🔒 נסגר (לא הועתק)" בלחיצת סגירה, כדי להבחין בבירור מלחיצה ראשונה שכן מעתיקה. (2) באג חמור ב-suggestMainDayTrip ("המלץ לי" ליום קפיצה) - זוהו 2 פערים משולבים שגרמו לאושוויץ להיות מוצע שוב ושוב על אף החרגה מפורשת: (א) הפונקציה מעולם לא קראה את document.getElementById('exclude') בכלל - שדה "להחריג לגמרי" מוזרק רק לפרומפט של buildTrip הראשי, לא לפרומפט ההצעות הנפרד; suggestMainDayTrip לא הייתה מודעת בכלל להחרגה שהמשתמש ציין. (ב) מניעת חזרות (window._mainDayTripExcluded) הייתה מבודדת per-tid (per-row) - שורה 2 לא ידעה מה כבר הוצע/נבחר בשורה 1, כך ששתי השורות יכלו להציע בדיוק את אותם 3-4 יעדים (זקופאנה/אושוויץ/צ'נסטוחובה) ללא גיוון. תוקן: (א) נוסף excludeTopicClause לפרומפט הראשי ולפרומפט ה-retry (יעדים רחוקים מדי) - ניסוח מחייב זהה לזה שכבר קיים ב-filterExcludedPlaces, כולל דוגמת אושוויץ המפורשת, לעקביות בין שני מנגנוני ההחרגה בקוד. (ב) לפני כל בקשת הצעה, נאספים גם היעד שכבר מולא בכל שורת "יום קפיצה" אחרת וגם שמות ההצעות שכבר הוצגו בשורות האחרות (querySelectorAll על .maindt-row, מדלג על ה-tid הנוכחי) - מתווספים לרשימת "אל תציע שוב". ידוע ולא תוקן היום (מחוץ להיקף שאושר): אותו פער בדיוק (exclude לא מוזרק, מניעת חזרות מבודדת) קיים גם ב-suggestSideTrip (יום קפיצה מאזור נוסף בטיול נודד) - הועתק ממנה במקור ב-v4.56, לא נבדק/תוקן היום כי המשתמש בדק ואישר רק את suggestMainDayTrip. QA: node --check עבר; 0 כפילויות id/function; onclick/onchange תקין; 0 catch ריקים; אומת בגרפ ש-getElementById('exclude') נכנס בפועל לתוך suggestMainDayTrip (שורה חדשה, לא רק ב-buildTrip/resetForm הקיימים). בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
 <!-- City Trip Builder Claude - v4.57 - 08/08/2026 - 4 תיקונים מבדיקה חיה שנייה על מסלול קרקוב (v4.56, אחרי הוספת "יום קפיצה מהיעד הראשי"): (1) באג אמיתי (לא רק עומס ויזואלי) - regex זיהוי כותרות "יום" ב-buildDayMapButtons בדק הופעת "יום"+מספר/אות בכל מקום בכותרת, לא רק בתחילתה. בבדיקה חיה זה תפס בטעות 2 סוגי כותרות: "🍽️ צהריים יום 1 (בחרו אחת)" (המילה "ארוחת" לא הופיעה הפעם, רק "צהריים", כך שהסינון הקיים לא תפס אותה) ו-"יום ראשון של השנה –" (האות הראשונה של "ראשון" ענתה על [\u05d0-\u05ea]'? בלי בדיקת גבול מילה). תוצאה בפועל: כפתורי מפה כפולים/שגויים בכל יום, בלבול חזותי חמור בשורת הכפתורים - זה שהמשתמש דיווח עליו כ"יותר מדי פרטים בעיניים". תוקן: הסרת תווים מובילים שאינם אות/ספרה עברית, ודרישה שהכותרת תתחיל ב"יום" ממש עם גבול מילה מיד אחרי המספר/אות (רווח/פס אנכי/סוף מחרוזת) - לא רק הכלה בכל מקום. (2) מספר אפשרויות ארוחה: שונה מ"2-3 אפשרויות" (משתנה, לא עקבי) ל"3 אפשרויות" קבוע - בוקר/צהריים/ערב, כולל שורת גיוון המטבחים שהתייחסה למספר הזה. (3) UX - מרווח + קו הפרדה לפני כפתור Debug במיקום האמצעי (result-btns) בלבד, כי שם בלבד "העתק" (copyResult, לא קשור ל-Debug) יושב צמוד אליו וגרם לבלבול בזיהוי; שני המיקומים האחרים (header, footer) לא כללו "העתק" ולכן לא נגעו. (4) ממצא מסריקת עומק יזומה (סעיף UI/UX consistency בפרוטוקול) - resetForm() לא איפס את בלוקי "טיול נודד" ו"יום קפיצה מהיעד הראשי" (checkbox+containers+rows+counters) - פער שהתקיים גם קודם עבור טיול נודד (לא רק בפיצ'ר החדש מ-v4.56): בלי התיקון, checkbox נשאר מסומן ושורות ישנות (עם תאריכים/יעדים מהטיול הקודם) נשארות ב-DOM ועלולות לדלוף לטיול הבא בלחיצת "סיור חדש". תוקן: 12 שורות איפוס חדשות ב-resetForm (checked=false, disabled=false, container hidden, rows innerHTML='', counter=0) לשני המנגנונים. QA: node --check עבר 3 פעמים (אחרי כל שינוי משמעותי); 0 כפילויות id/function; איזון תגיות div/script/table/select/textarea/button (button נבדק בפעם הראשונה השבוע - גם תקין); כל onclick/onchange מפנים לפונקציות קיימות; getElementById תקין (רק 3 ID-ים דינמיים צפויים); נסרקו כל 23 בלוקי catch(e) - 0 ריקים; נסרקו כל 5 קריאות JSON.parse בקובץ - כולן מוגנות try/catch עם recordDebugError; נבדק addEventListener (4 מקומות, כולם תקינים מבדיקות קודמות) ו-setInterval היחיד בקובץ (loadMapsApiForPlaces - עדיין מוגבל ל-75 ניסיונות/15 שניות מ-v4.43, לא נדרס); innerHTML עם dest/hotel/notes - כולם עדיין עוברים escapeHtmlLocal; אומת ש-DAY_COLORS, main-daytrip-toggle, toggleDebug(this), APP_VERSION כולם קיימים ולא נדרסו. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
 
 <!-- City Trip Builder Claude - v4.56 - 08/08/2026 - שלב 1+2 (מתוך 5) בפיצ'ר "יום/ימי קפיצה מהיעד הראשי" - UI+ולידציה בלבד, בלי נגיעה בפרומפט/Places (זה נשאר לשלב הבא, מתוכנן עם Opus 5 + Effort Max בגלל שהוא נוגע ב-buildTrip). מה נבנה: (1) checkbox עצמאי חדש "main-daytrip-toggle" בטופס הראשי, נפרד לגמרי מ"טיול נודד" - נועד לפתור את הפער מבדיקת קרקוב (עריכה לא הצליחה להוסיף יום מחוץ לעיר, כי אין נתיב UI ישיר ליום קפיצה בודד מהיעד הראשי בלי לעבור דרך "הוסף אזור"). (2) רכיב שורה addMainDayTripRow() - וריאציה עצמאית (לא רפקטור/איחוד) של addSideTripRow הקיים: תאריך חובה + יעד ידני/ריק + "✨ המלץ לי" (suggestMainDayTrip - מבוסס בדיוק על suggestSideTrip הקיים, כולל אימות מרחק אמיתי דרך Google Distance Matrix) + עד X שעות + הבהרה חופשית + הסרת שורה. הוחלט להשאיר קוד כפול קטן במקום איחוד/רפקטור עם buildMultiRegionText - כדי לא לגעת בפונקציה קיימת שכבר עובדת. (3) namespace נפרד window._mainDayTripSuggestions/_mainDayTripExcluded - נמנע מהתנגשות tid מול window._sideTripSuggestions (שני מונים עצמאיים, mainDayTripRowCount מול sideTripRowCount, עלולים לייצר אותו tid ולדרוס הצעות זה את זה). (4) חסימה הדדית דו-כיוונית מול "טיול נודד" (toggleMultiRegion מנטרל main-daytrip-toggle וההפך) - לא ניתן לסמן שניהם יחד, לפי החלטת המשתמש. (5) ולידציה חדשה בתחילת buildTrip(): תאריך חובה לכל יום קפיצה + בתוך טווח תאריכי הטיול (אותו דפוס פרסינג DD/MM/YYYY שכבר קיים לחישוב daysUntilTrip) - נבדק לפני setLoading(true) בכוונה, כדי שכשל ולידציה לא יתקע spinner. (6) תיקון נלווה נדרש: הוספת prefix 'maindt-date-' ל-whitelist הקיים בפונקציית closeCalRegion (שכבר כלל region-date-start-/region-date-end-/sidetrip-date-) - אחרת הלוח שנה היה נסגר מוקדם מדי בלחיצה על השדה החדש. הוחלט במפורש להשמיט את כפתור "📌 שמור להשוואה" מהשורה החדשה - saveSuggestionToCompare/renderInlineSavedSuggestions/applySavedInline נבדקו בקוד ותומכות רק ב-kind 'sidetrip'/'region' (לא גנריות ל-kind שלישי), הוספת תמיכה הייתה דורשת נגיעה בפונקציות משותפות מחוץ להיקף השלב הזה - אפשר להוסיף כתוספת נפרדת בעתיד אם יידרש. QA: node --check עבר (אחרי תיקון באג שנתפס עצמאית - str_replace הראשון מחק בטעות את שורת ההצהרה "function addRegionRow() {" עצמה, הבדיקה זיהתה SyntaxError מיד ותוקן לפני מסירה); 0 כפילויות פונקציה אמיתיות; כפילות id יחידה שנבדקה היא false positive ידוע (num-people בהערת HTML); איזון תגיות div/script/table/select/textarea תקין; כל onclick/onchange (כולל suggestMainDayTrip/removeMainDayTripRow/applyMainDayTripSuggestion/toggleMainDayTrip/addMainDayTripRow החדשים) מפנים לפונקציות קיימות; getElementById מול IDs תקין (maindt-row- מזוהה כ-ID דינמי צפוי, כמו region-row-/sidetrip-row-); נבדקו כל 21 בלוקי catch(e) בקובץ - 0 ריקים, כולם מתעדים; אומת שכל תיקוני v4.55 (DAY_COLORS/getDayColor/getDayMarkerIcon, 3 כפתורי Debug, max_tokens=35000/16000, APP_VERSION, ensureCoreCategories/filterExcludedPlaces/loadMapsApiForPlaces) לא נדרסו; אומתה חסימה הדדית דו-כיוונית (mainDtToggle.disabled + multiToggle.disabled שניהם קיימים). לא בוצע: קריאת Places בפועל ליעד יום הקפיצה, הזרקת הטקסט לפרומפט buildTrip - זה שלבים 4-5, ממתינים למעבר ל-Opus 5. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
@@ -501,7 +505,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.57';
+const APP_VERSION = 'v4.59';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -818,6 +822,13 @@ async function toggleDebug(btn) {
     }
   } else {
     panel.style.display = 'none';
+    // v4.58 - משוב ברור שהפעולה הזו לא העתיקה (לחיצה שנייה = סגירה בלבד), כי לחיצה ראשונה
+    // כן מעתיקה - בלי ההבחנה החזותית הזו המשתמש לא יודע אם ההעתקה קרתה או לא בכל לחיצה.
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '🔒 נסגר (לא הועתק)';
+      setTimeout(() => { btn.textContent = orig; }, 1200);
+    }
   }
 }
 
@@ -2287,8 +2298,29 @@ async function suggestMainDayTrip(tid, isRefresh) {
   } else {
     window._mainDayTripExcluded[tid] = [];
   }
-  const excludeNames = window._mainDayTripExcluded[tid];
-  const excludeClause = excludeNames.length ? ` אל תציע שוב את היעדים הבאים שכבר הוצעו: ${excludeNames.join(', ')}.` : '';
+  // v4.58 - גיוון בין שורות (פריט #2 מבדיקה חיה): לפני התיקון, כל שורת "יום קפיצה" שמרה היסטוריית
+  // "אל תציע שוב" רק לעצמה (window._mainDayTripExcluded[tid]) - שורה 2 לא ידעה מה כבר הוצע/נבחר
+  // בשורה 1, ולכן יכלה להציע בדיוק את אותם יעדים (זקופאנה/אושוויץ/צ'נסטוחובה) שוב. תוקן: אוספים גם
+  // את היעד שכבר נבחר בכל שורה אחרת (אם מולא), וגם את שמות ההצעות שכבר הוצגו בשורות אחרות.
+  const crossRowNames = new Set();
+  document.querySelectorAll('#main-daytrip-rows .maindt-row').forEach(row => {
+    const otherTid = row.id.replace('maindt-row-', '');
+    if (String(otherTid) === String(tid)) return;
+    const otherDestEl = document.getElementById('maindt-dest-' + otherTid);
+    if (otherDestEl && otherDestEl.value.trim()) crossRowNames.add(otherDestEl.value.trim());
+    (window._mainDayTripSuggestions[otherTid] || []).forEach(s => { if (s.name) crossRowNames.add(s.name); });
+  });
+  const excludeNames = (window._mainDayTripExcluded[tid] || []).concat(Array.from(crossRowNames));
+  const excludeClause = excludeNames.length ? ` אל תציע שוב את היעדים הבאים שכבר הוצעו/נבחרו (בשורה הזו או בשורות יום-קפיצה אחרות באותו טיול): ${excludeNames.join(', ')}.` : '';
+
+  // v4.58 - הזרקת שדה "להחריג" (פריט #2 מבדיקה חיה, חמור): עד עכשיו suggestMainDayTrip לא קרא
+  // בכלל את document.getElementById('exclude') - למרות שהמשתמש ציין "אתרי שואה ומחנות" בטופס,
+  // הפונקציה הזו לא ידעה על זה בכלל, ולכן המשיכה להציע אושוויץ שוב ושוב. אותו ניסוח מחייב
+  // (כולל הדוגמה המפורשת) כמו ב-filterExcludedPlaces, כדי לשמור על עקביות בין המנגנונים.
+  const excludeStr = (document.getElementById('exclude') || {}).value || '';
+  const excludeTopicClause = excludeStr.trim()
+    ? ` הגבלה מחייבת, לא העדפה: אסור להציע יעד ששייך מבחינה נושאית/תוכנית לנושא הבא, גם אם שם היעד עצמו לא מכיל את מילת ההחרגה במפורש (לדוגמה: אם ההחרגה היא "מחנות", אסור להציע את אושוויץ, גם שהמילה "מחנה" לא מופיעה בשמו): "${excludeStr.trim()}".`
+    : '';
 
   const maxHoursInput = document.getElementById('maindt-maxhours-' + tid);
   let maxHours = maxHoursInput ? parseFloat(maxHoursInput.value) : NaN;
@@ -2299,7 +2331,7 @@ async function suggestMainDayTrip(tid, isRefresh) {
   const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
   const clarifyClause = clarifyText ? ` הערה/העדפה נוספת מהמשתמש שיש להתחשב בה בבחירת ההצעות: "${clarifyText}".` : '';
 
-  const prompt = `המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause}${clarifyClause} לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות, אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור. החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+  const prompt = `המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause}${excludeTopicClause}${clarifyClause} לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות, אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור. החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
 
   try {
@@ -2313,7 +2345,7 @@ async function suggestMainDayTrip(tid, isRefresh) {
       btn.textContent = 'מנסה שוב עם יעדים קרובים יותר...';
       const tooFarDetail = tooFarItems.map(s => s.name + ' (בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף)').join('; ');
       const allNamesSoFar = list.map(s => s.name);
-      const retryPrompt = `המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם. החזר JSON בלבד באותו פורמט:
+      const retryPrompt = `המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${excludeTopicClause}${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם. החזר JSON בלבד באותו פורמט:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
       try {
         const replacementList = await fetchAiSuggestions(apiKey, accessCode, retryPrompt);
@@ -2784,8 +2816,27 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
   } else {
     window._sideTripExcluded[tid] = [];
   }
-  const excludeNames = window._sideTripExcluded[tid];
-  const excludeClause = excludeNames.length ? ` אל תציע שוב את היעדים הבאים שכבר הוצעו: ${excludeNames.join(', ')}.` : '';
+  // v4.59 - אותו תיקון גיוון-בין-שורות שבוצע ב-suggestMainDayTrip (v4.58), כאן עבור יום קפיצה
+  // מאזור בטיול נודד: אוספים גם יעדים שכבר נבחרו/הוצעו בשורות sidetrip אחרות (בכל אזור, לא רק
+  // באותו אזור) - בלי זה, שתי שורות יום-קפיצה יכלו להציע בדיוק את אותם יעדים.
+  const crossRowNames = new Set();
+  document.querySelectorAll('.sidetrip-row').forEach(row => {
+    const otherTid = row.id.replace('sidetrip-row-', '');
+    if (String(otherTid) === String(tid)) return;
+    const otherDestEl = document.getElementById('sidetrip-dest-' + otherTid);
+    if (otherDestEl && otherDestEl.value.trim()) crossRowNames.add(otherDestEl.value.trim());
+    (window._sideTripSuggestions[otherTid] || []).forEach(s => { if (s.name) crossRowNames.add(s.name); });
+  });
+  const excludeNames = (window._sideTripExcluded[tid] || []).concat(Array.from(crossRowNames));
+  const excludeClause = excludeNames.length ? ` אל תציע שוב את היעדים הבאים שכבר הוצעו/נבחרו (בשורה הזו או בשורות יום-קפיצה אחרות באותו טיול): ${excludeNames.join(', ')}.` : '';
+
+  // v4.59 - אותו תיקון הזרקת "להחריג" שבוצע ב-suggestMainDayTrip (v4.58) - עד עכשיו suggestSideTrip
+  // גם היא לא קראה בכלל את שדה ה-exclude הראשי, למרות שהיא כן כבר קראה שדה clarify גלובלי נפרד
+  // (multi-region-clarify). שני שדות שונים לגמרי - clarify הוא העדפה, exclude הוא הגבלה מחייבת.
+  const excludeStr = (document.getElementById('exclude') || {}).value || '';
+  const excludeTopicClause = excludeStr.trim()
+    ? ` הגבלה מחייבת, לא העדפה: אסור להציע יעד ששייך מבחינה נושאית/תוכנית לנושא הבא, גם אם שם היעד עצמו לא מכיל את מילת ההחרגה במפורש (לדוגמה: אם ההחרגה היא "מחנות", אסור להציע את אושוויץ, גם שהמילה "מחנה" לא מופיעה בשמו): "${excludeStr.trim()}".`
+    : '';
 
   const maxHoursInput = document.getElementById('sidetrip-maxhours-' + tid);
   let maxHours = maxHoursInput ? parseFloat(maxHoursInput.value) : NaN;
@@ -2801,7 +2852,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
   const globalConstraintOpen = globalClarifyText ? `עיקרון מנחה שכל הצעה חייבת לשרת בפועל, לא רק להיות תואמת אליו באופן כללי: "${globalClarifyText}".\n\n` : '';
   const globalConstraintClose = globalClarifyText ? ` חשוב: ודא שכל הצעה משרתת בפועל את העיקרון המנחה שצוין בתחילת ההודעה.` : '';
 
-  const prompt = `${globalConstraintOpen}המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause}${clarifyClause} לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור.${globalConstraintClose} החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
+  const prompt = `${globalConstraintOpen}המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause}${excludeTopicClause}${clarifyClause} לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור.${globalConstraintClose} החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
 
   try {
@@ -2817,7 +2868,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
       btn.textContent = 'מנסה שוב עם יעדים קרובים יותר...';
       const tooFarDetail = tooFarItems.map(s => s.name + ' (בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף)').join('; ');
       const allNamesSoFar = list.map(s => s.name);
-      const retryPrompt = `${globalConstraintOpen}המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם.${globalConstraintClose} החזר JSON בלבד באותו פורמט:
+      const retryPrompt = `${globalConstraintOpen}המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${excludeTopicClause}${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם.${globalConstraintClose} החזר JSON בלבד באותו פורמט:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
       try {
         const replacementList = await fetchAiSuggestions(apiKey, accessCode, retryPrompt);
