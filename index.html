@@ -1,3 +1,7 @@
+<!-- City Trip Builder Claude - v4.61 - 08/08/2026 - כולל גם את תיקון ה-v4.60 שלא תועד בזמנו (הוראה מפורשת של המשתמש להשאיר את מספר הגרסה ללא שינוי): גיוון מטבחים - הוסר "modern restaurant" מרשימת הדוגמאות בהוראת fetchIntent (הוחלף בטעות ל-"modern european restaurant" בבדיקה חיה, שהיא בעצם אותו איזור מטבח מקומי - לא גיוון אמיתי), נוספה הבהרה מפורשת שהקטגוריה השנייה חייבת מטבח לאומי שונה באופן מובהק (italian/japanese/seafood/french/indian/middle eastern), לא רק סגנון שונה של אותו מטבח. v4.61 עצמה - תיקון חזרות קשיחה ב"המלץ לי" (suggestMainDayTrip + suggestSideTrip): בבדיקה חיה, כ-90% מההצעות בלחיצה חוזרת על "🔄 עוד הצעות" באותה שורה חזרו על עצמן - ההוראה "אל תציע שוב X,Y,Z" בפרומפט הייתה הנחיה רכה בלבד, לא נאכפת. תוקן: אחרי קבלת תשובה מ-Claude, המערכת בעצמה משווה (מנורמל - trim+lowercase) כל שם שחזר מול רשימת "כבר הוצע/נבחר" ומסמנת isDuplicate - ומאחדת את זה עם מנגנון ה-retry שכבר קיים לבדיקת מרחק (tooFar), כך שגם חזרות וגם חריגת מרחק מטופלות באותו סבב retry ממוקד אחד (לא שני מנגנונים נפרדים). retryPrompt עודכן לכלול את כל הרשימה (list.map(s=>s.name) + excludeNames המקוריים) כרשימה "מחייבת, לא המלצה", עם היתר מפורש להציע יעד פחות מוכר אם אין ברירה, אבל איסור חזרה. תיוג ⚠️ "חוזר על הצעה קודמת" נוסף לתצוגה אם גם אחרי retry עדיין יש כפילות (שקוף למשתמש, לא מוסתר). בוצע בשני המקומות (main-daytrip + sidetrip) לעקביות, אותו דפוס בדיוק בשניהם. QA: node --check עבר; 0 כפילויות id/function; onclick/onchange תקין; 0 catch ריקים; אומת ש-isDuplicate מופיע 14 פעמים בקובץ (7 בכל אחד מהמקומות - נמנע כפילות קוד לא מכוונת בין השניים). בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
+<!-- City Trip Builder Claude - v4.60 - 08/08/2026 - copyResult() מוסיפה עכשיו את APP_VERSION כשורה ראשונה בטקסט המועתק (לפני תוכן result-body) - סיבה: מספר הגרסה מוצג רק בכותרת העמוד, לא בתוך result-body, ולכן לא הופיע בקבצים ששלח המשתמש (Word/PDF/הדבקה), מה שהקשה לאבחן איזו גרסה נבדקה בפועל. שינוי מבודד לחלוטין - שורה אחת, לא נוגע בשום לוגיקה אחרת. QA: node --check עבר; 0 כפילויות; onclick/onchange תקין. בדיקה חיה טרם בוצעה. -->
+
 <!-- City Trip Builder Claude - v4.59 - 08/08/2026 - השלמת תיקון v4.58: אותם 2 באגים בדיוק (החרגה לא מוזרקת + גיוון מבודד per-row) תוקנו גם ב-suggestSideTrip (יום קפיצה מאזור בטיול נודד) - הועתקה משם במקור ב-v4.56, לא נבדקה/תוקנה ב-v4.58 כי המשתמש בדק ואישר אז רק suggestMainDayTrip. (1) excludeTopicClause (ניסוח זהה ל-suggestMainDayTrip, כולל דוגמת אושוויץ) נוסף לפרומפט הראשי ולפרומפט ה-retry. (2) גיוון בין שורות: querySelectorAll('.sidetrip-row') (בכל האזורים, לא רק באותו אזור) אוסף יעדים שכבר מולאו/הוצעו בשורות אחרות, לפני שליחת הבקשה. הבדל מ-v4.58: כאן יש כבר globalConstraintOpen/Close קיים (multi-region-clarify, שדה נפרד מ-exclude) - excludeTopicClause נוסף כתוספת, לא כתחליף. QA: node --check עבר; 0 כפילויות id/function; onclick/onchange תקין; 0 catch ריקים; אומת ששני המקומות (main-daytrip מ-v4.58 ו-sidetrip מהיום) מכילים את קריאת getElementById('exclude') החדשה. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
 
 <!-- City Trip Builder Claude - v4.58 - 08/08/2026 - 2 תיקונים אמיתיים מבדיקה חיה שלישית על מסלול קרקוב (v4.57, בדיקת "יום קפיצה מהיעד הראשי" בפועל): (1) UX - כפתור Debug: לחיצה ראשונה מציגה "✅ הועתק" (ברור), אבל לחיצה שנייה (סגירה בלבד) לא נתנה שום משוב - בלבול לגבי "כן/לא העתיק הפעם". תוקן: הודעה זמנית "🔒 נסגר (לא הועתק)" בלחיצת סגירה, כדי להבחין בבירור מלחיצה ראשונה שכן מעתיקה. (2) באג חמור ב-suggestMainDayTrip ("המלץ לי" ליום קפיצה) - זוהו 2 פערים משולבים שגרמו לאושוויץ להיות מוצע שוב ושוב על אף החרגה מפורשת: (א) הפונקציה מעולם לא קראה את document.getElementById('exclude') בכלל - שדה "להחריג לגמרי" מוזרק רק לפרומפט של buildTrip הראשי, לא לפרומפט ההצעות הנפרד; suggestMainDayTrip לא הייתה מודעת בכלל להחרגה שהמשתמש ציין. (ב) מניעת חזרות (window._mainDayTripExcluded) הייתה מבודדת per-tid (per-row) - שורה 2 לא ידעה מה כבר הוצע/נבחר בשורה 1, כך ששתי השורות יכלו להציע בדיוק את אותם 3-4 יעדים (זקופאנה/אושוויץ/צ'נסטוחובה) ללא גיוון. תוקן: (א) נוסף excludeTopicClause לפרומפט הראשי ולפרומפט ה-retry (יעדים רחוקים מדי) - ניסוח מחייב זהה לזה שכבר קיים ב-filterExcludedPlaces, כולל דוגמת אושוויץ המפורשת, לעקביות בין שני מנגנוני ההחרגה בקוד. (ב) לפני כל בקשת הצעה, נאספים גם היעד שכבר מולא בכל שורת "יום קפיצה" אחרת וגם שמות ההצעות שכבר הוצגו בשורות האחרות (querySelectorAll על .maindt-row, מדלג על ה-tid הנוכחי) - מתווספים לרשימת "אל תציע שוב". ידוע ולא תוקן היום (מחוץ להיקף שאושר): אותו פער בדיוק (exclude לא מוזרק, מניעת חזרות מבודדת) קיים גם ב-suggestSideTrip (יום קפיצה מאזור נוסף בטיול נודד) - הועתק ממנה במקור ב-v4.56, לא נבדק/תוקן היום כי המשתמש בדק ואישר רק את suggestMainDayTrip. QA: node --check עבר; 0 כפילויות id/function; onclick/onchange תקין; 0 catch ריקים; אומת בגרפ ש-getElementById('exclude') נכנס בפועל לתוך suggestMainDayTrip (שורה חדשה, לא רק ב-buildTrip/resetForm הקיימים). בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
@@ -505,7 +509,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.59';
+const APP_VERSION = 'v4.61';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -857,7 +861,7 @@ async function fetchIntent(fields, apiKey, accessCode) {
 
 כללים:
 - תמיד כלול: מסעדות (restaurant), בתי קפה (cafe), לינה/מלונות (lodging)
-- מסעדות - גיוון מטבחים: אל תכלול רק קטגוריית "restaurant" כללית אחת. כלול לפחות 2 קטגוריות מסעדה נפרדות (עדיין type="restaurant"), עם keyword שונה שמבטא סוג מטבח שונה - למשל מטבח מקומי/מסורתי ליעד (כגון "polish restaurant" עבור קרקוב) בנוסף לקטגוריה נוספת אחת לפחות ממטבח אחר שסביר שקיים ביעד (כגון "italian restaurant", "seafood restaurant", "french restaurant", "modern restaurant" - לפי מה שהגיוני ליעד הספציפי). המטרה: לתת בסיס אמיתי (לא מומצא) לגיוון בין אפשרויות הארוחה שיוצעו בהמשך.
+- מסעדות - גיוון מטבחים: אל תכלול רק קטגוריית "restaurant" כללית אחת, ואל תסתפק בשתי קטגוריות שהן בעצם אותו מטבח באריזה שונה (לדוגמה "traditional polish restaurant" + "modern european restaurant" - זה עדיין אותו איזור מטבח מקומי/אירופאי, לא גיוון אמיתי). כלול לפחות 2 קטגוריות מסעדה נפרדות (עדיין type="restaurant"): קטגוריה אחת למטבח המקומי/המסורתי ליעד (כגון "polish restaurant" עבור קרקוב), וקטגוריה נוספת אחת לפחות ממטבח לאומי אחר שונה באופן מובהק - לא רק סגנון/עידן שונה של אותו מטבח מקומי (כגון "italian restaurant", "japanese restaurant", "seafood restaurant", "french restaurant", "indian restaurant", "middle eastern restaurant" - לפי מה שהגיוני ליעד הספציפי). המטרה: לתת בסיס אמיתי (לא מומצא) לגיוון בין אפשרויות הארוחה שיוצעו בהמשך.
 - שווקים (market) - כלול לפי רלוונטיות ליעד ולתחומי עניין, לא באופן קבוע
 - הוסף לפי תחומי עניין: מוזיאונים, פארקים, גלריות, ברים, אתרים היסטוריים
 - אם יש שדה "להחריג" - אל תיצור keyword/type שסביר להניח שיחזיר בעיקר תוצאות מהנושא המוחרג (למשל אם הוחרג "אתרי שואה" - אל תיצור קטגוריה כללית "historic site"/"memorial" שתמשוך בעיקר אתרים כאלה; אפשר עדיין "museum" כללי אם רלוונטי לתחומי עניין אחרים)
@@ -1431,7 +1435,9 @@ function showError(msg) {
 }
 
 function copyResult() {
-  const text = document.getElementById('result-body').textContent;
+  // v4.60 - הוספת מספר גרסה כשורה ראשונה בטקסט המועתק (לא רק בכותרת העמוד) - כדי שיישאר
+  // בכל קובץ/הדבקה שנשלחת החוצה (Word, WhatsApp וכו'), בלי תלות בצילום מסך נפרד של הכותרת.
+  const text = APP_VERSION + '\n\n' + document.getElementById('result-body').textContent;
   const btn = document.querySelector('.rbtn-copy');
   navigator.clipboard.writeText(text).then(() => {
     if (btn) { btn.textContent = 'הועתק!'; setTimeout(()=>btn.textContent='העתק הכל', 2000); }
@@ -2338,20 +2344,32 @@ async function suggestMainDayTrip(tid, isRefresh) {
     let list = await fetchAiSuggestions(apiKey, accessCode, prompt);
     await verifyDistances(list, baseName, maxMinutesThreshold);
 
+    // v4.61 - בדיקת חזרות קשיחה (לא רק הנחיה בפרומפט): עד עכשיו ההגנה מפני חזרות הייתה רק
+    // ההוראה "אל תציע שוב X, Y, Z" בפרומפט - הנחיה רכה שClaude לא תמיד ציית לה (בבדיקה חיה,
+    // כ-90% מהתוצאות חזרו בלחיצה על "עוד הצעות"). תוקן: המערכת בעצמה בודקת אם שם היעד שחזר
+    // מ-Claude מופיע ברשימת "כבר הוצע/נבחר" (השוואה מנורמלת - trim+lowercase) - ואם כן, מטפלת
+    // בזה באותו מסלול retry שכבר קיים לבדיקת מרחק (tooFar), לא בונה מנגנון נפרד.
+    const excludeNamesNormalized = excludeNames.map(n => (n || '').trim().toLowerCase());
+    list.forEach(s => { s.isDuplicate = excludeNamesNormalized.includes((s.name || '').trim().toLowerCase()); });
+
     let retried = false;
-    const tooFarItems = list.filter(s => s.tooFar);
-    if (tooFarItems.length > 0 && btn) {
+    const needsReplacement = list.filter(s => s.tooFar || s.isDuplicate);
+    if (needsReplacement.length > 0 && btn) {
       retried = true;
-      btn.textContent = 'מנסה שוב עם יעדים קרובים יותר...';
-      const tooFarDetail = tooFarItems.map(s => s.name + ' (בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף)').join('; ');
-      const allNamesSoFar = list.map(s => s.name);
-      const retryPrompt = `המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${excludeTopicClause}${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם. החזר JSON בלבד באותו פורמט:
+      btn.textContent = 'מנסה שוב עם יעדים שונים...';
+      const replaceDetail = needsReplacement.map(s => {
+        if (s.isDuplicate) return s.name + ' (כבר הוצע/נבחר בעבר - חזרה, לא רלוונטי)';
+        return s.name + ' (בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף)';
+      }).join('; ');
+      const allNamesSoFar = list.map(s => s.name).concat(excludeNames);
+      const retryPrompt = `המלץ על ${needsReplacement.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו/כבר הוצעו ונפסלו: ${replaceDetail}. אל תציע שוב אף אחד מהשמות הבאים - זו רשימה מחייבת, לא המלצה: ${allNamesSoFar.join(', ')}. אם אין לך יעד קרוב אמיתי שלא ברשימה - מותר להציע יעד מעט פחות מוכר/קלאסי, אבל אסור לחזור על שם מהרשימה.${excludeTopicClause}${clarifyClause} הפעם הצע רק יעדים שונים באמת מהרשימה. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם. החזר JSON בלבד באותו פורמט:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
       try {
         const replacementList = await fetchAiSuggestions(apiKey, accessCode, retryPrompt);
         await verifyDistances(replacementList, baseName, maxMinutesThreshold);
+        replacementList.forEach(s => { s.isDuplicate = excludeNamesNormalized.includes((s.name || '').trim().toLowerCase()); });
         let ri = 0;
-        list = list.map(s => (s.tooFar && ri < replacementList.length) ? replacementList[ri++] : s);
+        list = list.map(s => ((s.tooFar || s.isDuplicate) && ri < replacementList.length) ? replacementList[ri++] : s);
       } catch (retryErr) {
         console.warn('[suggestMainDayTrip] ניסיון חוזר נכשל, ממשיכים עם התוצאה המקורית:', retryErr);
         recordDebugError('suggestMainDayTrip-retry', retryErr.message, retryErr.rawResponse);
@@ -2361,13 +2379,15 @@ async function suggestMainDayTrip(tid, isRefresh) {
     window._mainDayTripSuggestions[tid] = list;
     if (box) {
       const anyTooFar = list.some(s => s.tooFar);
-      const banner = (retried && anyTooFar)
-        ? '<div style="font-size:11px;color:#c0392b;background:#fdf2f2;border:1px solid #f5c6c6;border-radius:6px;padding:6px 8px;margin-bottom:6px">⚠️ גם אחרי ניסיון נוסף, לא נמצאו מספיק יעדים בתוך הסף שקבעת (' + maxHours + ' שעות) - אלה הקרובים ביותר שנמצאו בפועל</div>'
+      const anyDuplicate = list.some(s => s.isDuplicate);
+      const banner = (retried && (anyTooFar || anyDuplicate))
+        ? '<div style="font-size:11px;color:#c0392b;background:#fdf2f2;border:1px solid #f5c6c6;border-radius:6px;padding:6px 8px;margin-bottom:6px">⚠️ גם אחרי ניסיון נוסף, לא נמצאו מספיק יעדים שונים/בתוך הסף שקבעת (' + maxHours + ' שעות) - אלה הטובים ביותר שנמצאו בפועל</div>'
         : '';
       box.innerHTML = banner + list.map((s, i) =>
         '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
           '<button type="button" class="rec-link maps" style="flex:1;min-width:0;text-align:right;white-space:normal;overflow-wrap:break-word" onclick="applyMainDayTripSuggestion(' + tid + ',' + i + ')">' +
             '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
+            (s.isDuplicate ? ' <span style="font-size:10px;font-weight:400;color:#c0392b">⚠️ חוזר על הצעה קודמת</span>' : '') +
             (s.realDuration ? ' <span style="font-size:10px;font-weight:400' + (s.tooFar ? ';color:#c0392b' : '') + '">(' + (s.tooFar ? '⚠️ ' : '') + escapeHtmlLocal(s.realDuration) + ')</span>' : '') +
             (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
           '</button>' +
@@ -2859,22 +2879,31 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
     let list = await fetchAiSuggestions(apiKey, accessCode, prompt);
     await verifyDistances(list, baseName, maxMinutesThreshold);
 
-    // אם יש הצעות שחורגות בפועל מהסף - ניסיון חוזר יחיד עם משוב אמיתי ל-Claude (לא רק "אל תציע שוב",
-    // אלא כמה זמן זה לקח בפועל) - כדי לתת הזדמנות אמיתית לחלופה קרובה, לא רק לתייג ⚠️ ולהמשיך הלאה.
+    // v4.61 - אותו תיקון חזרות קשיחות שבוצע ב-suggestMainDayTrip: בדיקה בפועל (לא רק הנחיה)
+    // אם השם שחזר מ-Claude מופיע ברשימת "כבר הוצע/נבחר", ומטפלים בזה באותו retry שכבר קיים ל-tooFar.
+    const excludeNamesNormalized = excludeNames.map(n => (n || '').trim().toLowerCase());
+    list.forEach(s => { s.isDuplicate = excludeNamesNormalized.includes((s.name || '').trim().toLowerCase()); });
+
+    // אם יש הצעות שחורגות בפועל מהסף או חוזרות על עצמן - ניסיון חוזר יחיד עם משוב אמיתי ל-Claude
+    // (לא רק "אל תציע שוב", אלא בדיוק למה נפסלה כל הצעה) - כדי לתת הזדמנות אמיתית לחלופה, לא רק לתייג ⚠️.
     let retried = false;
-    const tooFarItems = list.filter(s => s.tooFar);
-    if (tooFarItems.length > 0 && btn) {
+    const needsReplacement = list.filter(s => s.tooFar || s.isDuplicate);
+    if (needsReplacement.length > 0 && btn) {
       retried = true;
-      btn.textContent = 'מנסה שוב עם יעדים קרובים יותר...';
-      const tooFarDetail = tooFarItems.map(s => s.name + ' (בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף)').join('; ');
-      const allNamesSoFar = list.map(s => s.name);
-      const retryPrompt = `${globalConstraintOpen}המלץ על ${tooFarItems.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו בפועל מול Google Maps והתבררו כרחוקות מדי, ולכן נפסלו: ${tooFarDetail}. אל תציע שוב אף אחד מהשמות הבאים: ${allNamesSoFar.join(', ')}.${excludeTopicClause}${clarifyClause} הפעם הצע רק יעדים שאתה בטוח שהם קרובים בפועל. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם.${globalConstraintClose} החזר JSON בלבד באותו פורמט:
+      btn.textContent = 'מנסה שוב עם יעדים שונים...';
+      const replaceDetail = needsReplacement.map(s => {
+        if (s.isDuplicate) return s.name + ' (כבר הוצע/נבחר בעבר - חזרה, לא רלוונטי)';
+        return s.name + ' (בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף)';
+      }).join('; ');
+      const allNamesSoFar = list.map(s => s.name).concat(excludeNames);
+      const retryPrompt = `${globalConstraintOpen}המלץ על ${needsReplacement.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו/כבר הוצעו ונפסלו: ${replaceDetail}. אל תציע שוב אף אחד מהשמות הבאים - זו רשימה מחייבת, לא המלצה: ${allNamesSoFar.join(', ')}. אם אין לך יעד קרוב אמיתי שלא ברשימה - מותר להציע יעד מעט פחות מוכר/קלאסי, אבל אסור לחזור על שם מהרשימה.${excludeTopicClause}${clarifyClause} הפעם הצע רק יעדים שונים באמת מהרשימה. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם.${globalConstraintClose} החזר JSON בלבד באותו פורמט:
 {"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
       try {
         const replacementList = await fetchAiSuggestions(apiKey, accessCode, retryPrompt);
         await verifyDistances(replacementList, baseName, maxMinutesThreshold);
+        replacementList.forEach(s => { s.isDuplicate = excludeNamesNormalized.includes((s.name || '').trim().toLowerCase()); });
         let ri = 0;
-        list = list.map(s => (s.tooFar && ri < replacementList.length) ? replacementList[ri++] : s);
+        list = list.map(s => ((s.tooFar || s.isDuplicate) && ri < replacementList.length) ? replacementList[ri++] : s);
       } catch (retryErr) {
         console.warn('[suggestSideTrip] ניסיון חוזר נכשל, ממשיכים עם התוצאה המקורית:', retryErr);
         recordDebugError('suggestSideTrip-retry', retryErr.message, retryErr.rawResponse);
@@ -2885,13 +2914,15 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
     window._sideTripSuggestions[tid] = list;
     if (box) {
       const anyTooFar = list.some(s => s.tooFar);
-      const banner = (retried && anyTooFar)
-        ? '<div style="font-size:11px;color:#c0392b;background:#fdf2f2;border:1px solid #f5c6c6;border-radius:6px;padding:6px 8px;margin-bottom:6px">⚠️ גם אחרי ניסיון נוסף, לא נמצאו מספיק יעדים בתוך הסף שקבעת (' + maxHours + ' שעות) - אלה הקרובים ביותר שנמצאו בפועל</div>'
+      const anyDuplicate = list.some(s => s.isDuplicate);
+      const banner = (retried && (anyTooFar || anyDuplicate))
+        ? '<div style="font-size:11px;color:#c0392b;background:#fdf2f2;border:1px solid #f5c6c6;border-radius:6px;padding:6px 8px;margin-bottom:6px">⚠️ גם אחרי ניסיון נוסף, לא נמצאו מספיק יעדים שונים/בתוך הסף שקבעת (' + maxHours + ' שעות) - אלה הטובים ביותר שנמצאו בפועל</div>'
         : '';
       box.innerHTML = banner + list.map((s, i) =>
         '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
           '<button type="button" class="rec-link maps" style="flex:1;min-width:0;text-align:right;white-space:normal;overflow-wrap:break-word" onclick="applySideTripSuggestion(' + tid + ',' + i + ')">' +
             '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
+            (s.isDuplicate ? ' <span style="font-size:10px;font-weight:400;color:#c0392b">⚠️ חוזר על הצעה קודמת</span>' : '') +
             (s.realDuration ? ' <span style="font-size:10px;font-weight:400' + (s.tooFar ? ';color:#c0392b' : '') + '">(' + (s.tooFar ? '⚠️ ' : '') + escapeHtmlLocal(s.realDuration) + ')</span>' : '') +
             (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
           '</button>' +
