@@ -1,3 +1,5 @@
+<!-- City Trip Builder Claude - v4.57 - 08/08/2026 - 4 תיקונים מבדיקה חיה שנייה על מסלול קרקוב (v4.56, אחרי הוספת "יום קפיצה מהיעד הראשי"): (1) באג אמיתי (לא רק עומס ויזואלי) - regex זיהוי כותרות "יום" ב-buildDayMapButtons בדק הופעת "יום"+מספר/אות בכל מקום בכותרת, לא רק בתחילתה. בבדיקה חיה זה תפס בטעות 2 סוגי כותרות: "🍽️ צהריים יום 1 (בחרו אחת)" (המילה "ארוחת" לא הופיעה הפעם, רק "צהריים", כך שהסינון הקיים לא תפס אותה) ו-"יום ראשון של השנה –" (האות הראשונה של "ראשון" ענתה על [\u05d0-\u05ea]'? בלי בדיקת גבול מילה). תוצאה בפועל: כפתורי מפה כפולים/שגויים בכל יום, בלבול חזותי חמור בשורת הכפתורים - זה שהמשתמש דיווח עליו כ"יותר מדי פרטים בעיניים". תוקן: הסרת תווים מובילים שאינם אות/ספרה עברית, ודרישה שהכותרת תתחיל ב"יום" ממש עם גבול מילה מיד אחרי המספר/אות (רווח/פס אנכי/סוף מחרוזת) - לא רק הכלה בכל מקום. (2) מספר אפשרויות ארוחה: שונה מ"2-3 אפשרויות" (משתנה, לא עקבי) ל"3 אפשרויות" קבוע - בוקר/צהריים/ערב, כולל שורת גיוון המטבחים שהתייחסה למספר הזה. (3) UX - מרווח + קו הפרדה לפני כפתור Debug במיקום האמצעי (result-btns) בלבד, כי שם בלבד "העתק" (copyResult, לא קשור ל-Debug) יושב צמוד אליו וגרם לבלבול בזיהוי; שני המיקומים האחרים (header, footer) לא כללו "העתק" ולכן לא נגעו. (4) ממצא מסריקת עומק יזומה (סעיף UI/UX consistency בפרוטוקול) - resetForm() לא איפס את בלוקי "טיול נודד" ו"יום קפיצה מהיעד הראשי" (checkbox+containers+rows+counters) - פער שהתקיים גם קודם עבור טיול נודד (לא רק בפיצ'ר החדש מ-v4.56): בלי התיקון, checkbox נשאר מסומן ושורות ישנות (עם תאריכים/יעדים מהטיול הקודם) נשארות ב-DOM ועלולות לדלוף לטיול הבא בלחיצת "סיור חדש". תוקן: 12 שורות איפוס חדשות ב-resetForm (checked=false, disabled=false, container hidden, rows innerHTML='', counter=0) לשני המנגנונים. QA: node --check עבר 3 פעמים (אחרי כל שינוי משמעותי); 0 כפילויות id/function; איזון תגיות div/script/table/select/textarea/button (button נבדק בפעם הראשונה השבוע - גם תקין); כל onclick/onchange מפנים לפונקציות קיימות; getElementById תקין (רק 3 ID-ים דינמיים צפויים); נסרקו כל 23 בלוקי catch(e) - 0 ריקים; נסרקו כל 5 קריאות JSON.parse בקובץ - כולן מוגנות try/catch עם recordDebugError; נבדק addEventListener (4 מקומות, כולם תקינים מבדיקות קודמות) ו-setInterval היחיד בקובץ (loadMapsApiForPlaces - עדיין מוגבל ל-75 ניסיונות/15 שניות מ-v4.43, לא נדרס); innerHTML עם dest/hotel/notes - כולם עדיין עוברים escapeHtmlLocal; אומת ש-DAY_COLORS, main-daytrip-toggle, toggleDebug(this), APP_VERSION כולם קיימים ולא נדרסו. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
 <!-- City Trip Builder Claude - v4.56 - 08/08/2026 - שלב 1+2 (מתוך 5) בפיצ'ר "יום/ימי קפיצה מהיעד הראשי" - UI+ולידציה בלבד, בלי נגיעה בפרומפט/Places (זה נשאר לשלב הבא, מתוכנן עם Opus 5 + Effort Max בגלל שהוא נוגע ב-buildTrip). מה נבנה: (1) checkbox עצמאי חדש "main-daytrip-toggle" בטופס הראשי, נפרד לגמרי מ"טיול נודד" - נועד לפתור את הפער מבדיקת קרקוב (עריכה לא הצליחה להוסיף יום מחוץ לעיר, כי אין נתיב UI ישיר ליום קפיצה בודד מהיעד הראשי בלי לעבור דרך "הוסף אזור"). (2) רכיב שורה addMainDayTripRow() - וריאציה עצמאית (לא רפקטור/איחוד) של addSideTripRow הקיים: תאריך חובה + יעד ידני/ריק + "✨ המלץ לי" (suggestMainDayTrip - מבוסס בדיוק על suggestSideTrip הקיים, כולל אימות מרחק אמיתי דרך Google Distance Matrix) + עד X שעות + הבהרה חופשית + הסרת שורה. הוחלט להשאיר קוד כפול קטן במקום איחוד/רפקטור עם buildMultiRegionText - כדי לא לגעת בפונקציה קיימת שכבר עובדת. (3) namespace נפרד window._mainDayTripSuggestions/_mainDayTripExcluded - נמנע מהתנגשות tid מול window._sideTripSuggestions (שני מונים עצמאיים, mainDayTripRowCount מול sideTripRowCount, עלולים לייצר אותו tid ולדרוס הצעות זה את זה). (4) חסימה הדדית דו-כיוונית מול "טיול נודד" (toggleMultiRegion מנטרל main-daytrip-toggle וההפך) - לא ניתן לסמן שניהם יחד, לפי החלטת המשתמש. (5) ולידציה חדשה בתחילת buildTrip(): תאריך חובה לכל יום קפיצה + בתוך טווח תאריכי הטיול (אותו דפוס פרסינג DD/MM/YYYY שכבר קיים לחישוב daysUntilTrip) - נבדק לפני setLoading(true) בכוונה, כדי שכשל ולידציה לא יתקע spinner. (6) תיקון נלווה נדרש: הוספת prefix 'maindt-date-' ל-whitelist הקיים בפונקציית closeCalRegion (שכבר כלל region-date-start-/region-date-end-/sidetrip-date-) - אחרת הלוח שנה היה נסגר מוקדם מדי בלחיצה על השדה החדש. הוחלט במפורש להשמיט את כפתור "📌 שמור להשוואה" מהשורה החדשה - saveSuggestionToCompare/renderInlineSavedSuggestions/applySavedInline נבדקו בקוד ותומכות רק ב-kind 'sidetrip'/'region' (לא גנריות ל-kind שלישי), הוספת תמיכה הייתה דורשת נגיעה בפונקציות משותפות מחוץ להיקף השלב הזה - אפשר להוסיף כתוספת נפרדת בעתיד אם יידרש. QA: node --check עבר (אחרי תיקון באג שנתפס עצמאית - str_replace הראשון מחק בטעות את שורת ההצהרה "function addRegionRow() {" עצמה, הבדיקה זיהתה SyntaxError מיד ותוקן לפני מסירה); 0 כפילויות פונקציה אמיתיות; כפילות id יחידה שנבדקה היא false positive ידוע (num-people בהערת HTML); איזון תגיות div/script/table/select/textarea תקין; כל onclick/onchange (כולל suggestMainDayTrip/removeMainDayTripRow/applyMainDayTripSuggestion/toggleMainDayTrip/addMainDayTripRow החדשים) מפנים לפונקציות קיימות; getElementById מול IDs תקין (maindt-row- מזוהה כ-ID דינמי צפוי, כמו region-row-/sidetrip-row-); נבדקו כל 21 בלוקי catch(e) בקובץ - 0 ריקים, כולם מתעדים; אומת שכל תיקוני v4.55 (DAY_COLORS/getDayColor/getDayMarkerIcon, 3 כפתורי Debug, max_tokens=35000/16000, APP_VERSION, ensureCoreCategories/filterExcludedPlaces/loadMapsApiForPlaces) לא נדרסו; אומתה חסימה הדדית דו-כיוונית (mainDtToggle.disabled + multiToggle.disabled שניהם קיימים). לא בוצע: קריאת Places בפועל ליעד יום הקפיצה, הזרקת הטקסט לפרומפט buildTrip - זה שלבים 4-5, ממתינים למעבר ל-Opus 5. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
 
 <!-- City Trip Builder Claude - v4.55 - 08/08/2026 - 5 שינויים מבדיקה חיה על מסלול קרקוב (11 ימים, מלון + אוטובוס מושכר), כל אחד לפי אישור נפרד: (1) UX - מיזוג כפתורי "🐞 Debug" ו-"📋 העתק Debug" הצמודים (3 מיקומים: header, result-btns, result-footer) לכפתור יחיד toggleDebug(btn) - לחיצה כשהפאנל סגור פותחת ומעתיקה ל-clipboard באותה פעולה, לחיצה כשהפאנל פתוח רק סוגרת בלי להעתיק שוב. copyDebugText הוסרה - נבלעה לגמרי לתוך toggleDebug. (2) UX - צביעת ימים עקבית: פלטת DAY_COLORS קבועה (10 צבעים במחזור), כפתורי "מפה ליום" (buildDayMapButtons) מקבלים border צבעוני לפי אינדקס היום, ונעצי Google Maps (renderMap, getDayMarkerIcon - SVG path מותאם עם fillColor דינמי) צבועים באותו צבע. openInMaps עודכן להעביר {place, dayIndex} במקום מחרוזת בלבד, גם למצב "כל המסלול" (dayIndex לפי אינדקס הטבלה). (3) UX - הבהרת חלון עריכת מסלול: כותרת "✏️ עריכת המסלול הנוכחי המוצג למעלה", אזהרה מפורשת שהוספת יום/ימים מחוץ לעיר היעד לא ניתנת דרך העריכה (חייבת "טיול נודד" מהטופס לפני בנייה), כפתור השליחה שונה מ"עדכן מסלול" ל"▶️ בצע עדכון על המסלול הנוכחי", וכפתור הפתיחה שונה מ"✏️ ערוך" ל"✏️ ערוך מסלול נוכחי". (4) גיוון מטבחים מעוגן בנתונים אמיתיים (לא הזיה) - fetchIntent מקבל כלל חדש: חובה לפחות 2 קטגוריות מסעדה נפרדות (מטבח מקומי + מטבח נוסף רלוונטי ליעד) במקום קטגוריית "restaurant" כללית יחידה, כדי ש-Google Places יחזיר בפועל מטבחים מגוונים. system prompt של buildTrip קיבל הנחיה מקבילה: בבחירת 2-3 אפשרויות לאותה ארוחה, להעדיף גיוון מטבחים מתוך המקומות שסופקו בפועל, לא להמציא. (5) הבלטת checkbox "טיול נודד" בטופס - נוספה הערת אזהרה תחת ה-checkbox שמבהירה שזה נדרש גם עבור יום קפיצה בודד (לא רק טיול רב-בסיסי) וחייב סימון לפני בניית המסלול, לא ניתן להוסיף אחרי דרך עריכה. QA: node --check עבר על בלוק ה-script המלא; נבדקו כפילויות id/function (0 אמיתיות - false positive יחיד על "num-people" הוא אזכור בתוך הערת HTML ישנה, לא id כפול בפועל; ID-ים דינמיים region-row-/sidetrip-row- נבנים ב-JS בזמן ריצה ולא ב-HTML הסטטי, כצפוי); איזון תגיות div/script/table/select/textarea תקין; כל onclick/onchange מפנים לפונקציות קיימות; כל getElementById מול ID-ים קיימים; נסרקו מחדש כל 18 בלוקי catch(e) וכל 2 מקומות !res.ok בקובץ - כולם עדיין מתעדים (recordDebugError/console.warn), אין catch ריק; אומת ש-APP_VERSION/max_tokens=35000 (buildTrip)/max_tokens=16000 (editItinerary, פתוח, לא נגעתי בו)/ensureCoreCategories/filterExcludedPlaces/loadMapsApiForPlaces - כל התיקונים הקודמים קיימים ולא נדרסו. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
@@ -460,7 +462,7 @@ textarea{min-height:68px;resize:vertical}
       <button class="rbtn rbtn-pdf" onclick="window.print()">🖨 הדפס</button>
       <button class="rbtn rbtn-pdf" onclick="window.print()">💾 שמור PDF</button>
       <button class="rbtn rbtn-copy" onclick="copyResult()">העתק</button>
-      <button class="rbtn" onclick="toggleDebug(this)" title="לחיצה: פתיחה + העתקה ל-clipboard. לחיצה נוספת: סגירה" style="background:#444;color:#fff">🐞 Debug</button>
+      <button class="rbtn" onclick="toggleDebug(this)" title="לחיצה: פתיחה + העתקה ל-clipboard. לחיצה נוספת: סגירה" style="background:#444;color:#fff;margin-right:14px;border-right:2px solid var(--border);padding-right:12px">🐞 Debug</button>
     </div>
   </div>
   <div id="day-maps-row" style="display:none;padding:6px 1.25rem;background:var(--accent-light);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;"></div>
@@ -499,7 +501,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.56';
+const APP_VERSION = 'v4.57';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -1258,11 +1260,11 @@ async function buildTrip() {
   * לצד כל מסעדה ציין בבירור אחת משלוש התוויות הבאות בלבד, בלי מספר ימים (אינך יודע את מדיניות ההזמנה המדויקת של כל מסעדה - אל תמציא מספר): (ללא הזמנה) או (מומלץ להזמין מראש) או (הזמנה חובה - לא מתאים בהתחשב בזמן שנותר)
   * לעולם אל תמליץ על מסעדה שדורשת המתנה של יותר משבוע אם X קטן מ-7
 - שעות הסיור מחייבות לגבי פעילויות מתוזמנות (הפרה שכיחה בעבר - שים לב היטב): המסלול המתוזמן (טבלת השעות) מתחיל ומסתיים בדיוק בשעות שצוינו. אסור בהחלט לכלול בטבלת השעות, או בסעיף "בונוס", פעילות בילוי (בר/מועדון/מוזיקה חיה) שהזמן שלה נופל אחרי שעת הסיום - גם לא בתיוג "אופציונלי". "אפשרות בונוס" מותרת רק אם היא מתרחשת בתוך חלון השעות שצוין.
-- ארוחת ערב - חריגה מכוונת לכלל השעות: בניגוד לפעילויות בילוי, ארוחת ערב היא צורך קבוע של הקבוצה בכל יום, גם אם שעת סיום הסיור מוקדמת. לכן בכל יום, בנוסף לבוקר וצהריים, כלול תמיד סעיף נפרד "🍽️ ארוחת ערב" עם 2-3 אפשרויות מלאות (מקום + כתובת + תיאור מבוסס ביקורות + תיוג הזמנה) - בדיוק כמו ארוחות הבוקר/צהריים. סעיף זה הוא המלצה לצריכה עצמאית אחרי סיום הסיור הרשמי, ולכן אינו נכנס לטבלת השעות ואינו כפוף למגבלת שעת הסיום.
+- ארוחת ערב - חריגה מכוונת לכלל השעות: בניגוד לפעילויות בילוי, ארוחת ערב היא צורך קבוע של הקבוצה בכל יום, גם אם שעת סיום הסיור מוקדמת. לכן בכל יום, בנוסף לבוקר וצהריים, כלול תמיד סעיף נפרד "🍽️ ארוחת ערב" עם 3 אפשרויות מלאות (מקום + כתובת + תיאור מבוסס ביקורות + תיוג הזמנה) - בדיוק כמו ארוחות הבוקר/צהריים. סעיף זה הוא המלצה לצריכה עצמאית אחרי סיום הסיור הרשמי, ולכן אינו נכנס לטבלת השעות ואינו כפוף למגבלת שעת הסיום.
   * מיקום ארוחת הערב: העדף (במידת האפשר, לפי הכתובות שסופקו - אין לך חישוב מרחק מדויק, רק שיפוט לפי כתובת/אזור) מסעדות קרובות לאזור שבו הסתיימה הפעילות האחרונה בטבלת השעות של אותו יום. זו העדפה, לא חובה נוקשה - אם אין אפשרות טובה קרובה, בחר את הטובה ביותר בכל מקום.
   * גיוון סוג מטבח: השתדל שלא לחזור על אותו סוג מטבח (איטלקי, מקומי, ים תיכוני וכו') בארוחות הערב של ימים עוקבים - גיוון בין הימים עדיף.
-- גיוון מטבחים בתוך אותה ארוחה (חשוב, בנוסף לגיוון בין ימים למעלה): כשבוחר 2-3 אפשרויות לאותה ארוחה (צהריים/ערב), אל תבחר 2-3 מסעדות מאותו סוג מטבח בדיוק (למשל 3 מסעדות פולניות מסורתיות) אם קיימות בנתוני המקומות שסופקו מסעדות מסוג שונה - הצע לפחות אפשרות אחת ממטבח מקומי/מסורתי ולפחות אפשרות אחת נוספת ממטבח אחר (בינלאומי, דגים, מודרני וכו'). זה חל רק על מקומות שסופקו בפועל ברשימת ה-Places - אל תמציא מסעדה ממטבח שלא סופק רק כדי ליצור גיוון.
-- לכל ארוחת בוקר/צהריים (בתוך חלון השעות שצוין בלבד) הצע 2-3 אפשרויות ברמות תקציב/סגנון שונים
+- גיוון מטבחים בתוך אותה ארוחה (חשוב, בנוסף לגיוון בין ימים למעלה): כשבוחר 3 אפשרויות לאותה ארוחה (צהריים/ערב), אל תבחר 3 מסעדות מאותו סוג מטבח בדיוק (למשל 3 מסעדות פולניות מסורתיות) אם קיימות בנתוני המקומות שסופקו מסעדות מסוג שונה - הצע לפחות אפשרות אחת ממטבח מקומי/מסורתי ולפחות אפשרות אחת נוספת ממטבח אחר (בינלאומי, דגים, מודרני וכו'). זה חל רק על מקומות שסופקו בפועל ברשימת ה-Places - אל תמציא מסעדה ממטבח שלא סופק רק כדי ליצור גיוון.
+- לכל ארוחת בוקר/צהריים (בתוך חלון השעות שצוין בלבד) הצע 3 אפשרויות ברמות תקציב/סגנון שונים
 - כבד את רמת ההיכרות שהוגדרה (level1/2/3) לפי המנגנון בשלב הפנימי - זו הוראה בעדיפות גבוהה
 - אם צוין מלון/לינה - הוסף בתחילת המסלול סעיף "חניה" עם 2-3 חניונים ציבוריים קרובים למלון:
   * שם החניון + כתובת מדויקת + מחיר משוער ליום + שעות פתיחה
@@ -1368,7 +1370,7 @@ async function buildTrip() {
 - להחריג לגמרי מהמסלול (הגבלה מחייבת): ${fields.exclude || 'אין'}
 - מלון: ${fields.hotel}
 - הערות: ${fields.notes}${placesContext}${placesNote}${multiRegionText}${topRestaurantsBlock}
-לכל יום: כותרת + טבלת שעות (בתוך חלון השעות בלבד) + המלצות אוכל בוקר/צהריים (בתוך חלון השעות) + סעיף נפרד וקבוע להמלצות ארוחת ערב (2-3 אפשרויות, תמיד, גם מחוץ לחלון השעות) + טיפ insider + טיפ היום + אפשרות בונוס (בתוך חלון השעות בלבד).
+לכל יום: כותרת + טבלת שעות (בתוך חלון השעות בלבד) + המלצות אוכל בוקר/צהריים (בתוך חלון השעות) + סעיף נפרד וקבוע להמלצות ארוחת ערב (3 אפשרויות, תמיד, גם מחוץ לחלון השעות) + טיפ insider + טיפ היום + אפשרות בונוס (בתוך חלון השעות בלבד).
 בסוף כל המסלול (אחרי כל הימים): אם סופקה למעלה רשימת "מסעדות מובילות" - הצג אותה כטבלה מרוכזת יחד עם סעיפי החניה/כרטיסים. אם לא סופקה - אל תמציא טבלה כזו בעצמך.
 תזכורת אחרונה וחשובה: הטבלה המתוזמנת וסעיף הבונוס חייבים להסתיים בדיוק בשעה ${he} - שום פעילות בילוי (בר/מועדון/מוזיקה חיה) לא יכולה להיות מתוזמנת אחרי השעה הזו. סעיף ארוחת הערב הוא היוצא מן הכלל היחיד - הוא תמיד מופיע, כרשימת המלצות בלבד ולא כפעילות מתוזמנת.`;
 
@@ -1703,8 +1705,19 @@ function buildDayMapButtons() {
   const hasParking = resultBody.textContent.includes('חניון');
   document.getElementById('btn-parking').style.display = hasParking ? 'inline-block' : 'none';
 
-  // סנן רק כותרות יום אמיתיות - תופס גם "יום 1" (ספרות) וגם "יום א'" (אותיות עבריות)
-  const dayHeadings = Array.from(resultBody.querySelectorAll('h1,h2,h3,h4')).filter(h => /יום\s+([1-9]|[\u05d0-\u05ea]'?)/.test(h.textContent) && !/טבלת/.test(h.textContent) && !/ארוחת/.test(h.textContent) && !/המלצות/.test(h.textContent));
+  // v4.57 - תיקון באג: הבדיקה הקודמת חיפשה "יום"+מספר/אות בכל מקום בכותרת, לא רק בתחילתה.
+  // בבדיקה חיה (מסלול קרקוב) זה תפס בטעות 2 סוגי כותרות כ"כותרת יום": (1) "🍽️ צהריים יום 1 (בחרו אחת)" -
+  // המילה "ארוחת" לא הופיעה הפעם (רק "צהריים"), כך שהסינון הקודם לא תפס אותה. (2) "יום ראשון של השנה –" -
+  // ה-ת"ו הראשונה של "ראשון" (ר) עונה על התבנית [\u05d0-\u05ea]'? כי הרגקס לא דרש שהאות תהיה מילה שלמה
+  // (בלי בדיקת גבול מילה). התוצאה בפועל: כפתורי מפה כפולים/שגויים לכל יום, בלבול חזותי בשורת הכפתורים.
+  // התיקון: מסירים תווים מובילים שאינם אות/ספרה עברית (אימוג'י, רווחים), ואז דורשים שהכותרת תתחיל
+  // ב"יום" ממש, ושמיד אחרי המספר/אות יבוא רווח/פס אנכי/סוף מחרוזת - לא עוד אותיות (מונע "ראשון" מלהתאים
+  // דרך ה-"ר" הראשונה בלבד).
+  const dayHeadings = Array.from(resultBody.querySelectorAll('h1,h2,h3,h4')).filter(h => {
+    const stripped = h.textContent.trim().replace(/^[^\u05d0-\u05ea0-9]+/, '');
+    return /^יום\s+(?:\d+|[\u05d0-\u05ea]')(?:\s|\||$)/.test(stripped)
+      && !/טבלת/.test(h.textContent) && !/ארוחת/.test(h.textContent) && !/המלצות/.test(h.textContent);
+  });
 
   if (dayHeadings.length === 0) { dayRow.style.display = 'none'; return; }
   dayRow.style.display = 'flex';
@@ -2081,6 +2094,23 @@ function resetForm() {
   itineraryVersion = 1;
   document.getElementById('version-tag').textContent = 'גרסה 1';
   document.getElementById('edit-section').style.display = 'none';
+  // v4.57 - איפוס בלוקי "טיול נודד" ו"יום קפיצה מהיעד הראשי" - פער שהתגלה בסריקת עומק
+  // (קיים גם קודם עבור טיול נודד, לא רק בפיצ'ר החדש): בלי זה, checkbox נשאר מסומן ושורות ישנות
+  // (עם תאריכים/יעדים מהטיול הקודם) נשארות ב-DOM ועלולות לדלוף לטיול הבא.
+  const multiToggleReset = document.getElementById('multi-region-toggle');
+  if (multiToggleReset) { multiToggleReset.checked = false; multiToggleReset.disabled = false; }
+  const multiContainerReset = document.getElementById('multi-region-container');
+  if (multiContainerReset) multiContainerReset.style.display = 'none';
+  const regionRowsReset = document.getElementById('region-rows');
+  if (regionRowsReset) regionRowsReset.innerHTML = '';
+  regionRowCount = 0;
+  const mainDtToggleReset = document.getElementById('main-daytrip-toggle');
+  if (mainDtToggleReset) { mainDtToggleReset.checked = false; mainDtToggleReset.disabled = false; }
+  const mainDtContainerReset = document.getElementById('main-daytrip-container');
+  if (mainDtContainerReset) mainDtContainerReset.style.display = 'none';
+  const mainDtRowsReset = document.getElementById('main-daytrip-rows');
+  if (mainDtRowsReset) mainDtRowsReset.innerHTML = '';
+  mainDayTripRowCount = 0;
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
