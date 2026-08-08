@@ -1,3 +1,5 @@
+<!-- City Trip Builder Claude - v4.66 - 08/08/2026 - PROBE מבודד לתוכנית א: בדיקה חיה האם Google Places מסוגל להחזיר ערים אמיתיות בטווח נסיעה, כתחליף לייצור יעדים מהזיכרון של Claude. הרקע: suggestMainDayTrip מבקש מהמודל לייצר יעדים, ולמודל יש ידע על "מקומות מפורסמים ליד X" אך לא על זמני נסיעה. בשלוש בדיקות חיות הוא החזיר אתרי תיירות בלבד (זקופנה, צ'נסטוחובה, בנדזין, אוגרודז'יינייץ, טרנוב, ורוצלב ב-3:05 כשהסף היה 1.5 שעות) ומעולם לא הזכיר את קטוביצה, פשצ'ינה או ביאלסקו-ביאלה - שלושתן בטווח. בנדזין, שכן הופיעה, נמצאת 15 דקות מקטוביצה: המודל מסתובב סביב האזור ולא נוגע בעיר עצמה, כי עיר תעשייה אינה יושבת בקטגוריה המנטלית "יעד ליום טיול". עובדות API שאומתו בתיעוד Google (08/08/2026): searchNearby מוגבל לרדיוס 50,000 מטר ולכן חסום לחלוטין ל-2 שעות נסיעה (~150 ק"מ); searchText.locationRestriction תומך במלבן בלבד וללא מגבלת ק"מ, ולכן זה המסלול היחיד האפשרי; locality נמצא ב-Table A ולכן חוקי כערך includedType. האי-ודאות שהprobe נועד להכריע: textQuery הוא שדה חובה גם עם includedType, ולכן זו עדיין שאילתת רלוונטיות בתוך תיבה ולא "החזר את כל הערים בתחום" - אין דרך לדעת מראש אם התוצאות טובות. לא ניתן לבדוק זאת מכל סביבה שאינה הדומיין החי, כי MAPS_KEY מוגבל ב-HTTP Referrer. מה נוסף: פונקציה probeLocalitySearch וכפתור 🧪 Probe (id=probe-btn) ליד כפתור ה-Debug. הפונקציה עושה Geocoding ליעד הראשי, ממירה את סף השעות לרדיוס (75 קמ"ש), ומריצה 4 קריאות searchText בארבעה מלבנים - צפון/דרום/מזרח/מערב - ולא מלבן אחד, כדי שהתוצאות לא יתרכזו בכיוון אחד. מדפיסה לפאנל ה-Debug את כל הערים הייחודיות שהוחזרו, ובסוף מבחן הכרעה מפורש שבודק אם קטוביצה/פשצ'ינה/ביאלסקו-ביאלה מופיעות (בעברית ובאנגלית). PROBE בלבד: אינו מחווט לשום פונקציה קיימת, לא נוגע ב-buildTrip, ב-suggestMainDayTrip או ב-fetchPlaces, ואינו משנה שום התנהגות של האפליקציה. אם ה-probe נכשל, יש להסיר את הפונקציה ואת הכפתור - אין תלות בשום מקום אחר. QA: node --check עבר; 0 כפילויות פונקציה; איזון תגיות מלא, button עלה מ-63 ל-64 (הכפתור החדש) והשאר ללא שינוי; כל onclick מפנה לפונקציה קיימת; probe-btn מוגדר פעם אחת; 0 בלוקי catch ריקים; כל מלבן עטוף ב-try/catch נפרד עם recordDebugError ו-continue, כך שכישלון של כיוון אחד אינו מפיל את הבדיקה; גוף תשובת HTTP שגויה נקרא ומודפס לצורך אבחון; אומת שתיקוני v4.63-v4.65 לא נדרסו. בדיקה פונקציונלית: חישוב המלבנים הורץ ב-node מול קואורדינטות אמיתיות של קרקוב בשלושה ספים (1.5/2/2.5 שעות) - בכל המקרים low<high תקין בארבעת המלבנים, מרחק הפינה תואם את הצפוי (פי 1.41 מהרדיוס), שלוש ערי המבחן נופלות בתוך המלבנים, וורוצלב (236 ק"מ, זו שהמודל הציע ב-3:38) נופלת מחוץ - בדיוק ההתנהגות הנדרשת. בדיקה חיה טרם בוצעה. -->
+
 <!-- City Trip Builder Claude - v4.65 - 08/08/2026 - תיקון באג חי שהתגלה בבדיקה חיה של v4.64: לחיצה על "עוד הצעות" ביום קפיצה נכשלה עם "תשובת JSON לא תקינה - Unexpected non-whitespace character after JSON at position 1120". שורש הבעיה בשורה 2847 ב-fetchAiSuggestions: הקוד הסיר רק גדרות markdown (```json) ואז שלח את כל הטקסט שנותר ישירות ל-JSON.parse, בהנחה שכל תשובת המודל היא JSON. כשClaude הוסיף ולו משפט הסבר אחד אחרי סוגר ה-JSON - הפרסור קרס. שים לב לניסוח השגיאה: "after JSON", כלומר ה-JSON עצמו היה תקין לחלוטין ונסגר כראוי, ורק אחריו הגיע תוכן נוסף - זו אינה בעיית truncation (שהייתה נותנת "Unexpected end of JSON input") ולכן max_tokens לא היה הגורם ולא שונה. למה דווקא ב"עוד הצעות" ולא בקריאה הראשונה: הבקשה החוזרת מזריקה לפרומפט גם את רשימת ההחרגות (cross-row + השורה הקודמת), מה שהופך אותו למורכב יותר ומגדיל את הנטייה של המודל להסביר את בחירתו בסוף התשובה. הקריאה הראשונה באותה בדיקה עברה בהצלחה. התיקון: חילוץ אובייקט ה-JSON לפי indexOf("{") ו-lastIndexOf("}") במקום הנחה שכל התשובה היא JSON, עם נפילה חזרה לטקסט המלא אם לא נמצאו סוגריים - כדי לא לשבור מקרה תקין קיים. משפיע על שלוש הפונקציות שצורכות את fetchAiSuggestions (suggestMainDayTrip, suggestSideTrip, suggestRegionCity), ולכן מתקן את אותו באג בשלושתן. בלוק ה-try/catch הקיים לא שונה - תשובות שאין בהן JSON כלל ממשיכות ליפול אליו ולהציג הודעה עם שמירת התשובה הגולמית. QA: node --check עבר; 0 כפילויות פונקציה; איזון תגיות מלא (div 160/160, script 2/2, table 3/3, select 9/9, textarea 3/3, button 63/63); 0 בלוקי catch ריקים; 9 קריאות JSON.parse כולן מוגנות; אומת שתיקוני v4.63 ו-v4.64 לא נדרסו (buildMainDayTripText, fetchPlaces-fallback, איסור מחיר בחניה, הנחיית הראש, max_tokens=35000). בדיקה פונקציונלית: לוגיקת החילוץ הורצה ב-node על 9 תרחישים - JSON נקי, בתוך גדרות markdown, JSON+טקסט אחרי (הבאג שדווח בפועל), טקסט לפני, טקסט משני הצדדים, גדרות+טקסט אחרי, תשובה ריקה, תשובה בלי JSON כלל, ו-JSON חתוך. ששת התרחישים שיש בהם JSON תקין עברו; שלושת מצבי הכשל האמיתיים נופלים ל-catch הקיים כמצופה. בדיקה חיה טרם בוצעה. -->
 
 <!-- City Trip Builder Claude - v4.64 - עדכון ב - 08/08/2026 - סבב שני של הנחיית "רק מגוגל", אחרי סריקה ממוקדת שהמשתמש ביקש על כל דרישה בפרומפט לנתון שגוגל אינו מספק. נמצאו ותוקנו 4 סתירות נוספות מעבר ל-9 שתוקנו בסבב הראשון (ראו המשך ההערה למטה): (11) סעיף החניה - הוסר כל אזכור למחיר, לפי הוראה מפורשת וחד-משמעית של המשתמש ("לא יופיע כאן מחיר חניה בשום צורה"). מיקום חניון כן מותר, אך אך ורק אם הגיע בפועל מ-Google Places. גם נוסח הפשרה מהסבב הראשון ("מחיר ושעות - לבדוק באפליקציית חניה או במקום") הוסר, כי הוא עדיין הזכיר מחיר. (12) שורה 1337 - שמות מסעדות ירושלמיות מקודדים קשיח בתוך הפרומפט ("מחנה יהודה המסעדה", "מקו", "פרונטו") כדוגמאות למסעדות שדורשות הזמנה ארוכה. אלה שמות מקומות מהידע של Claude שיושבים בתוך ההוראה עצמה, ומזהמים כל מסלול - במסלול לקרקוב הם חסרי משמעות לגמרי. הוסרו. (13) שורות 1337-1340 - מנגנון תיוג ההזמנה שנוסף ב-v4.52 (שלוש התוויות: "ללא הזמנה" / "מומלץ להזמין מראש" / "הזמנה חובה"). הפרומפט עצמו הודה בסוגריים ש"אינך יודע את מדיניות ההזמנה המדויקת של כל מסעדה", ובכל זאת דרש מהמודל לבחור אחת משלוש התוויות - כלומר קביעה עובדתית על כל מסעדה, שאינה מגיעה מ-Google Places ואינה בידיעת המודל. זו הפרה ישירה של הנחיית הראש, בהודאת הפרומפט עצמו. הוחלף באיסור מפורש לתייג, ובשורה ניטרלית אחת בסוף כל סעיף ארוחה שאינה טוענת ידע על מסעדה ספציפית: "לקבוצה בגודל זה מומלץ לבדוק זמינות ולהזמין מראש - מדיניות ההזמנות משתנה בין המסעדות ולא נבדקה כאן". שים לב: זה מבטל חלקית את v4.52 - במודע, כי v4.52 נבנה לפני שנקבעה הנחיית הראש. (14) שורה 1342 - שארית "תיוג הזמנה" בדרישות סעיף ארוחת הערב, שנותרה אחרי ביטול המנגנון בסעיף 13 ויצרה סתירה פנימית בין שתי הוראות באותו פרומפט. הוסרה. הוערכו ובמכוון לא שונו: "זמני מעבר ריאליים בין אתרים" (שורה 1330) ו"טיפ insider לכל אתר" (שורה 1331) - שניהם הערכה או ערך מוסף ולא טענת עובדה על מקום בעל שם; איסור עליהם היה מרוקן את המוצר מתוכן והופך את המסלול לרשימת שמות וכתובות. הנחיית הראש שנקבעה מתייחסת למקומות בעלי שם ולנתונים עובדתיים עליהם, לא לכל משפט במסלול. QA סבב שני: node --check עבר; איזון תגיות div 160/160, script 2/2, button 63/63; 0 בלוקי catch ריקים; אומת 0 מופעים נותרו בקוד החי של "מחנה יהודה המסעדה", "ללא הזמנה)", "תיוג הזמנה", "מחיר משוער" (המופעים היחידים שנותרו הם בהערות HTML היסטוריות ובתוך האיסורים החדשים עצמם); אומת שסעיף החניה מכיל את האיסור המלא על מחיר/עלות/שעות פתיחה. --><!-- City Trip Builder Claude - v4.64 - סבב ראשון - יישום הנחיית ראש חדשה שקבע המשתמש: כל מקום בעל שם במסלול חייב להגיע מ-Google Places בלבד, אסור ל-Claude להוסיף מקומות מהידע שלו גם לא בתיוג ⚠️. בבדיקת עומק של כל בלוק ה-system prompt נמצאו 9 סתירות להנחיה, מהן 2 שלא היו ידועות קודם. תוקנו כולן: (1) שורה 1260 - "האיסור על DEFAULT_LIST חל רק על מקומות שאתה מוסיף מהידע שלך" הניח מראש שClaude מוסיף; שוכתב כך ש-DEFAULT_LIST הוא כלי בחירה מתוך הרשימה שסופקה בלבד, וברמת level3 בוחרים את הפחות תיירותיים מתוך הרשימה ולא מוסיפים אחרים. (2) שורה 1272 - הכלל "אמינות מקומות" התיר במפורש להמליץ על מקום לא ודאי עם ⚠️, והציע להמציא קטגוריה עם שם רחוב ("בית קפה מקומי ברחוב Y"); הוחלף בהנחיית הראש עצמה, מנוסחת כ"הכלל החשוב ביותר בפרומפט הזה - גובר על כל הנחיה אחרת כאן", כולל איסור מפורש על המצאת שם רחוב/כתובת/מחיר/שעות פתיחה. (3-5) מכסת "3 אפשרויות" הקבועה בשורות 1282/1285/1286 - זהו השינוי הקריטי שבלעדיו האיסור היה מופר בשקט: מכסה קבועה מול היצע משתנה יוצרת סתירה בין שתי הוראות מחייבות, והמודל שובר את החלשה בלי להודיע. שונה ל"עד 3 אפשרויות, מתוך מה שסופק בפועל", עם דרישה מפורשת לציין כמה נמצאו כשיש פחות. (6) שורות 1288-1290 - סעיף החניה דרש "מחיר משוער ליום + שעות פתיחה"; שני השדות האלה אינם ב-FIELD_MASK של fetchPlaces ולעולם לא סופקו למודל, כלומר הסעיף היה מחולל המצאות טהור בכל מסלול עם מלון. זו הסתירה החמורה ביותר שלא הייתה ידועה. תוקן: הסעיף מופיע רק אם סופקו חניונים בפועל, מחיר ושעות מוחלפים ב"לבדוק באפליקציית חניה או במקום", וכשאין חניונים ברשימה נכתב במפורש שלא נמצאו. (7) שורה 1321 - "תוכל להוסיף מקומות נוספים מהידע שלך אך סמן אותם ב-⚠️", ההיתר הבוטה ביותר, הוחלף באיסור מלא. (8) שורה 1369 placesNote - כשאין נתוני Places כלל, המסלול כולו נבנה מהזיה תחת הערה רכה; שוכתב לאזהרה מחייבת שאוסרת שמות מקומות וכתובות ספציפיים לגמרי ומורה לבנות ברמת אזורים ורחובות ראשיים. (9) שורה 1396 - "3 אפשרויות, תמיד" בתבנית הפרומפט הותאם למכסה הגמישה. (10) שינוי הקוד היחיד - חיפוש חוזר מורחב ב-fetchPlaces לפי דרישת המשתמש: תחת הנחיית "רק מגוגל", כשל בשליפה כבר לא יכול ליפול חזרה לידע של המודל, ולכן הוא נופל לחיפוש גוגל רחב יותר. אם נמצאו פחות מ-2 מקומות בסך הכל, מורצות עד 3 שאילתות fallback עם שני הבדלים: "near" במקום "in" (מרחיב לאזור הסובב במקום העיירה עצמה - קריטי ליעדי יום קפיצה קטנים כמו פשצ'ינה) ומילת מפתח כללית במקום הקטגוריה הצרה שהחזירה 0 (restaurants במקום traditional polish restaurant). מופעל אך ורק במצב כשל, בפעילות רגילה לא רץ כלל ולא מוסיף עלות. קוד כפול מכוון מול הלולאה הראשית, לא רפקטור - לא נוגעים בלולאה שכבר עובדת. seenPlaceIds משותף כך שאין כפילות מקומות בין החיפוש הרגיל למורחב. QA: node --check עבר; 0 כפילויות פונקציה; איזון תגיות מלא (div 160/160, script 2/2, table 3/3, select 9/9, textarea 3/3, button 63/63); כל onclick/onchange מפנים לפונקציות קיימות; 0 בלוקי catch ריקים; אומת ש-return allPlaces מופיע פעם אחת בלבד (ה-fallback לא יצר יציאה כפולה מהפונקציה); אומת 0 מופעים נותרו של "סמן אותם ב-⚠️", "מחיר משוער ליום", "הצע 3 אפשרויות", "כשבוחר 3 אפשרויות"; המופע היחיד שנותר של "מהידע שלך" הוא בתוך האיסור עצמו; אומת שתיקוני v4.63 ומוקדם יותר לא נדרסו (buildMainDayTripText, max_tokens=35000, ensureCoreCategories, DAY_COLORS, isDuplicate, buildTopRatedRestaurantsTable, escapeHtmlLocal). בדיקה פונקציונלית: fetchPlaces הורצה ב-node על 5 תרחישים - תקין רגיל (2 קריאות בלבד, fallback לא רץ), הכל ריק, fallback מצליח, HTTP 500, וזריקת חריגה. בשני מצבי הכשל כל שגיאה נרשמה ל-recordDebugError, אף אחת לא נבלעה. ידוע ומתועד: מסלול ארוך (10+ ימים) עלול לצאת דליל יותר תחת ההנחיה הגורפת, כי fetchPlaces מוגבל ל-8 קטגוריות × 5 תוצאות; זו התמורה המכוונת של דיוק על פני כמות. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
@@ -457,7 +459,8 @@ textarea{min-height:68px;resize:vertical}
 <div id="cal-popup-region" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #e2ddd6;border-radius:10px;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:280px"></div>
 
 <div class="error" id="error-box"></div>
-<div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:6px">
+  <button type="button" id="probe-btn" onclick="probeLocalitySearch()" title="PROBE זמני: בודק אם Google Places מחזיר ערים אמיתיות בטווח נסיעה. לא משפיע על בניית המסלול" style="background:#6b3fa0;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">🧪 Probe</button>
   <button type="button" onclick="toggleDebug(this)" title="לחיצה: פתיחה + העתקה ל-clipboard. לחיצה נוספת: סגירה" style="background:#444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🐞 Debug</button>
 </div>
 <pre id="debug-panel" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;padding:1rem;margin:0 0 8px 0;background:#1a1814;color:#9fe89f;max-height:420px;overflow:auto;direction:ltr;border:1px solid var(--border);border-radius:8px"></pre>
@@ -517,7 +520,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.65';
+const APP_VERSION = 'v4.66';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -816,6 +819,122 @@ function buildDebugText() {
 
 // v4.55 - מיזוג toggleDebug + copyDebugText (בוצע בטעות בנפרד עד עכשיו, שני כפתורים צמודים בלבלו).
 // התנהגות: לחיצה כשהפאנל סגור = פותח ומעתיק ל-clipboard באותה פעולה. לחיצה כשהפאנל פתוח = רק סוגר, בלי העתקה נוספת.
+// ===== v4.66 - PROBE מבודד: בדיקת searchText + מלבן + locality =====
+// מטרה: לבדוק חי אם אפשר לקבל ערים אמיתיות בטווח נסיעה מגוגל, במקום מהזיכרון של Claude.
+// הרקע: suggestMainDayTrip מבקש מ-Claude לייצר יעדים. למודל יש ידע על "מקומות מפורסמים ליד X"
+// ואין לו ידע על זמני נסיעה - ולכן הוא מחזיר שוב ושוב אתרי תיירות (זקופנה, צ'נסטוחובה, בנדזין,
+// אוגרודז'יינייץ) ומפספס ערים אמיתיות בטווח כמו קטוביצה, פשצ'ינה וביאלסקו-ביאלה.
+// אומת בתיעוד Google (08/08/2026): searchNearby מוגבל לרדיוס 50,000 מטר ולכן חסום ל-2 שעות נסיעה
+// (~150 ק"מ). searchText.locationRestriction תומך במלבן בלבד, ללא מגבלת ק"מ - זה המסלול היחיד.
+// locality נמצא ב-Table A ולכן חוקי כ-includedType.
+// אי-ודאות שהprobe נועד לפתור: textQuery הוא שדה חובה גם עם includedType, ולכן זו עדיין שאילתת
+// רלוונטיות בתוך תיבה ולא "החזר את כל הערים בתחום". לא ניתן לבדוק זאת מקומית - MAPS_KEY מוגבל
+// ב-HTTP Referrer לדומיין החי בלבד.
+// PROBE בלבד: לא מחווט לשום פונקציה קיימת, לא נוגע ב-buildTrip, לא משנה שום התנהגות של האפליקציה.
+// ארבעה ריבועים (צפון/דרום/מזרח/מערב) ולא אחד, כדי שהתוצאות לא יתרכזו בכיוון אחד בלבד.
+async function probeLocalitySearch() {
+  const panel = document.getElementById('debug-panel');
+  const btn = document.getElementById('probe-btn');
+  if (!panel) return;
+  const destEl = document.getElementById('destination');
+  const dest = destEl ? destEl.value.trim() : '';
+  if (!dest) {
+    panel.style.display = 'block';
+    panel.textContent = 'PROBE: יש להזין יעד ראשי בשדה "יעד" לפני הרצת הבדיקה.';
+    return;
+  }
+  let maxHours = 2;
+  const firstHoursEl = document.querySelector('#main-daytrip-rows input[id^="maindt-maxhours-"]');
+  if (firstHoursEl) {
+    const v = parseFloat(firstHoursEl.value);
+    if (v && !isNaN(v) && v > 0) maxHours = v;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'בודק...'; }
+  panel.style.display = 'block';
+  const log = [];
+  log.push('=== PROBE: searchText + rectangle + locality ===');
+  log.push('יעד בסיס: ' + dest + ' | סף שעות: ' + maxHours);
+  try {
+    await loadMapsApiForPlaces();
+    const geocoder = new google.maps.Geocoder();
+    const geo = await new Promise((resolve, reject) => {
+      geocoder.geocode({ address: dest }, (res, status) => {
+        if (status === 'OK' && res && res[0]) resolve(res[0].geometry.location);
+        else reject(new Error('Geocoding נכשל: ' + status));
+      });
+    });
+    const lat = geo.lat(), lng = geo.lng();
+    const radiusKm = Math.round(maxHours * 75);
+    log.push('מרכז: ' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ' | רדיוס מחושב: ' + radiusKm + ' ק"מ (75 קמ"ש)');
+    const dLat = radiusKm / 111;
+    const dLng = radiusKm / (111 * Math.cos(lat * Math.PI / 180));
+    const boxes = [
+      { name: 'צפון', lo: { latitude: lat,        longitude: lng - dLng }, hi: { latitude: lat + dLat, longitude: lng + dLng } },
+      { name: 'דרום', lo: { latitude: lat - dLat, longitude: lng - dLng }, hi: { latitude: lat,        longitude: lng + dLng } },
+      { name: 'מזרח', lo: { latitude: lat - dLat, longitude: lng        }, hi: { latitude: lat + dLat, longitude: lng + dLng } },
+      { name: 'מערב', lo: { latitude: lat - dLat, longitude: lng - dLng }, hi: { latitude: lat + dLat, longitude: lng        } }
+    ];
+    const ENDPOINT = 'https://places.googleapis.com/v1/places:searchText';
+    const seen = new Set();
+    const found = [];
+    for (const box of boxes) {
+      try {
+        const res = await fetch(ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': MAPS_KEY,
+            'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.types'
+          },
+          body: JSON.stringify({
+            textQuery: 'towns and cities',
+            includedType: 'locality',
+            strictTypeFiltering: true,
+            locationRestriction: { rectangle: { low: box.lo, high: box.hi } },
+            languageCode: 'he',
+            maxResultCount: 20
+          })
+        });
+        if (!res.ok) {
+          let body = '';
+          try { body = (await res.text()).slice(0, 300); } catch(eB) { body = '(לא ניתן לקרוא גוף תשובה)'; }
+          log.push('[' + box.name + '] HTTP ' + res.status + ' - ' + body);
+          recordDebugError('probeLocalitySearch (' + box.name + ')', 'HTTP ' + res.status);
+          continue;
+        }
+        const data = await res.json();
+        const places = data.places || [];
+        log.push('[' + box.name + '] הוחזרו ' + places.length + ' תוצאות');
+        places.forEach(p => {
+          const nm = p.displayName?.text || '';
+          if (nm && !seen.has(nm)) {
+            seen.add(nm);
+            found.push({ name: nm, addr: p.formattedAddress || '', box: box.name });
+          }
+        });
+      } catch (eBox) {
+        log.push('[' + box.name + '] שגיאה: ' + eBox.message);
+        recordDebugError('probeLocalitySearch (' + box.name + ')', eBox.message);
+        continue;
+      }
+    }
+    log.push('');
+    log.push('=== סה"כ ' + found.length + ' ערים ייחודיות ===');
+    found.forEach((f, i) => log.push((i + 1) + '. ' + f.name + '  [' + f.box + ']  ' + f.addr));
+    log.push('');
+    log.push('=== מבחן הכרעה: הערים שלא הופיעו מעולם ב"המלץ לי" ===');
+    ['קטוביצה', 'קטוביץ', 'Katowice', 'פשצ\'ינה', 'Pszczyna', 'ביילסקו', 'ביאלסקו', 'Bielsko'].forEach(t => {
+      const hit = found.find(f => f.name.indexOf(t) !== -1);
+      log.push((hit ? '✅ נמצא: ' : '❌ לא נמצא: ') + t + (hit ? ' -> ' + hit.name : ''));
+    });
+  } catch (e) {
+    log.push('כשל כללי: ' + e.message);
+    recordDebugError('probeLocalitySearch', e.message);
+  }
+  panel.textContent = log.join('\n');
+  if (btn) { btn.disabled = false; btn.textContent = '🧪 Probe'; }
+}
+
 async function toggleDebug(btn) {
   const panel = document.getElementById('debug-panel');
   if (!panel) return;
