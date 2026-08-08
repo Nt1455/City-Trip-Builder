@@ -1,3 +1,7 @@
+<!-- City Trip Builder Claude - v4.63 - 08/08/2026 - שלב 1א מתוך 3 בחיבור "יום קפיצה מהיעד הראשי" למסלול הסופי. הבאג שתוקן הוא כשל שקט מלא: מאז v4.56 המשתמש יכול היה לסמן את ה-checkbox, למלא תאריך ויעד, ללחוץ "בנה מסלול" - ולקבל מסלול שמתעלם מיום הקפיצה לחלוטין. buildTrip קראה את השורות אך ורק לצורך ולידציית תאריך (v4.56), ומעולם לא הזריקה אותן לפרומפט. לא הוצגה שגיאה, לא הוצגה אזהרה - המשתמש קיבל מסלול שנראה תקין לגמרי, בלי היום שביקש. מה נוסף (3 נגיעות בלבד, אפס קריאות API חדשות): (1) פונקציה חדשה buildMainDayTripText() אחרי buildMultiRegionText - עצמאית לחלוטין, לא רפקטור ולא איחוד עם הקיימת (אותה החלטה כמו ב-v4.56 עבור addMainDayTripRow מול addSideTripRow: לא לגעת בקוד שכבר עובד). מחזירה מחרוזת ריקה אם ה-toggle כבוי או אין שורות; שורה בלי תאריך מסוננת ולא נכנסת לטקסט; יעד ריק מומר להנחיה "הצע יעד מתאים במרחק נסיעה של עד כ-X שעות"; שעות לא תקינות/חסרות נופלות ל-2 כברירת מחדל. (2) const mainDayTripText = buildMainDayTripText() בשורה ~1372, ליד multiRegionText הקיים. (3) הזרקת ${mainDayTripText} לפרומפט מיד אחרי ${multiRegionText} ולפני ${topRestaurantsBlock} - שמירה על הסדר הקיים (הוראות מבנה קודם, טבלת מסעדות אחרי). החלטת תוכן מרכזית לפי דרישה מפורשת של המשתמש, שונה מ"יום טיול כוכב" של טיול נודד: שם נסיעת ההלוך והחזור נדחסות לתוך חלון השעות; כאן שעת הסיום היא סוף הפעילות ביעד, ונסיעת החזרה נופלת אחריה כשורה אחרונה בטבלה. הסיבה: יעד במרחק שעתיים בחלון של 09:00-18:00 היה מקבל 5 שעות פעילות בפועל מתוך 9, כלומר יום קפיצה חלש מיום רגיל. הנוסח כתוב במפורש כ"חריגה מכוונת" באותה תבנית שכבר קיימת ועובדת לארוחת ערב (שורה 1280), עם סיוג מפורש שהאיסור על פעילות בילוי אחרי שעת הסיום נשאר בתוקף מלא - החריגה חלה על נסיעת החזרה בלבד. זו הנקודה הסבירה ביותר לכישלון בשינוי הזה: שתי הוראות קשיחות קיימות (שורה 1279 ותזכורת הסיום בשורה 1392) מחייבות שהטבלה תסתיים בדיוק בשעת הסיום, ובלי החריג המפורש Claude היה דוחס את היום או משמיט את נסיעת החזרה בשקט. חסימה הדדית: כל אחת משתי הפונקציות בודקת בעצמה את ה-toggle שלה, כך שגם אם החסימה ההדדית מ-v4.56 תישבר בעתיד, לא יוזרקו שני מבני מסלול סותרים לאותו פרומפט. לא בוצע בכוונה (שלבים נפרדים, לפי החלטת המשתמש): שלב 1ב - קריאת Google Places בפועל ליעד יום הקפיצה (הלולאה בשורות 1328-1361 עדיין רצה על #region-rows בלבד; יעדי קפיצה מקבלים אפס קריאות Places, ולכן Claude ימליץ עליהם מהידע שלו עם תיוג ⚠️ הקיים); שלב 1ג - פיצול סעיף ארוחת הערב ביום קפיצה ל-4-5 אפשרויות מחולקות בין היעד הרחוק לאזור המלון, מגוגל בלבד - תלוי ב-1ב ולא ניתן לביצוע לפניו, כי אין כיום נתוני Places ליעד הקפיצה. QA: node --check עבר; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML בשורה 30, ה-id האמיתי היחיד בשורה 294); איזון תגיות div 160/160, script 2/2, table 3/3, select 9/9, textarea 3/3, button 63/63; כל onclick/onchange מפנים לפונקציות קיימות (event/window הם אובייקטים מובנים, לא פונקציות חסרות); getElementById מול IDs - רק prefixes דינמיים צפויים; 0 בלוקי catch ריקים; 7 קריאות JSON.parse כולן מוגנות; שני מקומות !res.ok (שורות 550, 1011) שניהם מתעדים דרך recordDebugError; כל continue/return null נבדקו - כולם מתועדים או ולידציה לגיטימית; אומת שתיקוני עבר לא נדרסו (max_tokens=35000, ensureCoreCategories, filterExcludedPlaces, loadMapsApiForPlaces, DAY_COLORS, escapeHtmlLocal, toggleDebug, isDuplicate=14 בקוד, 0 מופעי buffer 1.25 בקוד); APP_VERSION עודכן ל-v4.63 בהתאמה להערה זו. בדיקה פונקציונלית: הפונקציה החדשה הורצה ב-node על 7 תרחישים (toggle כבוי, אפס שורות, שורה בלי תאריך, שורה מלאה, יעד ריק + שעות לא תקינות, שתי שורות שאחת מהן חסרת תאריך, אלמנטים חסרים לגמרי) - כולם עברו, כולל null-safety מלא. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
+<!-- City Trip Builder Claude - v4.62 - 08/08/2026 - תיקון buffer מטעה ב-verifyDistances (main-daytrip + sidetrip): בבדיקה חיה, משתמש ביקש "עד 2.5 שעות" וקיבל הצעה ל-Wrocław ב-3:05 שעות בלי שום סימון ⚠️ - הסיבה: maxMinutesThreshold חושב עם buffer של 25% (2.5*60*1.25=187.5 דקות), ו-3:05 (185 דקות) נפל מתחת לסף המנופח, למרות שחורג מהמספר המדויק שהמשתמש הקליד. ה-buffer שימש גם לקביעת tooFar (שמפעיל retry) וגם לסימון ⚠️ הוויזואלי - שני מטרות שונות שהתמזגו לדגל אחד, וה-buffer "בלע" חריגות אמיתיות מהעין. תוקן לפי דרישת המשתמש: הוסר ה-buffer לגמרי (לא רק לתצוגה - גם ל-retry, כפי שביקש במפורש) - maxMinutesThreshold הוא עכשיו בדיוק maxHours*60, בלי הכפלה ב-1.25. המשמעות: retry יופעל וסימון ⚠️ יוצג על כל חריגה אמיתית מהמספר שהמשתמש הקליד, לא רק חריגה גדולה. QA: node --check עבר; אומת ש-0 מופעים נותרו של "* 1.25" בקובץ; שני המקומות (main-daytrip שורה 2337, sidetrip שורה 2867) מעודכנים. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
+
 <!-- City Trip Builder Claude - v4.61 - 08/08/2026 - כולל גם את תיקון ה-v4.60 שלא תועד בזמנו (הוראה מפורשת של המשתמש להשאיר את מספר הגרסה ללא שינוי): גיוון מטבחים - הוסר "modern restaurant" מרשימת הדוגמאות בהוראת fetchIntent (הוחלף בטעות ל-"modern european restaurant" בבדיקה חיה, שהיא בעצם אותו איזור מטבח מקומי - לא גיוון אמיתי), נוספה הבהרה מפורשת שהקטגוריה השנייה חייבת מטבח לאומי שונה באופן מובהק (italian/japanese/seafood/french/indian/middle eastern), לא רק סגנון שונה של אותו מטבח. v4.61 עצמה - תיקון חזרות קשיחה ב"המלץ לי" (suggestMainDayTrip + suggestSideTrip): בבדיקה חיה, כ-90% מההצעות בלחיצה חוזרת על "🔄 עוד הצעות" באותה שורה חזרו על עצמן - ההוראה "אל תציע שוב X,Y,Z" בפרומפט הייתה הנחיה רכה בלבד, לא נאכפת. תוקן: אחרי קבלת תשובה מ-Claude, המערכת בעצמה משווה (מנורמל - trim+lowercase) כל שם שחזר מול רשימת "כבר הוצע/נבחר" ומסמנת isDuplicate - ומאחדת את זה עם מנגנון ה-retry שכבר קיים לבדיקת מרחק (tooFar), כך שגם חזרות וגם חריגת מרחק מטופלות באותו סבב retry ממוקד אחד (לא שני מנגנונים נפרדים). retryPrompt עודכן לכלול את כל הרשימה (list.map(s=>s.name) + excludeNames המקוריים) כרשימה "מחייבת, לא המלצה", עם היתר מפורש להציע יעד פחות מוכר אם אין ברירה, אבל איסור חזרה. תיוג ⚠️ "חוזר על הצעה קודמת" נוסף לתצוגה אם גם אחרי retry עדיין יש כפילות (שקוף למשתמש, לא מוסתר). בוצע בשני המקומות (main-daytrip + sidetrip) לעקביות, אותו דפוס בדיוק בשניהם. QA: node --check עבר; 0 כפילויות id/function; onclick/onchange תקין; 0 catch ריקים; אומת ש-isDuplicate מופיע 14 פעמים בקובץ (7 בכל אחד מהמקומות - נמנע כפילות קוד לא מכוונת בין השניים). בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
 
 <!-- City Trip Builder Claude - v4.60 - 08/08/2026 - copyResult() מוסיפה עכשיו את APP_VERSION כשורה ראשונה בטקסט המועתק (לפני תוכן result-body) - סיבה: מספר הגרסה מוצג רק בכותרת העמוד, לא בתוך result-body, ולכן לא הופיע בקבצים ששלח המשתמש (Word/PDF/הדבקה), מה שהקשה לאבחן איזו גרסה נבדקה בפועל. שינוי מבודד לחלוטין - שורה אחת, לא נוגע בשום לוגיקה אחרת. QA: node --check עבר; 0 כפילויות; onclick/onchange תקין. בדיקה חיה טרם בוצעה. -->
@@ -509,7 +513,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.61';
+const APP_VERSION = 'v4.63';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -1364,6 +1368,10 @@ async function buildTrip() {
   }
   const placesNote = placesContext ? '' : '\n\n⚠️ הערה: המסלול מבוסס על ידע AI בלבד - אמת פרטי מקומות לפני הגעה.';
   const multiRegionText = buildMultiRegionText();
+  // v4.63 - חסימה הדדית קיימת (toggleMultiRegion/toggleMainDayTrip) מבטיחה ששני אלה לעולם לא
+  // יהיו מלאים בו-זמנית. כל פונקציה בודקת בעצמה את ה-toggle שלה, כך שגם אם החסימה תישבר בעתיד
+  // לא יוזרקו שני מבני מסלול סותרים לאותו פרומפט.
+  const mainDayTripText = buildMainDayTripText();
   const topRestaurantsBlock = topRestaurantsTable
     ? '\n\nרשימת "מסעדות מובילות" מסוננת מראש (דירוג גבוה ומספר ביקורות גבוה) - הצג אותה כפי שהיא, בסוף כל המסלול (אחרי כל הימים, יחד עם סעיפי החניה/כרטיסים), כטבלה עם העמודות: שם | כתובת | דירוג (ביקורות) | סוג מטבח (קבע לפי שם/כתובת). אל תסנן, אל תשנה, אל תוסיף ואל תגרע ממנה - היא כבר מחושבת ומאומתת:\n' + topRestaurantsTable
     : '';
@@ -1384,7 +1392,7 @@ async function buildTrip() {
 - אזורים מועדפים: ${fields.areas||'לא צוין'}
 - להחריג לגמרי מהמסלול (הגבלה מחייבת): ${fields.exclude || 'אין'}
 - מלון: ${fields.hotel}
-- הערות: ${fields.notes}${placesContext}${placesNote}${multiRegionText}${topRestaurantsBlock}
+- הערות: ${fields.notes}${placesContext}${placesNote}${multiRegionText}${mainDayTripText}${topRestaurantsBlock}
 לכל יום: כותרת + טבלת שעות (בתוך חלון השעות בלבד) + המלצות אוכל בוקר/צהריים (בתוך חלון השעות) + סעיף נפרד וקבוע להמלצות ארוחת ערב (3 אפשרויות, תמיד, גם מחוץ לחלון השעות) + טיפ insider + טיפ היום + אפשרות בונוס (בתוך חלון השעות בלבד).
 בסוף כל המסלול (אחרי כל הימים): אם סופקה למעלה רשימת "מסעדות מובילות" - הצג אותה כטבלה מרוכזת יחד עם סעיפי החניה/כרטיסים. אם לא סופקה - אל תמציא טבלה כזו בעצמך.
 תזכורת אחרונה וחשובה: הטבלה המתוזמנת וסעיף הבונוס חייבים להסתיים בדיוק בשעה ${he} - שום פעילות בילוי (בר/מועדון/מוזיקה חיה) לא יכולה להיות מתוזמנת אחרי השעה הזו. סעיף ארוחת הערב הוא היוצא מן הכלל היחיד - הוא תמיד מופיע, כרשימת המלצות בלבד ולא כפעילות מתוזמנת.`;
@@ -2331,7 +2339,10 @@ async function suggestMainDayTrip(tid, isRefresh) {
   const maxHoursInput = document.getElementById('maindt-maxhours-' + tid);
   let maxHours = maxHoursInput ? parseFloat(maxHoursInput.value) : NaN;
   if (!maxHours || isNaN(maxHours) || maxHours <= 0) maxHours = 2;
-  const maxMinutesThreshold = Math.round(maxHours * 60 * 1.25);
+  // v4.62 - הוסר buffer של 25% שהיה כאן (maxHours*60*1.25). בבדיקה חיה: Wrocław ב-3:05 שעות
+  // נשאר בלי ⚠️ כי המשתמש ביקש "עד 2.5 שעות" והסף המנופח (3:07) בלע את החריגה. עכשיו הסף
+  // מדויק למה שהמשתמש הקליד - גם ל-retry וגם לתיוג ⚠️, בלי לטשטש חריגה אמיתית.
+  const maxMinutesThreshold = Math.round(maxHours * 60);
 
   const clarifyEl = document.getElementById('maindt-clarify-' + tid);
   const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
@@ -2556,6 +2567,50 @@ function buildMultiRegionText() {
     '- בכל מעבר קבוע בין אזורי לינה (לא טיול כוכב) - ציין בתחילת אותו יום את משך הנסיעה המשוער בין האזורים.\n' +
     '- כאשר צוין "לא צוין - כלול המלצות לינה" לאזור מסוים - כלול 2-3 המלצות לינה קונקרטיות לאותו אזור בתוך היום הרלוונטי במסלול, לא רק בסוף המסמך.' +
     globalConstraintClose;
+}
+
+// v4.63 - שלב 1א בחיבור "יום קפיצה מהיעד הראשי" למסלול הסופי.
+// עד עכשיו: המשתמש סימן checkbox, מילא תאריך ויעד, לחץ "בנה מסלול" - והמסלול התעלם מזה לחלוטין,
+// בלי שגיאה ובלי אזהרה (כשל שקט). buildTrip קרא את השורות רק לצורך ולידציית תאריך (v4.56), מעולם
+// לא הזריק אותן לפרומפט.
+// מקבילה ל-buildMultiRegionText במבנה, אך פונקציה עצמאית לחלוטין - לא רפקטור/איחוד עם הקיימת,
+// כדי לא לגעת בקוד שכבר עובד (אותה החלטה כמו ב-v4.56 עבור addMainDayTripRow מול addSideTripRow).
+// הבדל מהותי מ"יום טיול כוכב" של טיול נודד: שם הנסיעה נדחסת לתוך חלון השעות; כאן, לפי דרישת
+// המשתמש, שעת הסיום היא סוף הפעילות ביעד ונסיעת החזרה נופלת אחריה - אחרת יעד במרחק שעתיים
+// היה מקבל 5 שעות פעילות בפועל מתוך חלון של 9, כלומר יום קפיצה חלש מיום רגיל.
+function buildMainDayTripText() {
+  const toggle = document.getElementById('main-daytrip-toggle');
+  if (!toggle || !toggle.checked) return '';
+  const rows = document.querySelectorAll('#main-daytrip-rows .maindt-row');
+  if (!rows.length) return '';
+  const parts = [];
+  rows.forEach(row => {
+    const tid = row.id.replace('maindt-row-', '');
+    const dateEl = document.getElementById('maindt-date-' + tid);
+    const dateVal = dateEl ? dateEl.value.trim() : '';
+    if (!dateVal) return; // ולידציה: שורה בלי תאריך לא נכנסת לטקסט (buildTrip כבר חוסם מצב כזה קודם)
+    const destEl = document.getElementById('maindt-dest-' + tid);
+    const destVal = destEl ? destEl.value.trim() : '';
+    const hoursEl = document.getElementById('maindt-maxhours-' + tid);
+    let maxHours = hoursEl ? parseFloat(hoursEl.value) : NaN;
+    if (!maxHours || isNaN(maxHours) || maxHours <= 0) maxHours = 2;
+    const clarifyEl = document.getElementById('maindt-clarify-' + tid);
+    const clarifyVal = clarifyEl ? clarifyEl.value.trim() : '';
+    let line = 'תאריך: ' + dateVal + ' | יעד: ' +
+      (destVal || 'הצע יעד מתאים במרחק נסיעה של עד כ-' + maxHours + ' שעות מהיעד הראשי') +
+      ' | נסיעה מרבית לכיוון אחד: כ-' + maxHours + ' שעות';
+    if (clarifyVal) line += ' | הבהרה: ' + clarifyVal;
+    parts.push(line);
+  });
+  if (!parts.length) return '';
+  return '\n\nימי קפיצה מהיעד הראשי (חובה לכבד בדיוק):\n' + parts.join('\n') +
+    '\n\nהוראות מחייבות לימי קפיצה:\n' +
+    '- יום קפיצה הוא נסיעה מהיעד הראשי וחזרה לאותה לינה באותו ערב. אין מעבר לינה, סעיף הלינה נשאר היעד הראשי.\n' +
+    '- כותרת אותו יום תציין במפורש את יעד הקפיצה.\n' +
+    '- היציאה מהיעד הראשי בשעת ההתחלה שצוינה. נסיעת ההלוך היא השורה הראשונה בטבלת השעות של אותו יום.\n' +
+    '- הפעילות ביעד הקפיצה מסתיימת בשעת הסיום שצוינה.\n' +
+    '- חריגה מכוונת לכלל שעת הסיום, ליום קפיצה בלבד: נסיעת החזרה מתרחשת אחרי שעת הסיום, וזה תקין ומצופה. הוסף אותה כשורה אחרונה בטבלה עם השעות בפועל (לדוגמה: 18:00-20:00 | נסיעה חזרה ליעד הראשי), וציין שעת הגעה משוערת ללינה. האיסור על פעילות בילוי (בר/מועדון/מוזיקה חיה) אחרי שעת הסיום נשאר בתוקף במלואו - החריגה הזו חלה על נסיעת החזרה בלבד.\n' +
+    '- בימים שלא צוינו כימי קפיצה, הסיור מתבצע ביעד הראשי עצמו.';
 }
 
 // ===== לוח שנה נפרד לשדות אזור (לא נוגע ב-openCal/selectDate הראשיים, לא מפעיל fetchWeather) =====
@@ -2861,7 +2916,7 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
   const maxHoursInput = document.getElementById('sidetrip-maxhours-' + tid);
   let maxHours = maxHoursInput ? parseFloat(maxHoursInput.value) : NaN;
   if (!maxHours || isNaN(maxHours) || maxHours <= 0) maxHours = 2; // נפילה חזרה לברירת מחדל אם השדה ריק/לא תקין
-  const maxMinutesThreshold = Math.round(maxHours * 60 * 1.25); // 25% buffer מעל הסף שהמשתמש קבע, לפני סימון ⚠️
+  const maxMinutesThreshold = Math.round(maxHours * 60); // v4.62 - הוסר buffer 25% שהיה כאן (הסתיר חריגות אמיתיות מהמשתמש, ראה main-daytrip לפירוט מלא)
 
   const clarifyEl = document.getElementById('sidetrip-clarify-' + tid);
   const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
