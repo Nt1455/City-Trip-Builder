@@ -1,3 +1,4 @@
+<!-- City Trip Builder Claude - v4.68 - 09/08/2026 - ארבעה תיקונים, כולם מסריקת עומק מלאה של הקובץ. נבחרו לפי קריטריון אחד: מה שהורס מסלול שנשלח ללקוח. (1) D1 - סתירה מבנית בפרומפט: התזכורת האחרונה קבעה "סעיף ארוחת הערב הוא היוצא מן הכלל היחיד", בעוד buildMainDayTripText מכריז על חריג שני - נסיעת החזרה אחרי שעת הסיום. האיסור החזיק גם את הפתיחה וגם את הסיום (primacy + recency) וההיתר נקבר באמצע ההודעה, ולכן הוא היה צפוי להידחס או להישמט. תוקן: משתנה dayTripExceptionNote שמוזרק לתזכורת האחרונה, ומופיע אך ורק כשקיים יום קפיצה. כשאין יום קפיצה הניסוח זהה לקודם למעט הסרת המילה "היחיד". (2) A1 - stop_reason: לא הייתה בקובץ אף בדיקה כזו, ולכן חיתוך בגלל max_tokens נראה בדיוק כמו תשובה תקינה ומסלול חתוך הוצג כשלם. נוספה בדיקה אחת ב-callClaudeAPI שמכסה את כל חמש הקריאות: stop_reason==='max_tokens' זורק שגיאה מפורשת עם output_tokens ורושם ל-Debug. (3) A3 - parseModelJson: היו שלושה מימושי פרסור נפרדים, ורק fetchAiSuggestions קיבל את תיקוני v4.65 (טקסט אחרי JSON) ו-v4.67 (גרשיים חכמים). filterExcludedPlaces ו-fetchIntent נשארו עם הפרסור הישן. זה קריטי ב-filterExcludedPlaces כי כשל פרסור שם מחזיר את רשימת המקומות הלא מסוננת, כלומר מקום שהמשתמש ביקש להחריג עובר למסלול בשקט - זה ההסבר לאושוויץ שחזר למרות ההחרגה. אוחד לפונקציה אחת המשרתת את שלוש הקריאות; הלוגיקה זהה, רק ההיקף גדל. (4) A2 - editItinerary: ה-system היה משפט אחד, בלי הנחיית "רק מגוגל", בלי החרגה ובלי איסור המצאה, כך שכל ארכיטקטורת האנטי-הזיה של v4.64 נעקפה ברגע שהמשתמש לוחץ "ערוך". נוספו: איסור הוספת מקום שאינו כבר במסלול, הוראת שלמות (החזר את המסלול המלא, אל תשמיט ימים), והזרקת שדה ההחרגה. max_tokens הועלה מ-16000 ל-35000 בהתאמה ל-buildTrip. נלווה: B3 - התשובה הגולמית מהשרת נשמרת עכשיו ב-err.rawResponse ונרשמת ל-Debug בכל שגיאת HTTP, במקום להיזרק. לא בוצע במכוון: gateSuggestions (A4/A5/A6), Places ליעד יום קפיצה (A7), והתיקונים הקטנים E1/B1/B4/F1 - כולם בעלי סיכון רגרסיה גבוה יותר ואינם מאיימים על מסלול ללקוח. QA: node --check עבר על שני בלוקי הסקריפט; 0 כפילויות פונקציה; 0 כפילויות id; כל onclick מפנה לפונקציה קיימת; 0 בלוקי catch ריקים; כל קריאות JSON.parse מוגנות; אומת שתיקוני v4.63-v4.67 לא נדרסו. בדיקה פונקציונלית: parseModelJson הורצה ב-node על 9 תרחישים ולוגיקת stop_reason על 4. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.67 - 09/08/2026 - שני שינויים, שניהם תגובה לבדיקה חיה של v4.66. (1) PROBE שלב ב - בידוד הגורם. ה-probe של v4.66 החזיר 0 תוצאות בכל ארבעת המלבנים, ללא שגיאת HTTP כלשהי - כלומר הבקשה התקבלה, אושרה, והפילטר עצמו סינן הכל. הגיאומטריה נשללה כגורם: אומתה ב-node מול קואורדינטות אמיתיות ושלוש ערי המבחן (קטוביצה, פשצ'ינה, ביאלסקו-ביאלה) נופלות בתוך המלבנים בכל הספים, בעוד ורוצלב נופלת מחוץ. לכן החוסם הוא אחד משלושה: includedType:'locality', strictTypeFiltering:true, או המלבן. במקום לנחש, ה-probe הוסב מ-4 מלבנים עם אותה שאילתה ל-4 ואריאנטים על אותו מלבן צפוני יחיד: V1 שחזור מדויק של v4.66 (בקרה), V2 בלי strictTypeFiltering, V3 בלי includedType כלל, V4 בלי מלבן (locationBias מעגלי 50 ק"מ). מודפס גם שדה types לכל תוצאה, כדי לראות מה גוגל בכלל מחזיר. הפענוח מודפס בסוף: V3 מחזיר ו-V1/V2 לא -> locality הוא החוסם; רק V4 מחזיר -> המלבן הוא החוסם; כולם 0 -> אין ב-Google API דרך למנות ערים בשטח ותוכנית א מתה, ויש לרדת לתוכנית ב (15 מועמדים מ-Claude, Distance Matrix מרוכז, סינון ובחירה דטרמיניסטיים ב-JS). זהו הניסיון השני והאחרון לפי פרוטוקול DEAD END. ה-probe נשאר מבודד לחלוטין ואינו מחווט לשום פונקציה. (2) מצב כשל שני ב-fetchAiSuggestions, שונה מזה שתוקן ב-v4.65. באותה בדיקה חיה שורה אחת נכשלה עם "Expected ',' or ']' after array element in JSON at position 401" - שים לב שזו שגיאה שונה מהותית מ-v4.65: שם היה JSON תקין ואחריו טקסט ("after JSON"), וכאן ה-JSON עצמו פגום מבפנים. הגורם הסביר: תו בעייתי בתוך מחרוזת - גרש חכם (U+2019) בשמות פולניים מתועתקים לעברית כמו פשצ'ינה או טיניץ, מרכאות חכמות, או תו בקרה שלא מולט. נוסף ניסיון תיקון אחרון לפני ויתור: המרת גרשיים ומרכאות חכמים לרגילים והסרת תווי בקרה, ואז JSON.parse חוזר. תיקון מוצלח נרשם ל-Debug עם השגיאה המקורית והתשובה הגולמית, כך שהתופעה לא נבלעת בשקט. אם גם התיקון נכשל - נזרקת השגיאה המקורית בדיוק כמו קודם, כולל rawResponse. התיקון של v4.65 לא הוסר ולא שונה, והוא אומת שעבד בבדיקה החיה (הקריאה השנייה החזירה אויצוב, ויליצ'קה וטיניץ בהצלחה). משפיע על שלוש הפונקציות שצורכות את fetchAiSuggestions. QA: node --check עבר; 0 כפילויות פונקציה; איזון תגיות מלא (div 160/160, script 2/2, table 3/3, select 9/9, textarea 3/3, button 64/64 - ללא שינוי מ-v4.66); כל onclick מפנה לפונקציה קיימת; 0 בלוקי catch ריקים; כל ואריאנט עטוף ב-try/catch נפרד עם recordDebugError ו-continue, כך שכישלון של אחד אינו מפיל את הבדיקה; גוף תשובת HTTP שגויה נקרא ומודפס; אומת שתיקוני v4.63-v4.66 לא נדרסו. בדיקה פונקציונלית: לוגיקת הפרסור המשולבת הורצה ב-node על 8 תרחישים - תקין, טקסט אחרי (הבאג של v4.65), גרש חכם בשם (הבאג החדש), מרכאות חכמות, תו בקרה במחרוזת, שילוב גדרות+גרש חכם+טקסט, JSON פגום באמת, ותשובה ריקה. ששת התרחישים הניתנים לתיקון עברו; שני מצבי הכשל האמיתיים נופלים ל-catch הקיים כמצופה. בדיקה חיה טרם בוצעה. -->
 
 <!-- City Trip Builder Claude - v4.66 - 08/08/2026 - PROBE מבודד לתוכנית א: בדיקה חיה האם Google Places מסוגל להחזיר ערים אמיתיות בטווח נסיעה, כתחליף לייצור יעדים מהזיכרון של Claude. הרקע: suggestMainDayTrip מבקש מהמודל לייצר יעדים, ולמודל יש ידע על "מקומות מפורסמים ליד X" אך לא על זמני נסיעה. בשלוש בדיקות חיות הוא החזיר אתרי תיירות בלבד (זקופנה, צ'נסטוחובה, בנדזין, אוגרודז'יינייץ, טרנוב, ורוצלב ב-3:05 כשהסף היה 1.5 שעות) ומעולם לא הזכיר את קטוביצה, פשצ'ינה או ביאלסקו-ביאלה - שלושתן בטווח. בנדזין, שכן הופיעה, נמצאת 15 דקות מקטוביצה: המודל מסתובב סביב האזור ולא נוגע בעיר עצמה, כי עיר תעשייה אינה יושבת בקטגוריה המנטלית "יעד ליום טיול". עובדות API שאומתו בתיעוד Google (08/08/2026): searchNearby מוגבל לרדיוס 50,000 מטר ולכן חסום לחלוטין ל-2 שעות נסיעה (~150 ק"מ); searchText.locationRestriction תומך במלבן בלבד וללא מגבלת ק"מ, ולכן זה המסלול היחיד האפשרי; locality נמצא ב-Table A ולכן חוקי כערך includedType. האי-ודאות שהprobe נועד להכריע: textQuery הוא שדה חובה גם עם includedType, ולכן זו עדיין שאילתת רלוונטיות בתוך תיבה ולא "החזר את כל הערים בתחום" - אין דרך לדעת מראש אם התוצאות טובות. לא ניתן לבדוק זאת מכל סביבה שאינה הדומיין החי, כי MAPS_KEY מוגבל ב-HTTP Referrer. מה נוסף: פונקציה probeLocalitySearch וכפתור 🧪 Probe (id=probe-btn) ליד כפתור ה-Debug. הפונקציה עושה Geocoding ליעד הראשי, ממירה את סף השעות לרדיוס (75 קמ"ש), ומריצה 4 קריאות searchText בארבעה מלבנים - צפון/דרום/מזרח/מערב - ולא מלבן אחד, כדי שהתוצאות לא יתרכזו בכיוון אחד. מדפיסה לפאנל ה-Debug את כל הערים הייחודיות שהוחזרו, ובסוף מבחן הכרעה מפורש שבודק אם קטוביצה/פשצ'ינה/ביאלסקו-ביאלה מופיעות (בעברית ובאנגלית). PROBE בלבד: אינו מחווט לשום פונקציה קיימת, לא נוגע ב-buildTrip, ב-suggestMainDayTrip או ב-fetchPlaces, ואינו משנה שום התנהגות של האפליקציה. אם ה-probe נכשל, יש להסיר את הפונקציה ואת הכפתור - אין תלות בשום מקום אחר. QA: node --check עבר; 0 כפילויות פונקציה; איזון תגיות מלא, button עלה מ-63 ל-64 (הכפתור החדש) והשאר ללא שינוי; כל onclick מפנה לפונקציה קיימת; probe-btn מוגדר פעם אחת; 0 בלוקי catch ריקים; כל מלבן עטוף ב-try/catch נפרד עם recordDebugError ו-continue, כך שכישלון של כיוון אחד אינו מפיל את הבדיקה; גוף תשובת HTTP שגויה נקרא ומודפס לצורך אבחון; אומת שתיקוני v4.63-v4.65 לא נדרסו. בדיקה פונקציונלית: חישוב המלבנים הורץ ב-node מול קואורדינטות אמיתיות של קרקוב בשלושה ספים (1.5/2/2.5 שעות) - בכל המקרים low<high תקין בארבעת המלבנים, מרחק הפינה תואם את הצפוי (פי 1.41 מהרדיוס), שלוש ערי המבחן נופלות בתוך המלבנים, וורוצלב (236 ק"מ, זו שהמודל הציע ב-3:38) נופלת מחוץ - בדיוק ההתנהגות הנדרשת. בדיקה חיה טרם בוצעה. -->
@@ -522,7 +523,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.67';
+const APP_VERSION = 'v4.68';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -563,6 +564,20 @@ async function callClaudeAPI(payload, apiKey, accessCode) {
     const msg = (typeof errField === 'string' && errField) || (errField && errField.message) || ('שגיאת שרת ' + res.status);
     const err = new Error(msg);
     err.status = res.status;
+    // v4.68 - B3: עד עכשיו התשובה הגולמית מהשרת נזרקה לפח בכל שגיאה, ו-lastDebugInfo.response
+    // נכתב רק בהצלחה. התוצאה: ב-401/429 פאנל ה-Debug היה ריק ולא ניתן היה לאבחן.
+    try { err.rawResponse = JSON.stringify(data); } catch (eR) { err.rawResponse = '(לא ניתן לסריאליזציה)'; }
+    recordDebugError('callClaudeAPI HTTP ' + res.status, msg, err.rawResponse);
+    throw err;
+  }
+  // v4.68 - A1: לא הייתה בקובץ אף בדיקת stop_reason. חמש קריאות ל-Claude, וחיתוך בגלל max_tokens
+  // נראה בדיוק כמו תשובה תקינה - מסלול חתוך מוצג כמסלול שלם. זו נקודה אחת שמכסה את כל הקריאות.
+  if (data && data.stop_reason === 'max_tokens') {
+    const usedTokens = (data.usage && data.usage.output_tokens) || 'לא ידוע';
+    const err = new Error('התשובה נחתכה באמצע - הגיעה לתקרת האורך (' + usedTokens + ' טוקנים). המסלול אינו שלם ולכן לא הוצג. נסה לקצר את הבקשה או לפצל אותה.');
+    err.status = 'truncated';
+    try { err.rawResponse = JSON.stringify(data); } catch (eR) { err.rawResponse = '(לא ניתן לסריאליזציה)'; }
+    recordDebugError('callClaudeAPI', 'stop_reason=max_tokens, output_tokens=' + usedTokens, err.rawResponse);
     throw err;
   }
   return data;
@@ -1026,8 +1041,8 @@ async function fetchIntent(fields, apiKey, accessCode) {
   }
   const text = data.content?.map(b => b.text || '').join('') || '';
   try {
-    const clean = text.replace(/```json|```/g, '').trim();
-    return JSON.parse(clean);
+    // v4.68 - A3: אוחד ל-parseModelJson, כדי שגם כאן יחולו תיקוני v4.65 ו-v4.67.
+    return parseModelJson(text, 'fetchIntent');
   } catch(e) {
     recordDebugError('fetchIntent', e.message, text);
     return null;
@@ -1344,8 +1359,9 @@ ${uniqueNames.map(n => '- ' + n).join('\n')}
   const text = data.content?.map(b => b.text || '').join('') || '';
   let excludeNames;
   try {
-    const clean = text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
+    // v4.68 - A3: היה כאן הפרסור הישן, שעליו לא הוחלו תיקוני v4.65 ו-v4.67. כשל פרסור כאן
+    // מחזיר את הרשימה הלא מסוננת - כלומר מקום שהמשתמש ביקש להחריג עובר למסלול בשקט.
+    const parsed = parseModelJson(text, 'filterExcludedPlaces');
     excludeNames = Array.isArray(parsed.excludeNames) ? parsed.excludeNames : [];
   } catch(e) {
     recordDebugError('filterExcludedPlaces', e.message, text);
@@ -1569,6 +1585,13 @@ async function buildTrip() {
   // יהיו מלאים בו-זמנית. כל פונקציה בודקת בעצמה את ה-toggle שלה, כך שגם אם החסימה תישבר בעתיד
   // לא יוזרקו שני מבני מסלול סותרים לאותו פרומפט.
   const mainDayTripText = buildMainDayTripText();
+  // v4.68 - D1: תיקון סתירה מבנית. תזכורת הסיום קבעה "סעיף ארוחת הערב הוא היוצא מן הכלל היחיד",
+  // בעוד buildMainDayTripText מכריז על חריג שני - נסיעת החזרה אחרי שעת הסיום. האיסור החזיק גם את
+  // הפתיחה וגם את הסיום (primacy + recency), וההיתר נקבר באמצע ההודעה. מתוקן: כשקיים יום קפיצה,
+  // התזכורת האחרונה מכירה בחריג השני במפורש. כשאין יום קפיצה - הניסוח נשאר בדיוק כפי שהיה.
+  const dayTripExceptionNote = mainDayTripText
+    ? ' חריג שני ומאושר, לימי קפיצה בלבד: נסיעת החזרה מיעד הקפיצה מתרחשת אחרי שעת הסיום ונרשמת כשורה אחרונה בטבלה, כפי שפורט בהוראות ימי הקפיצה למעלה. זה תקין ומצופה, ואינו סותר את הכלל - האיסור חל על פעילות בילוי, לא על נסיעת חזרה.'
+    : '';
   const topRestaurantsBlock = topRestaurantsTable
     ? '\n\nרשימת "מסעדות מובילות" מסוננת מראש (דירוג גבוה ומספר ביקורות גבוה) - הצג אותה כפי שהיא, בסוף כל המסלול (אחרי כל הימים, יחד עם סעיפי החניה/כרטיסים), כטבלה עם העמודות: שם | כתובת | דירוג (ביקורות) | סוג מטבח (קבע לפי שם/כתובת). אל תסנן, אל תשנה, אל תוסיף ואל תגרע ממנה - היא כבר מחושבת ומאומתת:\n' + topRestaurantsTable
     : '';
@@ -1592,7 +1615,7 @@ async function buildTrip() {
 - הערות: ${fields.notes}${placesContext}${placesNote}${multiRegionText}${mainDayTripText}${topRestaurantsBlock}
 לכל יום: כותרת + טבלת שעות (בתוך חלון השעות בלבד) + המלצות אוכל בוקר/צהריים (בתוך חלון השעות) + סעיף נפרד וקבוע להמלצות ארוחת ערב (הסעיף מופיע תמיד, עם עד 3 אפשרויות לפי מה שסופק בפועל, גם מחוץ לחלון השעות) + טיפ insider + טיפ היום + אפשרות בונוס (בתוך חלון השעות בלבד).
 בסוף כל המסלול (אחרי כל הימים): אם סופקה למעלה רשימת "מסעדות מובילות" - הצג אותה כטבלה מרוכזת יחד עם סעיפי החניה/כרטיסים. אם לא סופקה - אל תמציא טבלה כזו בעצמך.
-תזכורת אחרונה וחשובה: הטבלה המתוזמנת וסעיף הבונוס חייבים להסתיים בדיוק בשעה ${he} - שום פעילות בילוי (בר/מועדון/מוזיקה חיה) לא יכולה להיות מתוזמנת אחרי השעה הזו. סעיף ארוחת הערב הוא היוצא מן הכלל היחיד - הוא תמיד מופיע, כרשימת המלצות בלבד ולא כפעילות מתוזמנת.`;
+תזכורת אחרונה וחשובה: הטבלה המתוזמנת וסעיף הבונוס חייבים להסתיים בדיוק בשעה ${he} - שום פעילות בילוי (בר/מועדון/מוזיקה חיה) לא יכולה להיות מתוזמנת אחרי השעה הזו. סעיף ארוחת הערב הוא חריג מאושר - הוא תמיד מופיע, כרשימת המלצות בלבד ולא כפעילות מתוזמנת.${dayTripExceptionNote}`;
 
   const payload = {
     model: 'claude-sonnet-4-6',
@@ -2258,7 +2281,22 @@ async function editItinerary() {
   document.getElementById('edit-section').style.display = 'none';
   setLoading(true);
 
-  const system = `אתה מדריך סיורים מקצועי. קיבלת מסלול קיים ובקשת עריכה ספציפית. תפקידך לעדכן את המסלול בהתאם לבקשה בלבד - אל תשנה שום דבר אחר. החזר את המסלול המלא המעודכן בעברית.`;
+  // v4.68 - A2: ה-system כאן היה משפט אחד. כל ארכיטקטורת האנטי-הזיה של v4.64 נעקפה ברגע
+  // שהמשתמש לוחץ "ערוך": אין הנחיית "רק מגוגל", אין החרגה, אין איסור המצאת כתובות/מחירים/שעות.
+  // התוצאה: מסלול נקי שנבנה מ-Google Places יכול לקבל מקומות מומצאים בעריכה אחת.
+  // ההנחיות הבאות מועתקות בניסוחן מ-buildTrip, כדי שהאיסור יהיה זהה בשני המסלולים.
+  const editExcludeStr = (document.getElementById('exclude') || {}).value || '';
+  const editExcludeClause = editExcludeStr.trim()
+    ? `\n\nהוראת החרגה - הגבלה מחייבת, לא העדפה: אסור לכלול במסלול מקום ששייך מבחינה נושאית/תוכנית לנושא הבא, גם אם שם המקום עצמו אינו מכיל את מילת ההחרגה במפורש (לדוגמה: אם ההחרגה היא "מחנות", אסור לכלול את "Auschwitz-Birkenau Memorial and Museum"): "${editExcludeStr.trim()}". אם מקום כזה כבר מופיע במסלול הנוכחי - הסר אותו, ואל תציע לו תחליף מאותו נושא.`
+    : '';
+
+  const system = `אתה מדריך סיורים מקצועי. קיבלת מסלול קיים ובקשת עריכה ספציפית. תפקידך לעדכן את המסלול בהתאם לבקשה בלבד - אל תשנה שום דבר אחר. החזר את המסלול המלא המעודכן בעברית.
+
+מקור המקומות - הכלל החשוב ביותר כאן, גובר על כל הנחיה אחרת: אסור לך להוסיף למסלול מקום בעל שם שאינו מופיע כבר במסלול הנוכחי שקיבלת. לא אטרקציה, לא מסעדה, לא בית קפה, לא חניון, לא לינה. המקומות שבמסלול הנוכחי אומתו מול Google Places, ולך אין גישה לנתונים האלה. אסור להוסיף מקום מהידע שלך: לא בתיוג ⚠️, לא כ"הצעה", לא כ"אפשרות נוספת", וגם לא אם אתה בטוח לחלוטין שהוא קיים. אסור גם להמציא שם רחוב, כתובת, מחיר או שעות פתיחה שאינם מופיעים כבר במסלול.
+
+אם בקשת העריכה מחייבת מקום חדש שאינו במסלול הנוכחי - אל תמציא אותו. במקום זאת בצע את שאר הבקשה, וכתוב בראש המסלול שורה אחת: "⚠️ לא ניתן היה להוסיף מקום חדש בעריכה - נתוני Google Places אינם זמינים כאן. לתוספת מקומות יש לבנות את המסלול מחדש מהטופס."
+
+שמירה על שלמות: החזר את המסלול **המלא**, כולל כל הימים וכל הסעיפים שהיו בו. אל תקצר, אל תסכם ואל תשמיט ימים כדי לחסוך מקום.${editExcludeClause}`;
 
   const prompt = `המסלול הנוכחי:
 ${currentItinerary}
@@ -2270,7 +2308,7 @@ ${currentItinerary}
   try {
     const data = await callClaudeAPI({
       model: 'claude-sonnet-4-6',
-      max_tokens: 16000,
+      max_tokens: 35000,
       temperature: 0.3,
       system,
       messages: [{ role: 'user', content: prompt }]
@@ -2972,6 +3010,38 @@ async function verifyDistances(list, origin, maxMinutesThreshold) {
 
 // פונקציית עזר משותפת - קריאה ל-Claude API וחילוץ רשימת הצעות JSON.
 // זהה בשתי הפונקציות למטה, אוחד למקום אחד כדי למנוע כפילות קוד.
+// v4.68 - A3: פרסור JSON אחיד. עד עכשיו היו שלושה מימושים נפרדים, ורק אחד מהם
+// (fetchAiSuggestions) קיבל את תיקוני v4.65 ו-v4.67. filterExcludedPlaces ו-fetchIntent נשארו
+// עם השיטה הישנה: הסרת גדרות markdown ואז JSON.parse ישיר. זה קריטי במיוחד ב-filterExcludedPlaces,
+// כי כשל פרסור שם מחזיר את רשימת המקומות הלא מסוננת - כלומר מקום שהמשתמש ביקש להחריג עובר למסלול.
+// הפונקציה הזו מאחדת את שני התיקונים ומחילה אותם על שלוש הקריאות.
+// זורקת שגיאה עם rawResponse אם לא ניתן לפרסר - הקורא מחליט מה לעשות.
+function parseModelJson(text, source) {
+  const stripped = String(text || '').replace(/```json|```/g, '').trim();
+  const firstBrace = stripped.indexOf('{');
+  const lastBrace = stripped.lastIndexOf('}');
+  const clean = (firstBrace !== -1 && lastBrace > firstBrace)
+    ? stripped.slice(firstBrace, lastBrace + 1)
+    : stripped;
+  try {
+    return JSON.parse(clean);
+  } catch (parseErr) {
+    try {
+      const repaired = clean
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u0000-\u001F]/g, ' ');
+      const parsed = JSON.parse(repaired);
+      recordDebugError(source, 'JSON תוקן אוטומטית (תווים חכמים/בקרה). שגיאה מקורית: ' + parseErr.message, text);
+      return parsed;
+    } catch (repairErr) {
+      const err = new Error('תשובת JSON לא תקינה: ' + parseErr.message);
+      err.rawResponse = text;
+      throw err;
+    }
+  }
+}
+
 async function fetchAiSuggestions(apiKey, accessCode, prompt) {
   const data = await callClaudeAPI({
     model: 'claude-sonnet-4-6',
@@ -2986,35 +3056,9 @@ async function fetchAiSuggestions(apiKey, accessCode, prompt) {
   // גם את רשימת ההחרגות ולכן המודל נוטה יותר להסביר את עצמו בסוף.
   // התיקון: חילוץ אובייקט ה-JSON לפי הסוגר המסולסל הראשון והאחרון, במקום הנחה שכל התשובה היא JSON.
   // נשמרת נפילה לטקסט המלא אם לא נמצאו סוגריים, כדי לא לשבור מקרה תקין קיים.
-  const stripped = text.replace(/```json|```/g, '').trim();
-  const firstBrace = stripped.indexOf('{');
-  const lastBrace = stripped.lastIndexOf('}');
-  const clean = (firstBrace !== -1 && lastBrace > firstBrace)
-    ? stripped.slice(firstBrace, lastBrace + 1)
-    : stripped;
-  let parsed;
-  try {
-    parsed = JSON.parse(clean);
-  } catch (parseErr) {
-    // v4.67 - מצב כשל שני שהתגלה בבדיקה חיה, שונה מזה שתוקן ב-v4.65.
-    // שם היה טקסט תקין אחרי ה-JSON ("after JSON"); כאן ה-JSON עצמו פגום מבפנים:
-    // "Expected ',' or ']' after array element at position 401". הסיבה הסבירה היא תו בעייתי
-    // בתוך מחרוזת - גרש חכם (U+2019) בשמות כמו פשצ'ינה/טיניץ, או תו בקרה שלא מולט.
-    // ניסיון תיקון אחרון לפני ויתור: המרת גרשיים/מרכאות חכמים לרגילים והסרת תווי בקרה.
-    // אם גם זה נכשל - נזרקת השגיאה המקורית עם התשובה הגולמית, בדיוק כמו קודם.
-    try {
-      const repaired = clean
-        .replace(/[\u2018\u2019]/g, "'")
-        .replace(/[\u201C\u201D]/g, '"')
-        .replace(/[\u0000-\u001F]/g, ' ');
-      parsed = JSON.parse(repaired);
-      recordDebugError('fetchAiSuggestions', 'JSON תוקן אוטומטית (תווים חכמים/בקרה). שגיאה מקורית: ' + parseErr.message, text);
-    } catch (repairErr) {
-      const err = new Error('תשובת JSON לא תקינה: ' + parseErr.message);
-      err.rawResponse = text;
-      throw err;
-    }
-  }
+  // v4.68 - הפרסור עבר ל-parseModelJson המשותפת. הלוגיקה זהה לחלוטין (תיקוני v4.65 + v4.67),
+  // רק שהיא משרתת עכשיו גם את filterExcludedPlaces ואת fetchIntent.
+  const parsed = parseModelJson(text, 'fetchAiSuggestions');
   const list = (parsed && parsed.suggestions) || [];
   if (!list.length) throw new Error('לא התקבלו הצעות תקינות');
   return list;
