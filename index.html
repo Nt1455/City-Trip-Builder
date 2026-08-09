@@ -1,3 +1,5 @@
+<!-- City Trip Builder Claude - v4.67 - 09/08/2026 - שני שינויים, שניהם תגובה לבדיקה חיה של v4.66. (1) PROBE שלב ב - בידוד הגורם. ה-probe של v4.66 החזיר 0 תוצאות בכל ארבעת המלבנים, ללא שגיאת HTTP כלשהי - כלומר הבקשה התקבלה, אושרה, והפילטר עצמו סינן הכל. הגיאומטריה נשללה כגורם: אומתה ב-node מול קואורדינטות אמיתיות ושלוש ערי המבחן (קטוביצה, פשצ'ינה, ביאלסקו-ביאלה) נופלות בתוך המלבנים בכל הספים, בעוד ורוצלב נופלת מחוץ. לכן החוסם הוא אחד משלושה: includedType:'locality', strictTypeFiltering:true, או המלבן. במקום לנחש, ה-probe הוסב מ-4 מלבנים עם אותה שאילתה ל-4 ואריאנטים על אותו מלבן צפוני יחיד: V1 שחזור מדויק של v4.66 (בקרה), V2 בלי strictTypeFiltering, V3 בלי includedType כלל, V4 בלי מלבן (locationBias מעגלי 50 ק"מ). מודפס גם שדה types לכל תוצאה, כדי לראות מה גוגל בכלל מחזיר. הפענוח מודפס בסוף: V3 מחזיר ו-V1/V2 לא -> locality הוא החוסם; רק V4 מחזיר -> המלבן הוא החוסם; כולם 0 -> אין ב-Google API דרך למנות ערים בשטח ותוכנית א מתה, ויש לרדת לתוכנית ב (15 מועמדים מ-Claude, Distance Matrix מרוכז, סינון ובחירה דטרמיניסטיים ב-JS). זהו הניסיון השני והאחרון לפי פרוטוקול DEAD END. ה-probe נשאר מבודד לחלוטין ואינו מחווט לשום פונקציה. (2) מצב כשל שני ב-fetchAiSuggestions, שונה מזה שתוקן ב-v4.65. באותה בדיקה חיה שורה אחת נכשלה עם "Expected ',' or ']' after array element in JSON at position 401" - שים לב שזו שגיאה שונה מהותית מ-v4.65: שם היה JSON תקין ואחריו טקסט ("after JSON"), וכאן ה-JSON עצמו פגום מבפנים. הגורם הסביר: תו בעייתי בתוך מחרוזת - גרש חכם (U+2019) בשמות פולניים מתועתקים לעברית כמו פשצ'ינה או טיניץ, מרכאות חכמות, או תו בקרה שלא מולט. נוסף ניסיון תיקון אחרון לפני ויתור: המרת גרשיים ומרכאות חכמים לרגילים והסרת תווי בקרה, ואז JSON.parse חוזר. תיקון מוצלח נרשם ל-Debug עם השגיאה המקורית והתשובה הגולמית, כך שהתופעה לא נבלעת בשקט. אם גם התיקון נכשל - נזרקת השגיאה המקורית בדיוק כמו קודם, כולל rawResponse. התיקון של v4.65 לא הוסר ולא שונה, והוא אומת שעבד בבדיקה החיה (הקריאה השנייה החזירה אויצוב, ויליצ'קה וטיניץ בהצלחה). משפיע על שלוש הפונקציות שצורכות את fetchAiSuggestions. QA: node --check עבר; 0 כפילויות פונקציה; איזון תגיות מלא (div 160/160, script 2/2, table 3/3, select 9/9, textarea 3/3, button 64/64 - ללא שינוי מ-v4.66); כל onclick מפנה לפונקציה קיימת; 0 בלוקי catch ריקים; כל ואריאנט עטוף ב-try/catch נפרד עם recordDebugError ו-continue, כך שכישלון של אחד אינו מפיל את הבדיקה; גוף תשובת HTTP שגויה נקרא ומודפס; אומת שתיקוני v4.63-v4.66 לא נדרסו. בדיקה פונקציונלית: לוגיקת הפרסור המשולבת הורצה ב-node על 8 תרחישים - תקין, טקסט אחרי (הבאג של v4.65), גרש חכם בשם (הבאג החדש), מרכאות חכמות, תו בקרה במחרוזת, שילוב גדרות+גרש חכם+טקסט, JSON פגום באמת, ותשובה ריקה. ששת התרחישים הניתנים לתיקון עברו; שני מצבי הכשל האמיתיים נופלים ל-catch הקיים כמצופה. בדיקה חיה טרם בוצעה. -->
+
 <!-- City Trip Builder Claude - v4.66 - 08/08/2026 - PROBE מבודד לתוכנית א: בדיקה חיה האם Google Places מסוגל להחזיר ערים אמיתיות בטווח נסיעה, כתחליף לייצור יעדים מהזיכרון של Claude. הרקע: suggestMainDayTrip מבקש מהמודל לייצר יעדים, ולמודל יש ידע על "מקומות מפורסמים ליד X" אך לא על זמני נסיעה. בשלוש בדיקות חיות הוא החזיר אתרי תיירות בלבד (זקופנה, צ'נסטוחובה, בנדזין, אוגרודז'יינייץ, טרנוב, ורוצלב ב-3:05 כשהסף היה 1.5 שעות) ומעולם לא הזכיר את קטוביצה, פשצ'ינה או ביאלסקו-ביאלה - שלושתן בטווח. בנדזין, שכן הופיעה, נמצאת 15 דקות מקטוביצה: המודל מסתובב סביב האזור ולא נוגע בעיר עצמה, כי עיר תעשייה אינה יושבת בקטגוריה המנטלית "יעד ליום טיול". עובדות API שאומתו בתיעוד Google (08/08/2026): searchNearby מוגבל לרדיוס 50,000 מטר ולכן חסום לחלוטין ל-2 שעות נסיעה (~150 ק"מ); searchText.locationRestriction תומך במלבן בלבד וללא מגבלת ק"מ, ולכן זה המסלול היחיד האפשרי; locality נמצא ב-Table A ולכן חוקי כערך includedType. האי-ודאות שהprobe נועד להכריע: textQuery הוא שדה חובה גם עם includedType, ולכן זו עדיין שאילתת רלוונטיות בתוך תיבה ולא "החזר את כל הערים בתחום" - אין דרך לדעת מראש אם התוצאות טובות. לא ניתן לבדוק זאת מכל סביבה שאינה הדומיין החי, כי MAPS_KEY מוגבל ב-HTTP Referrer. מה נוסף: פונקציה probeLocalitySearch וכפתור 🧪 Probe (id=probe-btn) ליד כפתור ה-Debug. הפונקציה עושה Geocoding ליעד הראשי, ממירה את סף השעות לרדיוס (75 קמ"ש), ומריצה 4 קריאות searchText בארבעה מלבנים - צפון/דרום/מזרח/מערב - ולא מלבן אחד, כדי שהתוצאות לא יתרכזו בכיוון אחד. מדפיסה לפאנל ה-Debug את כל הערים הייחודיות שהוחזרו, ובסוף מבחן הכרעה מפורש שבודק אם קטוביצה/פשצ'ינה/ביאלסקו-ביאלה מופיעות (בעברית ובאנגלית). PROBE בלבד: אינו מחווט לשום פונקציה קיימת, לא נוגע ב-buildTrip, ב-suggestMainDayTrip או ב-fetchPlaces, ואינו משנה שום התנהגות של האפליקציה. אם ה-probe נכשל, יש להסיר את הפונקציה ואת הכפתור - אין תלות בשום מקום אחר. QA: node --check עבר; 0 כפילויות פונקציה; איזון תגיות מלא, button עלה מ-63 ל-64 (הכפתור החדש) והשאר ללא שינוי; כל onclick מפנה לפונקציה קיימת; probe-btn מוגדר פעם אחת; 0 בלוקי catch ריקים; כל מלבן עטוף ב-try/catch נפרד עם recordDebugError ו-continue, כך שכישלון של כיוון אחד אינו מפיל את הבדיקה; גוף תשובת HTTP שגויה נקרא ומודפס לצורך אבחון; אומת שתיקוני v4.63-v4.65 לא נדרסו. בדיקה פונקציונלית: חישוב המלבנים הורץ ב-node מול קואורדינטות אמיתיות של קרקוב בשלושה ספים (1.5/2/2.5 שעות) - בכל המקרים low<high תקין בארבעת המלבנים, מרחק הפינה תואם את הצפוי (פי 1.41 מהרדיוס), שלוש ערי המבחן נופלות בתוך המלבנים, וורוצלב (236 ק"מ, זו שהמודל הציע ב-3:38) נופלת מחוץ - בדיוק ההתנהגות הנדרשת. בדיקה חיה טרם בוצעה. -->
 
 <!-- City Trip Builder Claude - v4.65 - 08/08/2026 - תיקון באג חי שהתגלה בבדיקה חיה של v4.64: לחיצה על "עוד הצעות" ביום קפיצה נכשלה עם "תשובת JSON לא תקינה - Unexpected non-whitespace character after JSON at position 1120". שורש הבעיה בשורה 2847 ב-fetchAiSuggestions: הקוד הסיר רק גדרות markdown (```json) ואז שלח את כל הטקסט שנותר ישירות ל-JSON.parse, בהנחה שכל תשובת המודל היא JSON. כשClaude הוסיף ולו משפט הסבר אחד אחרי סוגר ה-JSON - הפרסור קרס. שים לב לניסוח השגיאה: "after JSON", כלומר ה-JSON עצמו היה תקין לחלוטין ונסגר כראוי, ורק אחריו הגיע תוכן נוסף - זו אינה בעיית truncation (שהייתה נותנת "Unexpected end of JSON input") ולכן max_tokens לא היה הגורם ולא שונה. למה דווקא ב"עוד הצעות" ולא בקריאה הראשונה: הבקשה החוזרת מזריקה לפרומפט גם את רשימת ההחרגות (cross-row + השורה הקודמת), מה שהופך אותו למורכב יותר ומגדיל את הנטייה של המודל להסביר את בחירתו בסוף התשובה. הקריאה הראשונה באותה בדיקה עברה בהצלחה. התיקון: חילוץ אובייקט ה-JSON לפי indexOf("{") ו-lastIndexOf("}") במקום הנחה שכל התשובה היא JSON, עם נפילה חזרה לטקסט המלא אם לא נמצאו סוגריים - כדי לא לשבור מקרה תקין קיים. משפיע על שלוש הפונקציות שצורכות את fetchAiSuggestions (suggestMainDayTrip, suggestSideTrip, suggestRegionCity), ולכן מתקן את אותו באג בשלושתן. בלוק ה-try/catch הקיים לא שונה - תשובות שאין בהן JSON כלל ממשיכות ליפול אליו ולהציג הודעה עם שמירת התשובה הגולמית. QA: node --check עבר; 0 כפילויות פונקציה; איזון תגיות מלא (div 160/160, script 2/2, table 3/3, select 9/9, textarea 3/3, button 63/63); 0 בלוקי catch ריקים; 9 קריאות JSON.parse כולן מוגנות; אומת שתיקוני v4.63 ו-v4.64 לא נדרסו (buildMainDayTripText, fetchPlaces-fallback, איסור מחיר בחניה, הנחיית הראש, max_tokens=35000). בדיקה פונקציונלית: לוגיקת החילוץ הורצה ב-node על 9 תרחישים - JSON נקי, בתוך גדרות markdown, JSON+טקסט אחרי (הבאג שדווח בפועל), טקסט לפני, טקסט משני הצדדים, גדרות+טקסט אחרי, תשובה ריקה, תשובה בלי JSON כלל, ו-JSON חתוך. ששת התרחישים שיש בהם JSON תקין עברו; שלושת מצבי הכשל האמיתיים נופלים ל-catch הקיים כמצופה. בדיקה חיה טרם בוצעה. -->
@@ -520,7 +522,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.66';
+const APP_VERSION = 'v4.67';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -875,58 +877,71 @@ async function probeLocalitySearch() {
       { name: 'מערב', lo: { latitude: lat - dLat, longitude: lng - dLng }, hi: { latitude: lat + dLat, longitude: lng        } }
     ];
     const ENDPOINT = 'https://places.googleapis.com/v1/places:searchText';
+    // v4.67 - ה-probe של v4.66 החזיר 0 תוצאות בכל ארבעת המלבנים, בלי שגיאת HTTP.
+    // כלומר הבקשה התקבלה ואושרה - הפילטר עצמו סינן הכל. הגיאומטריה אומתה ב-node ותקינה
+    // (קטוביצה/פשצ'ינה/ביאלסקו-ביאלה נופלות בתוך המלבנים), ולכן האשם הוא אחד משלושה:
+    // includedType:'locality', strictTypeFiltering:true, או המלבן עצמו.
+    // הגרסה הזו מריצה 4 ואריאנטים על אותו מלבן צפוני יחיד, כדי לבודד את הגורם בלחיצה אחת:
+    // V1 = שחזור מדויק של v4.66 (בקרה), V2 = בלי strictTypeFiltering, V3 = בלי includedType כלל,
+    // V4 = בלי מלבן בכלל (locationBias רחב) - בודק אם המלבן הוא החוסם.
+    // אם V3 מחזיר ערים ו-V1/V2 לא - locality הוא האשם. אם V4 לבדו מחזיר - המלבן הוא האשם.
+    // אם כולם 0 - אין ל-Google API שמונה ערים בשטח, ותוכנית א מתה.
+    const north = boxes[0];
+    const rect = { rectangle: { low: north.lo, high: north.hi } };
+    const VARIANTS = [
+      { n: 'V1 בקרה (זהה ל-v4.66)', body: { textQuery: 'towns and cities', includedType: 'locality', strictTypeFiltering: true, locationRestriction: rect, languageCode: 'he', maxResultCount: 20 } },
+      { n: 'V2 בלי strictTypeFiltering', body: { textQuery: 'towns and cities', includedType: 'locality', locationRestriction: rect, languageCode: 'he', maxResultCount: 20 } },
+      { n: 'V3 בלי includedType', body: { textQuery: 'ערים ועיירות ליד ' + dest, locationRestriction: rect, languageCode: 'he', maxResultCount: 20 } },
+      { n: 'V4 בלי מלבן (bias בלבד)', body: { textQuery: 'cities and towns near ' + dest, locationBias: { circle: { center: { latitude: lat, longitude: lng }, radius: 50000 } }, languageCode: 'he', maxResultCount: 20 } }
+    ];
     const seen = new Set();
     const found = [];
-    for (const box of boxes) {
+    for (const v of VARIANTS) {
       try {
         const res = await fetch(ENDPOINT, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-Goog-Api-Key': MAPS_KEY,
-            'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.types'
+            'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.types'
           },
-          body: JSON.stringify({
-            textQuery: 'towns and cities',
-            includedType: 'locality',
-            strictTypeFiltering: true,
-            locationRestriction: { rectangle: { low: box.lo, high: box.hi } },
-            languageCode: 'he',
-            maxResultCount: 20
-          })
+          body: JSON.stringify(v.body)
         });
         if (!res.ok) {
           let body = '';
           try { body = (await res.text()).slice(0, 300); } catch(eB) { body = '(לא ניתן לקרוא גוף תשובה)'; }
-          log.push('[' + box.name + '] HTTP ' + res.status + ' - ' + body);
-          recordDebugError('probeLocalitySearch (' + box.name + ')', 'HTTP ' + res.status);
+          log.push('[' + v.n + '] HTTP ' + res.status + ' - ' + body);
+          recordDebugError('probeLocalitySearch (' + v.n + ')', 'HTTP ' + res.status);
           continue;
         }
         const data = await res.json();
         const places = data.places || [];
-        log.push('[' + box.name + '] הוחזרו ' + places.length + ' תוצאות');
-        places.forEach(p => {
+        log.push('[' + v.n + '] -> ' + places.length + ' תוצאות');
+        places.slice(0, 8).forEach(p => {
           const nm = p.displayName?.text || '';
-          if (nm && !seen.has(nm)) {
-            seen.add(nm);
-            found.push({ name: nm, addr: p.formattedAddress || '', box: box.name });
-          }
+          const tp = Array.isArray(p.types) ? p.types.slice(0, 3).join(',') : '';
+          log.push('      ' + nm + '   {' + tp + '}');
+          if (nm && !seen.has(nm)) { seen.add(nm); found.push({ name: nm, box: v.n }); }
         });
-      } catch (eBox) {
-        log.push('[' + box.name + '] שגיאה: ' + eBox.message);
-        recordDebugError('probeLocalitySearch (' + box.name + ')', eBox.message);
+      } catch (eV) {
+        log.push('[' + v.n + '] שגיאה: ' + eV.message);
+        recordDebugError('probeLocalitySearch (' + v.n + ')', eV.message);
         continue;
       }
     }
     log.push('');
-    log.push('=== סה"כ ' + found.length + ' ערים ייחודיות ===');
-    found.forEach((f, i) => log.push((i + 1) + '. ' + f.name + '  [' + f.box + ']  ' + f.addr));
+    log.push('=== סה"כ ' + found.length + ' שמות ייחודיים ===');
     log.push('');
-    log.push('=== מבחן הכרעה: הערים שלא הופיעו מעולם ב"המלץ לי" ===');
+    log.push('=== מבחן הכרעה ===');
     ['קטוביצה', 'קטוביץ', 'Katowice', 'פשצ\'ינה', 'Pszczyna', 'ביילסקו', 'ביאלסקו', 'Bielsko'].forEach(t => {
       const hit = found.find(f => f.name.indexOf(t) !== -1);
-      log.push((hit ? '✅ נמצא: ' : '❌ לא נמצא: ') + t + (hit ? ' -> ' + hit.name : ''));
+      log.push((hit ? '✅ ' : '❌ ') + t + (hit ? ' -> ' + hit.name + ' [' + hit.box + ']' : ''));
     });
+    log.push('');
+    log.push('=== פענוח ===');
+    log.push('V3 מחזיר ערים ו-V1/V2 לא  -> locality הוא החוסם');
+    log.push('רק V4 מחזיר                -> המלבן הוא החוסם');
+    log.push('כולם 0                     -> אין ב-Google API דרך למנות ערים בשטח. תוכנית א מתה.');
   } catch (e) {
     log.push('כשל כללי: ' + e.message);
     recordDebugError('probeLocalitySearch', e.message);
@@ -2981,9 +2996,24 @@ async function fetchAiSuggestions(apiKey, accessCode, prompt) {
   try {
     parsed = JSON.parse(clean);
   } catch (parseErr) {
-    const err = new Error('תשובת JSON לא תקינה: ' + parseErr.message);
-    err.rawResponse = text;
-    throw err;
+    // v4.67 - מצב כשל שני שהתגלה בבדיקה חיה, שונה מזה שתוקן ב-v4.65.
+    // שם היה טקסט תקין אחרי ה-JSON ("after JSON"); כאן ה-JSON עצמו פגום מבפנים:
+    // "Expected ',' or ']' after array element at position 401". הסיבה הסבירה היא תו בעייתי
+    // בתוך מחרוזת - גרש חכם (U+2019) בשמות כמו פשצ'ינה/טיניץ, או תו בקרה שלא מולט.
+    // ניסיון תיקון אחרון לפני ויתור: המרת גרשיים/מרכאות חכמים לרגילים והסרת תווי בקרה.
+    // אם גם זה נכשל - נזרקת השגיאה המקורית עם התשובה הגולמית, בדיוק כמו קודם.
+    try {
+      const repaired = clean
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u0000-\u001F]/g, ' ');
+      parsed = JSON.parse(repaired);
+      recordDebugError('fetchAiSuggestions', 'JSON תוקן אוטומטית (תווים חכמים/בקרה). שגיאה מקורית: ' + parseErr.message, text);
+    } catch (repairErr) {
+      const err = new Error('תשובת JSON לא תקינה: ' + parseErr.message);
+      err.rawResponse = text;
+      throw err;
+    }
   }
   const list = (parsed && parsed.suggestions) || [];
   if (!list.length) throw new Error('לא התקבלו הצעות תקינות');
