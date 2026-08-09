@@ -1,3 +1,6 @@
+<!-- City Trip Builder Claude - v4.73 - 09/08/2026 - מנגנונים 3, 4 ו-5 מתוך המפרט, במסירה אחת. שלושתם נוגעים במקומות נפרדים בקוד וכשל בכל אחד מהם מתגלה במקום אחר במסך, ולכן ניתן לבודד גם באיגוד. מנגנון 3, מלאי ליעד יום קפיצה: לולאת ה-Places רצה עד עכשיו על region-rows בלבד, ויעדי הקפיצה קיבלו אפס קריאות. בבדיקה חיה של v4.68 זה התבטא בשמות אתרים וכתובות מלאות עם מספרי בית שגוגל מעולם לא סיפק, כלומר הפרה בפועל של הנחיית רק-מגוגל, ואחרי התיקון הטקסטואלי של v4.70 אותם ימים הפכו ריקים עם "יש לאתר ולאמת מראש". נוספה getMainDayTripDestinations המחזירה את יעדי הקפיצה עם התאריך שלהם, ולולאה שרצה עליהם באותו מסלול בדיוק כמו אזור משני - fetchPlaces, filterExcludedPlaces, והזרקה ל-placesContext כבלוק מסומן ליעד ולתאריך. סט הקטגוריות מצומצם במכוון לארבע - מסעדה, קפה, אתרי תיירות - כי יעד קפיצה הוא יום אחד ולא בסיס, ושמונה קטגוריות היו בזבוז קריאות. ההגבלה שנוספה ב-v4.70 הפכה מותנית: יעד שקיבל מלאי מקבל את אותו כלל כמו היעד הראשי ומותר לציין בו שמות וכתובות מהרשימה שלו בלבד, ואילו יעד שלא קיבל מלאי נשאר תחת האיסור המלא כולל שורת האזהרה. תוכנית הארוחות של v4.71 ממשיכה לדלג על ימי קפיצה, וזה נשאר נכון - המאגר שלה מכיל מסעדות של עיר הבסיס, ובימי הקפיצה המודל נדרש לעבוד מול המלאי הייעודי של אותו יעד. מנגנון 4, חניונים: parking מעולם לא נשלח לגוגל, ולכן סעיף החניה תמיד כתב "לא נמצאו חניונים מאומתים" - הקוד כתב את האמת, פשוט אף אחד לא שאל. נוסף לקטגוריות הליבה. מנגנון 5, החרגה נושאית בשער ההצעות: gateSuggestions בדק מרחק, אימות וחזרות בלבד, וההחרגה נשארה הנחיה רכה בפרומפט; בבדיקה חיה אושוויינצ'ים ווויאליצ'קה הוצעו כיעד קפיצה למרות שדה ההחרגה. נוספה judgeTopicExclusion המשתמשת באותה קריאת Claude ב-temperature 0 שכבר עובדת ב-filterExcludedPlaces, עם מטמון לכל הסשן כך שאותו שם אינו נשלח לשיפוט פעמיים - כלומר השיפוט יוצא מהלולאה, ומהרגע שנקבע ההשוואה היא השוואת מחרוזות בלבד. הכשל מכוון להיות fail-open ונרשם ל-Debug: עדיף להציע יעד שהיה צריך להיחסם מאשר לחסום הכל בגלל כשל רשת. העילה החדשה נבדקת ראשונה, לפני חזרות ולפני מרחק, וחוברה לשלוש פונקציות ההצעה וגם למחליפים בסבב ה-retry. פגם שנתפס בסריקת עומק לפני מסירה ולא הגיע לקוד החי: הוספת parking לליבה דחקה תחומי עניין החוצה. אחרי ש-v4.70 העלה את קטגוריות המסעדה מ-2 ל-3-4, הליבה לבדה תופסת שבעה מקומות מתוך תקרה של שמונה, ונשאר מקום אחד בלבד לתחומי העניין של המשתמש - כלומר מוזיאונים, גלריות ומוזיקה היו נדחקים. התקרה הועלתה מ-8 ל-10, במחיר של עד שתי קריאות Google Places נוספות לבנייה. עלות נוספת שיש להכיר: כל לחיצה על "המלץ לי" צורכת מעכשיו קריאת Claude נוספת לשיפוט ההחרגה, ועוד אחת אם מופעל סבב retry - כלומר 2 עד 4 קריאות במקום 1 עד 2. המטמון מצמצם זאת בהמשך הסשן, והפונקציה חוזרת מיד כששדה ההחרגה ריק. QA: node --check עבר; 0 כפילויות פונקציה; 0 כפילויות id; כל onclick מפנה לפונקציה קיימת; 0 בלוקי catch ריקים; אומת ש-apiKey ו-accessCode בהיקף בשלוש פונקציות ההצעה, ש-dayTripSuppliedDests מוצהר לפני השימוש בו, ושתיקוני v4.63-v4.72 לא נדרסו. בדיקה פונקציונלית: 11 תרחישים ב-node לשער עם ההחרגה, ללוגיקת המטמון ולתקרת הקטגוריות - כולם עברו. בדיקה חיה טרם בוצעה. -->
+<!-- City Trip Builder Claude - v4.72 - 09/08/2026 - תיקון כפתור ה-Debug, באג שדווח בבוקר ולא נבדק עד עכשיו. התסמין: לחיצה ראשונה מקפיצה הודעה ונכבית, לחיצה שנייה מבצעת את ההעתקה. שני שורשים. ראשון: קיימים שלושה כפתורי Debug בקובץ, בשורות 470, 490 ו-521, וכולם מפעילים אותו פאנל יחיד; פתיחה דרך כפתור אחד וניסיון העתקה דרך כפתור אחר גרמו לסגירה, כי מבחינת הכפתור השני הפאנל כבר פתוח - וההודעה שקפצה הייתה "נסגר, לא הועתק". שני: הפאנל יושב בשורה 472, צמוד לכפתור הראשון בלבד, ולכן בלחיצה על כפתור שנמצא במקום אחר במסך הוא עלול להיות פתוח אך מגולל הרחק ובלתי נראה, והלחיצה סוגרת משהו שלא רואים. הבעיה העקרונית שמאחורי שניהם: כפתור אחד שמבצע שתי פעולות שונות לפי מצב שהמשתמש אינו רואה. v4.55 מיזג בזמנו את הפתיחה וההעתקה כדי לפתור בלבול בין שני כפתורים צמודים, ובכך יצר בלבול חמור יותר, כי לא ניתן לדעת מראש מה הלחיצה תעשה. התיקון: הלחיצה על Debug הפכה אידמפוטנטית - תמיד פותחת, תמיד מרעננת את התוכן, תמיד מעתיקה ותמיד גוללת אל הפאנל, גם כשהוא כבר פתוח, כך שאותה לחיצה נותנת אותה תוצאה בכל מצב. הסגירה עברה לכפתור ✕ ייעודי בתוך כותרת הפאנל, במקום שבו היא נראית ואינה מפתיעה. מבנה ה-DOM שונה בהתאם: debug-panel הוא כעת div עוטף עם שורת כותרת, והטקסט עצמו עבר ל-pre פנימי בשם debug-body; toggleDebug כותב ל-debug-body אם הוא קיים ונופל חזרה לפאנל עצמו אם לא, כדי לא להישבר על מבנה ישן. הודעת הכשל בהעתקה שונתה ל"לא הועתק - סמן ידנית", כי הפאנל פתוח בכל מקרה וניתן לסמן ולהעתיק ידנית כשהדפדפן חוסם את ה-clipboard. אומת בנוסף שתוכנית הארוחות של v4.71 אכן מגיעה לפאנל: placesDebug מוצב ל-lastDebugInfo.places_debug בשורה 1792 ומודפס במלואו כ-JSON, ולכן mealPlan על השדות skippedDays ו-usage גלוי לבדיקה. QA: node --check עבר; 0 כפילויות פונקציה; 0 כפילויות id; כל onclick מפנה לפונקציה קיימת, כולל closeDebug החדשה; 0 בלוקי catch ריקים; אומת שתיקוני v4.63-v4.71 לא נדרסו. -->
+<!-- City Trip Builder Claude - v4.71 תיקון לפני מסירה - 09/08/2026 - סריקת עומק אחרי הבנייה חשפה שני פגמים שנוצרו על ידי v4.71 עצמה, ושניהם תוקנו לפני שהקובץ נמסר. פגם 1, לוגי וחמור: buildMealPlan קיבל רק את placesDataForPrompt, שהוא מלאי עיר הבסיס, ולא ידע דבר על ימי קפיצה. התוצאה הייתה שביום שבו הקבוצה נמצאת בוורוצלב, 3 שעות מקרקוב, התוכנית הייתה מקצה לה מסעדות קרקוביות בביטחון מלא - רגרסיה ישירה לעומת v4.70, שם המודל לפחות ידע לכתוב "מסעדה מקומית באזור הכיכר". תוקן: נוספה getDayTripDayNumbers הממירה את תאריכי שורות יום הקפיצה למספרי ימים יחסית לתאריך ההתחלה, ו-buildMealPlan מדלג עליהם לחלוטין; הימים המדולגים נרשמים ל-Debug תחת skippedDays, וטקסט הפרומפט מבהיר במפורש שימים שאינם ברשימה הם ימי קפיצה ושאסור להשתמש שם במסעדות עיר הבסיס. פגם 2, מבני: התזכורת בסוף הפרומפט המשיכה לומר "עד 3 אפשרויות לפי מה שסופק בפועל", כלומר המשיכה להרשות למודל לבחור - וזאת בעמדת recency, בעוד הרשימה הסגורה קבורה באמצע ההודעה. זו בדיוק הסתירה המבנית מסוג D1 שאובחנה הבוקר, ושוחזרה כאן בטעות בתוך אותו יום. תוקן באמצעות mealPlanRecencyNote, שמחליף את הסיפא בהוראה להשתמש אך ורק בתוכנית המוקצית כאשר היא קיימת, ומשאיר את הניסוח המקורי כשאין תוכנית. שתי הבדיקות הפונקציונליות החדשות מאמתות שהרוטציה ואי-החזרה שורדות את הדילוג. סריקת העומק אימתה בנוסף: המאגר נבנה מ-placesDataForPrompt שהוא הרשימה שאחרי filterExcludedPlaces, ולכן מקום שהוחרג אינו יכול להיכנס לתוכנית הארוחות; 0 הפניות getElementById שבורות; 0 כפילויות; 0 catch ריקים. --><!-- City Trip Builder Claude - v4.71 - 09/08/2026 - מנגנונים 1+2 מתוך המפרט SPEC_v4_71.md: מאגר מסעדות עם מעקב שימוש, ורוטציית מטבחים. שינוי עקרוני ולא עוד תיקון פרומפט - ההחלטה מי המסעדה עוברת מהמודל ל-JS. הבעיה כפי שנמדדה במסלול 10 ימים בקרקוב: 14 מסעדות סופקו מ-Google, אך Morskie Oko הופיעה 3 פעמים, Cieplo 3 ו-Starka 3, בעוד מסעדות אחרות ברשימה כלל לא נוצלו; ובמקביל כל ארוחת צהריים וכל ארוחת ערב בעשרת הימים הורכבו מאותה שלישייה בדיוק - פולני, סטייק, אוקראיני. הסיבה לשתי התופעות אחת: הפרומפט ביקש 3 אפשרויות לכל ארוחה והשאיר את הבחירה למודל, בלי שום מעקב בין ארוחות. בלי מעקב, מסעדה בעלת דירוג גבוה נבחרת שוב ושוב, והקטגוריה הראשונה ברשימה נופלת תמיד לחריץ הראשון. הפתרון אינו ניסוח טוב יותר אלא הוצאת ההחלטה מהמודל. נוספו שלוש פונקציות: countTripDays מחשבת את מספר ימי הטיול משני תאריכי DD/MM/YYYY כולל שני הקצוות, עם החזרת 0 על קלט לא תקין; buildMealPlan בונה מאגר לכל קטגוריה ממוין לפי דירוג ומספר ביקורות, ומקצה לכל יום ולכל ארוחה שלוש מסעדות לפי שני אילוצים - רוטציה, כלומר ההיסט של הקטגוריות מתקדם לפי מספר היום כך שאותו מטבח אינו נעול לחריץ קבוע, ואי-חזרה, כלומר מסעדה שהוקצתה נכנסת ל-used ולא תוקצה שוב לפני שכל המאגר בקטגוריה שלה מוצה, ואז המאגר מתאפס ומתחיל מחדש בסדר ניקוד; buildMealPlanText ממיר את התוכנית לבלוק פרומפט המורה למודל להשתמש בדיוק ברשימה הסגורה, באותו סדר, ולכתוב תיאור בלבד ולא לבחור. באג שנתפס בבדיקה פונקציונלית לפני מסירה ולא הגיע לקוד החי: ההיסט המקורי צעד בקפיצות של 2, ועם מספר קטגוריות זוגי זה נועל את הרוטציה על מחצית מהקטגוריות בלבד - עם 4 קטגוריות מסעדה, (d*2)%4 מייצר רק את ההיסטים 0 ו-2, וחריץ א קיבל שתי קטגוריות במקום ארבע. תוקן לצעד 1, שמסתובב במלואו בכל מספר קטגוריות. תוכנית הארוחות נרשמת במלואה ל-Debug תחת placesDebug.mealPlan, כולל מספר הימים, הקטגוריות הפעילות וספירת שימוש לכל מסעדה - כך שניתן לאמת את שני האילוצים ישירות מהפאנל בלי לספור ידנית במסלול. הכשלון מטופל בנפרד: אם buildMealPlan זורק או מחזיר null, mealPlan נשאר null, הבלוק אינו מוזרק, השגיאה נרשמת ל-Debug, והמסלול נבנה כמו קודם - כלומר המנגנון החדש אינו יכול לחסום בנייה. QA: node --check עבר; 0 כפילויות פונקציה; 0 כפילויות id; כל onclick מפנה לפונקציה קיימת; 0 בלוקי catch ריקים; אומת ש-ds ו-de בהיקף בנקודת השימוש; אומת שתיקוני v4.63-v4.70 לא נדרסו. בדיקה פונקציונלית: 15 תרחישים ב-node כולל ספירת ימים, אי-חזרה, רוטציה, מסעדה כפולה באותו יום, ומקרי קצה - כולם עברו. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.70 - 09/08/2026 - שני תיקונים, שניהם טקסט בלבד, אפס נגיעה בקוד. שניהם מבדיקה חיה של v4.68 עם ה-Debug המלא. (1) גיוון מטבחים במקור: ה-Debug הראה שגוגל נשאל בפועל רק על traditional polish restaurant ו-italian restaurant, ולכן כל ארוחה ב-10 ימי המסלול הורכבה מ-2 פולניות ואיטלקית אחת. ההוראה ב-fetchIntent אמרה "כלול לפחות 2 קטגוריות מסעדה נפרדות" והביאה דוגמה מובילה אחת - המודל קרא "לפחות 2" וייצר בדיוק 2, ובחר את הדוגמה הראשונה. זו רצפה שמתפקדת כתקרה, אותה תקלה שכבר תוקנה בכיוון ההפוך ב-v4.64 (מכסה קבועה של 3 אפשרויות שהפכה ל"עד 3 ממה שסופק"). תוקן ל-3 עד 4 קטגוריות, עם מגוון רחב שכולל גם סוגי מקום שאינם מוגדרים לפי לאום (seafood, steakhouse, grill, bistro, vegetarian, street food) ולא רק מטבחים לאומיים, ועם הוראה מפורשת לא לבחור את הדוגמה הראשונה כברירת מחדל. תקרת הקטגוריות היא 8 ובשימוש היו 7, כך שיש מקום. כל קטגוריה נוספת היא קריאת Google Places אחת - לא קריאת Claude, ולכן אינה נוגעת במכסה היומית. (2) איסור המצאה ביעד יום קפיצה: באותה בדיקה חיה, בשלושת ימי הקפיצה (ורוצלב, זקופנה, ורשה) הופיעו שמות אתרים וכתובות מלאות עם מספרי בית - Hala Targowa Piaskowa 17, Muzeum Tatrzanskie Krupowki 10, Stary Cmentarz ul. Koscieliska 4, POLIN ul. Mordechaja Anielewicza 6 - בעוד ה-Debug מוכיח שגוגל נשאל על קרקוב בלבד. כלומר הנחיית הראש "רק מגוגל" הופרה בפועל. מעניין שהמודל כן ציית לה למסעדות וכתב "נמצאו 0 מסעדות מאומתות בורוצלב", אך לא לאטרקציות - הפרומפט לא הבחין ביניהן במפורש, והמודל בחר את הפרשנות הנוחה. תוקן: נוספה ל-buildMainDayTripText הגבלה מפורשת שחלה על כל סוגי המקומות ולא רק מסעדות, כולל איסור על מספרי בית, יחד עם הנחיה חיובית איך כן לבנות את היום (רמת אזורים ורחובות ראשיים) ודוגמה קונקרטית של נכון מול שגוי, ושורת אזהרה בראש אותו יום. זהו פתרון טקסטואלי ביניים ל-A7 - הפתרון המלא הוא קריאת Places בפועל ליעד הקפיצה, שנשאר כשלב נפרד. QA: node --check עבר; 0 כפילויות פונקציה; 0 כפילויות id; כל onclick מפנה לפונקציה קיימת; 0 בלוקי catch ריקים; אומת שתיקוני v4.63-v4.69 לא נדרסו. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.69 - 09/08/2026 - gateSuggestions: המעבר ממסננים לשערים. הרקע: הקוד בנה עד היום מנגנונים שמסמנים ולא חוסמים - הצעה שחרגה מהסף הוצגה עם ⚠️ ובאנר "אלה הטובים ביותר שנמצאו", וכשמסנן נכשל ברירת המחדל שלו הייתה להעביר. בבדיקה חיה של v4.68 זה נראה בפועל: בסף 2.5 שעות הוצגה קלודזקו ב-3:19, ובסף 2 שעות קז'ימייז' דולני ב-3:17. תיוג אינו מניעה. (1) A4 - fail-open ב-verifyDistances: s.tooFar נקבע אך ורק כאשר getTravelDistance החזיר תוצאה; אם השירות נכשל, או אם גוגל לא זיהה את התעתיק העברי שהמודל המציא, s.tooFar נשאר undefined כלומר falsy, וההצעה נחשבה בתוך הסף והוצגה בלי סימון. נוסף s.distanceVerified מפורש: אין נתון = לא מאומת, לא "בסדר". (2) A5 - gateSuggestions, שער משותף לשלוש פונקציות ההצעה, עם שלוש עילות פסילה: חריגה מהסף, מרחק לא מאומת, וחזרה על הצעה קודמת. מה שנפסל אינו מוצג. חריג מכוון אחד: אם אף פריט לא אומת - כלומר שירות המרחקים נפל לגמרי ולא שם בודד שלא זוהה - הפריטים מוצגים עם באנר צהוב מפורש שהמרחק לא נבדק, במקום מסך ריק שמשאיר את המשתמש בלי כלום. (3) A5 המשך - ההחלפה ב-retry הכניסה עד היום את המחליף בלי לבדוק אותו, כך שיעד חורג יכול היה להיות מוחלף ביעד חורג; עכשיו גם המחליפים עוברים באותו שער ורק מי שעבר מצטרף. (4) A6 - suggestRegionCity מעולם לא קראה את שדה "להחריג לגמרי": v4.58 תיקן את suggestMainDayTrip, v4.59 את suggestSideTrip, והשלישית נשכחה. נוסף excludeTopicClause בניסוח זהה, והפונקציה חוברה לשער. (5) B5 - השוואת החזרות דרשה שוויון מלא בלבד, ולכן "סאסרה - זקופנה" חמק מול "זקופנה"; נוספו normalizeSuggestionName ו-isSameSuggestion עם זיהוי הכלה וסף 3 תווים למניעת התאמות שווא. (6) buildGateBanner - שקיפות מלאה: המשתמש רואה כמה הצעות נפסלו ומאיזו סיבה בדיוק, ולא "פשוט לא נמצאו הצעות". התמורה המכוונת, שאושרה מראש: לפעמים יוצגו 2 הצעות במקום 3, ולפעמים 0 עם הסבר. זו התוצאה הבלתי נמנעת של שער אמיתי. QA: node --check עבר; 0 כפילויות פונקציה; 0 כפילויות id; כל onclick מפנה לפונקציה קיימת; 0 בלוקי catch ריקים; אומת שתיקוני v4.63-v4.68 לא נדרסו. בדיקה פונקציונלית: gateSuggestions ו-isSameSuggestion הורצו ב-node על 16 תרחישים. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.68 - 09/08/2026 - ארבעה תיקונים, כולם מסריקת עומק מלאה של הקובץ. נבחרו לפי קריטריון אחד: מה שהורס מסלול שנשלח ללקוח. (1) D1 - סתירה מבנית בפרומפט: התזכורת האחרונה קבעה "סעיף ארוחת הערב הוא היוצא מן הכלל היחיד", בעוד buildMainDayTripText מכריז על חריג שני - נסיעת החזרה אחרי שעת הסיום. האיסור החזיק גם את הפתיחה וגם את הסיום (primacy + recency) וההיתר נקבר באמצע ההודעה, ולכן הוא היה צפוי להידחס או להישמט. תוקן: משתנה dayTripExceptionNote שמוזרק לתזכורת האחרונה, ומופיע אך ורק כשקיים יום קפיצה. כשאין יום קפיצה הניסוח זהה לקודם למעט הסרת המילה "היחיד". (2) A1 - stop_reason: לא הייתה בקובץ אף בדיקה כזו, ולכן חיתוך בגלל max_tokens נראה בדיוק כמו תשובה תקינה ומסלול חתוך הוצג כשלם. נוספה בדיקה אחת ב-callClaudeAPI שמכסה את כל חמש הקריאות: stop_reason==='max_tokens' זורק שגיאה מפורשת עם output_tokens ורושם ל-Debug. (3) A3 - parseModelJson: היו שלושה מימושי פרסור נפרדים, ורק fetchAiSuggestions קיבל את תיקוני v4.65 (טקסט אחרי JSON) ו-v4.67 (גרשיים חכמים). filterExcludedPlaces ו-fetchIntent נשארו עם הפרסור הישן. זה קריטי ב-filterExcludedPlaces כי כשל פרסור שם מחזיר את רשימת המקומות הלא מסוננת, כלומר מקום שהמשתמש ביקש להחריג עובר למסלול בשקט - זה ההסבר לאושוויץ שחזר למרות ההחרגה. אוחד לפונקציה אחת המשרתת את שלוש הקריאות; הלוגיקה זהה, רק ההיקף גדל. (4) A2 - editItinerary: ה-system היה משפט אחד, בלי הנחיית "רק מגוגל", בלי החרגה ובלי איסור המצאה, כך שכל ארכיטקטורת האנטי-הזיה של v4.64 נעקפה ברגע שהמשתמש לוחץ "ערוך". נוספו: איסור הוספת מקום שאינו כבר במסלול, הוראת שלמות (החזר את המסלול המלא, אל תשמיט ימים), והזרקת שדה ההחרגה. max_tokens הועלה מ-16000 ל-35000 בהתאמה ל-buildTrip. נלווה: B3 - התשובה הגולמית מהשרת נשמרת עכשיו ב-err.rawResponse ונרשמת ל-Debug בכל שגיאת HTTP, במקום להיזרק. לא בוצע במכוון: gateSuggestions (A4/A5/A6), Places ליעד יום קפיצה (A7), והתיקונים הקטנים E1/B1/B4/F1 - כולם בעלי סיכון רגרסיה גבוה יותר ואינם מאיימים על מסלול ללקוח. QA: node --check עבר על שני בלוקי הסקריפט; 0 כפילויות פונקציה; 0 כפילויות id; כל onclick מפנה לפונקציה קיימת; 0 בלוקי catch ריקים; כל קריאות JSON.parse מוגנות; אומת שתיקוני v4.63-v4.67 לא נדרסו. בדיקה פונקציונלית: parseModelJson הורצה ב-node על 9 תרחישים ולוגיקת stop_reason על 4. בדיקה חיה טרם בוצעה. -->
@@ -466,9 +469,15 @@ textarea{min-height:68px;resize:vertical}
 <div class="error" id="error-box"></div>
 <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:6px">
   <button type="button" id="probe-btn" onclick="probeLocalitySearch()" title="PROBE זמני: בודק אם Google Places מחזיר ערים אמיתיות בטווח נסיעה. לא משפיע על בניית המסלול" style="background:#6b3fa0;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">🧪 Probe</button>
-  <button type="button" onclick="toggleDebug(this)" title="לחיצה: פתיחה + העתקה ל-clipboard. לחיצה נוספת: סגירה" style="background:#444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🐞 Debug</button>
+  <button type="button" onclick="toggleDebug(this)" title="פתיחת הפאנל והעתקה ל-clipboard. הסגירה בכפתור ✕ שבתוך הפאנל" style="background:#444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px">🐞 Debug</button>
 </div>
-<pre id="debug-panel" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;padding:1rem;margin:0 0 8px 0;background:#1a1814;color:#9fe89f;max-height:420px;overflow:auto;direction:ltr;border:1px solid var(--border);border-radius:8px"></pre>
+<div id="debug-panel" style="display:none;margin:0 0 8px 0;background:#1a1814;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#262320;border-bottom:1px solid #3a352f">
+    <span style="color:#9fe89f;font-size:11px">🐞 Debug</span>
+    <button type="button" onclick="closeDebug()" title="סגירת הפאנל" style="background:transparent;color:#9fe89f;border:1px solid #3a352f;border-radius:5px;padding:2px 9px;cursor:pointer;font-size:12px">✕ סגור</button>
+  </div>
+  <pre id="debug-body" style="white-space:pre-wrap;word-break:break-word;font-size:11px;padding:1rem;margin:0;color:#9fe89f;max-height:420px;overflow:auto;direction:ltr"></pre>
+</div>
 <button class="btn-build" id="build-btn" onclick="buildTrip()">בנה מסלול מפורט</button>
 
 <div class="loading" id="loading">
@@ -486,7 +495,7 @@ textarea{min-height:68px;resize:vertical}
       <button class="rbtn rbtn-pdf" onclick="window.print()">🖨 הדפס</button>
       <button class="rbtn rbtn-pdf" onclick="window.print()">💾 שמור PDF</button>
       <button class="rbtn rbtn-copy" onclick="copyResult()">העתק</button>
-      <button class="rbtn" onclick="toggleDebug(this)" title="לחיצה: פתיחה + העתקה ל-clipboard. לחיצה נוספת: סגירה" style="background:#444;color:#fff;margin-right:14px;border-right:2px solid var(--border);padding-right:12px">🐞 Debug</button>
+      <button class="rbtn" onclick="toggleDebug(this)" title="פתיחת הפאנל והעתקה ל-clipboard. הסגירה בכפתור ✕ שבתוך הפאנל" style="background:#444;color:#fff;margin-right:14px;border-right:2px solid var(--border);padding-right:12px">🐞 Debug</button>
     </div>
   </div>
   <div id="day-maps-row" style="display:none;padding:6px 1.25rem;background:var(--accent-light);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:6px;"></div>
@@ -517,7 +526,7 @@ textarea{min-height:68px;resize:vertical}
       <button class="btn-new" onclick="resetForm()">סיור חדש</button>
       <button class="btn-new" onclick="window.print()">🖨 הדפס</button>
       <button class="btn-new" onclick="window.print()">💾 שמור PDF</button>
-      <button class="btn-new" onclick="toggleDebug(this)" title="לחיצה: פתיחה + העתקה ל-clipboard. לחיצה נוספת: סגירה" style="background:#444;color:#fff;border-color:#444">🐞 Debug</button>
+      <button class="btn-new" onclick="toggleDebug(this)" title="פתיחת הפאנל והעתקה ל-clipboard. הסגירה בכפתור ✕ שבתוך הפאנל" style="background:#444;color:#fff;border-color:#444">🐞 Debug</button>
     </div>
   </div>
 </div>
@@ -525,7 +534,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.70';
+const APP_VERSION = 'v4.73';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -967,32 +976,36 @@ async function probeLocalitySearch() {
   if (btn) { btn.disabled = false; btn.textContent = '🧪 Probe'; }
 }
 
+// v4.72 - תיקון כפתור ה-Debug. הבאג שדווח: לחיצה ראשונה מקפיצה הודעה ונכבית, לחיצה שנייה מעתיקה.
+// שני שורשים. ראשון: יש שלושה כפתורי Debug בקובץ (שורות 470, 490, 521) והם מפעילים את אותו פאנל
+// יחיד; פתיחה דרך כפתור אחד וניסיון העתקה דרך כפתור אחר גרמו לסגירה, כי מבחינת הכפתור השני
+// הפאנל כבר פתוח. שני: הפאנל יושב בשורה 472, ליד הכפתור הראשון בלבד, ולכן כשלוחצים על כפתור
+// שנמצא במקום אחר במסך הוא עלול להיות פתוח אך מגולל הרחק ובלתי נראה - הלחיצה סוגרת משהו שלא רואים.
+// הבעיה העקרונית: כפתור אחד שמבצע שתי פעולות שונות לפי מצב שהמשתמש אינו רואה.
+// התיקון: הלחיצה על Debug היא אידמפוטנטית. תמיד פותחת, תמיד מרעננת, תמיד מעתיקה, תמיד גוללת -
+// גם אם הפאנל כבר פתוח. הסגירה עברה לכפתור ✕ בתוך הפאנל, במקום שבו היא נראית ואינה מפתיעה.
 async function toggleDebug(btn) {
   const panel = document.getElementById('debug-panel');
   if (!panel) return;
-  const wasHidden = panel.style.display === 'none' || !panel.style.display;
-  if (wasHidden) {
-    panel.textContent = buildDebugText();
-    panel.style.display = 'block';
-    if (panel.scrollIntoView) panel.scrollIntoView({behavior:'smooth', block:'center'});
-    const orig = btn ? btn.textContent : '';
-    try {
-      await navigator.clipboard.writeText(panel.textContent);
-      if (btn) { btn.textContent = '✅ הועתק'; setTimeout(() => { btn.textContent = orig; }, 1500); }
-    } catch(e) {
-      recordDebugError('toggleDebug', e.message);
-      if (btn) { btn.textContent = '❌ שגיאה בהעתקה'; setTimeout(() => { btn.textContent = orig; }, 1500); }
-    }
-  } else {
-    panel.style.display = 'none';
-    // v4.58 - משוב ברור שהפעולה הזו לא העתיקה (לחיצה שנייה = סגירה בלבד), כי לחיצה ראשונה
-    // כן מעתיקה - בלי ההבחנה החזותית הזו המשתמש לא יודע אם ההעתקה קרתה או לא בכל לחיצה.
-    if (btn) {
-      const orig = btn.textContent;
-      btn.textContent = '🔒 נסגר (לא הועתק)';
-      setTimeout(() => { btn.textContent = orig; }, 1200);
-    }
+  const body = document.getElementById('debug-body');
+  const text = buildDebugText();
+  if (body) body.textContent = text; else panel.textContent = text;
+  panel.style.display = 'block';
+  if (panel.scrollIntoView) panel.scrollIntoView({behavior:'smooth', block:'center'});
+  const orig = btn ? btn.textContent : '';
+  try {
+    await navigator.clipboard.writeText(text);
+    if (btn) { btn.textContent = '✅ הועתק'; setTimeout(() => { btn.textContent = orig; }, 1500); }
+  } catch(e) {
+    // הדפדפן חוסם clipboard בהקשרים מסוימים. הפאנל פתוח בכל מקרה, אז אפשר לסמן ידנית ולהעתיק.
+    recordDebugError('toggleDebug', e.message);
+    if (btn) { btn.textContent = '❌ לא הועתק - סמן ידנית'; setTimeout(() => { btn.textContent = orig; }, 2500); }
   }
+}
+
+function closeDebug() {
+  const panel = document.getElementById('debug-panel');
+  if (panel) panel.style.display = 'none';
 }
 
 const MAPS_KEY = 'AIzaSyAPr4VeTsgdLYQF7FXslrRWu6HMYQ-tNKg';
@@ -1071,6 +1084,9 @@ function ensureCoreCategories(categories, interestsStr) {
   if (!hasType('restaurant')) core.push({ keyword: 'restaurant', type: 'restaurant', label: 'מסעדות מקומיות' });
   if (!hasType('cafe')) core.push({ keyword: 'cafe', type: 'cafe', label: 'בתי קפה' });
   if (!hasType('lodging')) core.push({ keyword: 'hotel', type: 'lodging', label: 'לינה / מלונות' });
+  // v4.73 - מנגנון 4: parking מעולם לא נשלח לגוגל. הקוד התנהג נכון וכתב "לא נמצאו חניונים
+  // מאומתים" - הוא כתב את האמת, פשוט אף אחד לא שאל. נוסף לליבה.
+  if (!hasType('parking')) core.push({ keyword: 'parking', type: 'parking', label: 'חניונים' });
 
   // תוספות שלנו - עדיפות נמוכה מקטגוריות Claude, לכן מתווספות בסוף המיזוג למטה, לא כאן בהתחלה
   const extras = [];
@@ -1102,7 +1118,11 @@ function ensureCoreCategories(categories, interestsStr) {
     seen.add(key);
     return true;
   });
-  return merged.slice(0, 8);
+  // v4.73 - התקרה עלתה מ-8 ל-10. סיבה: v4.70 העלה את קטגוריות המסעדה מ-2 ל-3-4, ו-v4.73 הוסיף
+  // parking לליבה. בתקרה של 8 הליבה בלבד תופסת 7 מקומות (3-4 מסעדות, קפה, לינה, חניה), ונשאר
+  // מקום אחד בלבד לתחומי העניין של המשתמש - כלומר מוזיאונים, גלריות ומוזיקה היו נדחקים החוצה.
+  // נתפס בסריקת עומק לפני מסירה. המחיר: עד 2 קריאות Google Places נוספות לבנייה.
+  return merged.slice(0, 10);
 }
 
 function loadMapsApiForPlaces() {
@@ -1283,6 +1303,164 @@ function formatPlaceLine(p) {
 // לא תמיד יהיה בדיוק "מסעדות" בכל בקשה).
 // סף יורד בהדרגה עד שנמצאות לפחות 3 מסעדות; אם אין אף מסעדה בכלל בנתונים - מוחזר null (הטבלה מושמטת,
 // לא מציגים משהו ריק).
+// v4.71 - מנגנון 1+2: מאגר מסעדות עם מעקב שימוש, ורוטציית מטבחים.
+// הבעיה שנמדדה במסלול 10 ימים: 14 מסעדות סופקו, Morskie Oko הופיעה 3 פעמים, Ciepło 3, Starka 3,
+// ובמקביל כל צהריים וכל ערב היו אותה שלישייה בדיוק - פולני, סטייק, אוקראיני, עשרה ימים ברצף.
+// הסיבה: הפרומפט ביקש 3 אפשרויות לכל ארוחה, והמודל בחר בכל פעם מחדש מאותה רשימה. בלי מעקב,
+// מסעדה בעלת דירוג גבוה נבחרת שוב ושוב, והקטגוריה הראשונה ברשימה נופלת תמיד לחריץ הראשון.
+// הפתרון אינו הנחיה טובה יותר אלא הוצאת ההחלטה מהמודל: JS מקצה מראש, המודל כותב תיאור בלבד.
+
+// ספירת ימים בין שני תאריכי DD/MM/YYYY, כולל שני הקצוות. מחזירה 0 אם הקלט לא תקין.
+function countTripDays(dsStr, deStr) {
+  const parse = v => {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v || '').trim());
+    if (!m) return null;
+    const d = new Date(+m[3], +m[2] - 1, +m[1]);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const a = parse(dsStr), b = parse(deStr);
+  if (!a) return 0;
+  if (!b) return 1;
+  const diff = Math.round((b - a) / 86400000) + 1;
+  return diff > 0 && diff < 400 ? diff : 0;
+}
+
+// v4.73 - מנגנון 3: מחזירה את יעדי ימי הקפיצה עם התאריך שלהם, לצורך קריאת Places לכל אחד.
+function getMainDayTripDestinations() {
+  const out = [];
+  const toggle = document.getElementById('main-daytrip-toggle');
+  if (!toggle || !toggle.checked) return out;
+  document.querySelectorAll('#main-daytrip-rows .maindt-row').forEach(row => {
+    const tid = row.id.replace('maindt-row-', '');
+    const destEl = document.getElementById('maindt-dest-' + tid);
+    const dateEl = document.getElementById('maindt-date-' + tid);
+    const dest = destEl ? destEl.value.trim() : '';
+    const date = dateEl ? dateEl.value.trim() : '';
+    if (dest && date && !out.some(o => o.dest === dest)) out.push({ dest: dest, date: date });
+  });
+  return out;
+}
+
+// v4.71 תיקון: מחזירה את מספרי הימים (1-based) שסומנו כימי קפיצה, לפי תאריך ההתחלה.
+// בלי זה תוכנית הארוחות מקצה מסעדות של עיר הבסיס גם ליום שבו הקבוצה נמצאת 3 שעות משם.
+function getDayTripDayNumbers(dsStr) {
+  const parse = v => {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v || '').trim());
+    if (!m) return null;
+    const d = new Date(+m[3], +m[2] - 1, +m[1]);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const start = parse(dsStr);
+  const out = new Set();
+  if (!start) return out;
+  const toggle = document.getElementById('main-daytrip-toggle');
+  if (!toggle || !toggle.checked) return out;
+  document.querySelectorAll('#main-daytrip-rows .maindt-row').forEach(row => {
+    const tid = row.id.replace('maindt-row-', '');
+    const el = document.getElementById('maindt-date-' + tid);
+    const d = parse(el ? el.value : '');
+    if (!d) return;
+    const n = Math.round((d - start) / 86400000) + 1;
+    if (n > 0) out.add(n);
+  });
+  return out;
+}
+
+// בונה תוכנית ארוחות דטרמיניסטית: לכל יום, לכל ארוחה, שלוש מסעדות מוקצות מראש.
+// שני האילוצים:
+//   רוטציה - הקטגוריה בכל חריץ מסתובבת לפי היום והארוחה, כך שאותו מטבח לא נעול לחריץ קבוע
+//   אי-חזרה - מסעדה שהוקצתה נכנסת ל-used ולא תוקצה שוב לפני שכל המאגר בקטגוריה שלה מוצה
+function buildMealPlan(placesDataForPrompt, categories, numDays, skipDays) {
+  if (!placesDataForPrompt || !categories || !numDays) return null;
+  const skip = skipDays || new Set();
+
+  const poolsByLabel = {};
+  const restLabels = [], cafeLabels = [];
+  categories.forEach(c => {
+    if (!c || !c.label) return;
+    if (c.type === 'restaurant') restLabels.push(c.label);
+    else if (c.type === 'cafe') cafeLabels.push(c.label);
+  });
+  if (!restLabels.length) return null;
+
+  placesDataForPrompt.forEach(cat => {
+    if (!cat || !cat.category) return;
+    const list = (cat.places || []).slice().sort((a, b) =>
+      (b.rating || 0) - (a.rating || 0) || (b.ratingCount || 0) - (a.ratingCount || 0));
+    if (list.length) poolsByLabel[cat.category] = list;
+  });
+
+  const activeRest = restLabels.filter(l => poolsByLabel[l] && poolsByLabel[l].length);
+  const activeCafe = cafeLabels.filter(l => poolsByLabel[l] && poolsByLabel[l].length);
+  if (!activeRest.length) return null;
+
+  const used = {};       // label -> Set של שמות שכבר הוקצו
+  const usedGlobal = {}; // שם -> כמה פעמים הוקצה בסך הכל, לדיווח ב-Debug
+
+  function takeFrom(label) {
+    const pool = poolsByLabel[label];
+    if (!pool || !pool.length) return null;
+    if (!used[label]) used[label] = new Set();
+    let pick = pool.find(p => !used[label].has(p.name));
+    if (!pick) { used[label] = new Set(); pick = pool[0]; } // המאגר מוצה - איפוס והתחלה מחדש
+    used[label].add(pick.name);
+    usedGlobal[pick.name] = (usedGlobal[pick.name] || 0) + 1;
+    return pick;
+  }
+
+  function slotsFor(labels, offset, howMany) {
+    const out = [];
+    const seenNames = new Set();
+    for (let i = 0; i < howMany && labels.length; i++) {
+      const label = labels[(offset + i) % labels.length];
+      const pick = takeFrom(label);
+      if (pick && !seenNames.has(pick.name)) { seenNames.add(pick.name); out.push({ label: label, place: pick }); }
+    }
+    return out;
+  }
+
+  const plan = [];
+  const skipped = [];
+  for (let d = 0; d < numDays; d++) {
+    // יום קפיצה לא מקבל הקצאה: המסעדות במאגר שייכות לעיר הבסיס, והקבוצה אינה שם.
+    if (skip.has(d + 1)) { skipped.push(d + 1); continue; }
+    const day = { day: d + 1, breakfast: [], lunch: [], dinner: [] };
+    if (activeCafe.length) day.breakfast = slotsFor(activeCafe, d, 3);
+    // היסט שונה לצהריים ולערב באותו יום, כדי שאותו מטבח לא ייפול לאותו חריץ בשתי הארוחות
+    // ההיסט חייב לצעוד בצעד 1. צעד 2 עם מספר קטגוריות זוגי נועל את הרוטציה על חצי מהקטגוריות
+    // בלבד - עם 4 קטגוריות, (d*2)%4 מייצר רק 0 ו-2, וחריץ א' מקבל שתי קטגוריות במקום ארבע.
+    // נתפס בבדיקה פונקציונלית לפני מסירה.
+    day.lunch  = slotsFor(activeRest, d % activeRest.length, 3);
+    day.dinner = slotsFor(activeRest, (d + 1) % activeRest.length, 3);
+    plan.push(day);
+  }
+  return { plan: plan, usage: usedGlobal, restCategories: activeRest, cafeCategories: activeCafe, skippedDays: skipped };
+}
+
+// ממיר את התוכנית לבלוק טקסט לפרומפט. המודל מקבל רשימה סגורה ולא בוחר.
+function buildMealPlanText(mealPlan) {
+  if (!mealPlan || !mealPlan.plan || !mealPlan.plan.length) return '';
+  const fmt = s => '  * ' + s.place.name + ' | ' + (s.place.address || 'כתובת לא סופקה') +
+    (s.place.rating ? ' | דירוג: ' + s.place.rating : '') +
+    (s.place.ratingCount ? ' (' + s.place.ratingCount + ' ביקורות)' : '') +
+    ' | סוג: ' + s.label;
+  const body = mealPlan.plan.map(d => {
+    const parts = ['יום ' + d.day + ':'];
+    if (d.breakfast.length) parts.push(' ארוחת בוקר:\n' + d.breakfast.map(fmt).join('\n'));
+    if (d.lunch.length)     parts.push(' ארוחת צהריים:\n' + d.lunch.map(fmt).join('\n'));
+    if (d.dinner.length)    parts.push(' ארוחת ערב:\n' + d.dinner.map(fmt).join('\n'));
+    return parts.join('\n');
+  }).join('\n\n');
+  return '\n\nתוכנית ארוחות מוקצית מראש - הוראה מחייבת שגוברת על כל הנחיה אחרת לגבי בחירת מסעדות:\n' +
+    'עבור כל יום וכל ארוחה למטה, השתמש **בדיוק** במסעדות שרשומות, באותו סדר, ואל תחליף אף אחת מהן.\n' +
+    'אל תבחר מסעדות אחרות מרשימת Google Places, גם אם הן נראות לך מתאימות יותר. הרשימה כבר מחושבת\n' +
+    'כדי למנוע חזרתיות ולהבטיח גיוון מטבחים לאורך כל הטיול. תפקידך הוא לכתוב את התיאור לכל מסעדה\n' +
+    'על בסיס הביקורות שסופקו לך למעלה, ולא לבחור.\n' +
+    'ימים שאינם מופיעים ברשימה למטה הם ימי קפיצה. עבורם ההוראה הזו אינה חלה כלל, והמסעדות למטה\n' +
+    'שייכות לעיר הבסיס ואסור להשתמש בהן שם - נהג לפי הוראות ימי הקפיצה.\n' +
+    'אם ליום שכן מופיע חסרה ארוחה כלשהי - אל תמציא לה מסעדות.\n\n' + body;
+}
+
 function buildTopRatedRestaurantsTable(placesDataForPrompt, categories) {
   if (!placesDataForPrompt || !categories) return null;
   const restaurantLabels = new Set(categories.filter(c => c.type === 'restaurant').map(c => c.label));
@@ -1509,6 +1687,8 @@ async function buildTrip() {
   let placesContext = '';
   let placesDebug = { status: 'not_started', intentData: null, placesData: null, error: null };
   let topRestaurantsTable = null;
+  let mealPlan = null;
+  const dayTripSuppliedDests = [];
   try {
     const intentData = await fetchIntent(fields, apiKey, accessCode);
     placesDebug.intentData = intentData;
@@ -1541,6 +1721,18 @@ async function buildTrip() {
     // v4.53 - טבלת "מסעדות מובילות" מחושבת דטרמיניסטית ב-JS (ראו buildTopRatedRestaurantsTable) ולא ע"י Claude
     topRestaurantsTable = buildTopRatedRestaurantsTable(placesDataForPrompt, categories);
     placesDebug.topRestaurantsTable = topRestaurantsTable;
+    // v4.71 - מנגנון 1+2: הקצאת הארוחות עוברת ל-JS. המודל מקבל רשימה סגורה וכותב תיאור בלבד.
+    try {
+      const numDays = countTripDays(ds, de);
+      mealPlan = buildMealPlan(placesDataForPrompt, categories, numDays, getDayTripDayNumbers(ds));
+      placesDebug.mealPlan = mealPlan
+        ? { numDays: numDays, restCategories: mealPlan.restCategories, cafeCategories: mealPlan.cafeCategories, skippedDays: mealPlan.skippedDays, usage: mealPlan.usage }
+        : { numDays: numDays, error: 'לא נבנתה תוכנית - אין קטגוריות מסעדה עם תוצאות' };
+    } catch (mpErr) {
+      mealPlan = null;
+      recordDebugError('buildMealPlan', mpErr.message);
+      placesDebug.mealPlan = { error: mpErr.message };
+    }
 
     // אימות Places API גם לאזורים משניים בסיור מרובה אזורים
     const regionNamesForPlaces = Array.from(document.querySelectorAll('#region-rows .region-row'))
@@ -1576,6 +1768,50 @@ async function buildTrip() {
         }
       }
     }
+
+    // v4.73 - מנגנון 3: יעדי יום קפיצה קיבלו עד עכשיו אפס קריאות Places. הלולאה למעלה רצה על
+    // #region-rows בלבד. התוצאה במסלול שנבדק חי: בוורוצלב, בזקופנה ובוורשה הופיעו שמות אתרים
+    // וכתובות מלאות עם מספרי בית שגוגל מעולם לא סופק - כלומר הפרה בפועל של הנחיית "רק מגוגל" -
+    // ואחרי התיקון הטקסטואלי של v4.70 הימים האלה הפכו ריקים, עם "יש לאתר ולאמת מראש".
+    // כאן הם מקבלים מלאי אמיתי, באותו מסלול בדיוק כמו אזור משני.
+    // סט קטגוריות מצומצם במכוון: יעד קפיצה הוא יום אחד, לא בסיס. 8 קטגוריות היו בזבוז קריאות.
+    const dayTripDests = getMainDayTripDestinations();
+    if (dayTripDests.length > 0) {
+      placesDebug.dayTripPlacesData = {};
+      const dayTripCategories = categories.filter(c =>
+        c && (c.type === 'restaurant' || c.type === 'cafe' || c.type === 'tourist_attraction')
+      ).slice(0, 4);
+      const catsForDayTrip = dayTripCategories.length
+        ? dayTripCategories
+        : [{ keyword: 'restaurant', type: 'restaurant', label: 'מסעדות' },
+           { keyword: 'tourist attraction', type: 'tourist_attraction', label: 'אתרי תיירות' }];
+      for (const dt of dayTripDests) {
+        try {
+          const dtPlaces = await fetchPlaces(dt.dest, catsForDayTrip);
+          placesDebug.dayTripPlacesData[dt.dest] = dtPlaces;
+          let dtForPrompt = dtPlaces;
+          if (fields.exclude && dtPlaces && dtPlaces.length > 0) {
+            const dtFilter = await filterExcludedPlaces(dtPlaces, fields.exclude, apiKey, accessCode);
+            dtForPrompt = dtFilter.filtered;
+            if (!placesDebug.excludeFilter) placesDebug.excludeFilter = { excludeStr: fields.exclude, removed: [], error: null };
+            placesDebug.excludeFilter.removed = placesDebug.excludeFilter.removed.concat(dtFilter.removed);
+            if (dtFilter.error) placesDebug.excludeFilter.error = dtFilter.error;
+          }
+          if (dtForPrompt && dtForPrompt.length > 0) {
+            dayTripSuppliedDests.push(dt.dest);
+            placesContext += '\n\nמקומות אמיתיים מאומתים מ-Google Places ביעד יום הקפיצה ' + dt.dest +
+              ' (לשימוש בתאריך ' + dt.date + ' בלבד):\n' +
+              dtForPrompt.map(cat =>
+                '\n' + cat.category + ':\n' +
+                cat.places.map(formatPlaceLine).join('\n')
+              ).join('\n');
+          }
+        } catch(eDt) {
+          placesDebug.dayTripPlacesData[dt.dest] = { error: eDt.message };
+          recordDebugError('fetchPlaces-dayTrip-' + dt.dest, eDt.message);
+        }
+      }
+    }
   } catch(e) {
     placesDebug.status = 'error';
     placesDebug.error = e.message;
@@ -1586,7 +1822,7 @@ async function buildTrip() {
   // v4.63 - חסימה הדדית קיימת (toggleMultiRegion/toggleMainDayTrip) מבטיחה ששני אלה לעולם לא
   // יהיו מלאים בו-זמנית. כל פונקציה בודקת בעצמה את ה-toggle שלה, כך שגם אם החסימה תישבר בעתיד
   // לא יוזרקו שני מבני מסלול סותרים לאותו פרומפט.
-  const mainDayTripText = buildMainDayTripText();
+  const mainDayTripText = buildMainDayTripText(dayTripSuppliedDests);
   // v4.68 - D1: תיקון סתירה מבנית. תזכורת הסיום קבעה "סעיף ארוחת הערב הוא היוצא מן הכלל היחיד",
   // בעוד buildMainDayTripText מכריז על חריג שני - נסיעת החזרה אחרי שעת הסיום. האיסור החזיק גם את
   // הפתיחה וגם את הסיום (primacy + recency), וההיתר נקבר באמצע ההודעה. מתוקן: כשקיים יום קפיצה,
@@ -1594,6 +1830,13 @@ async function buildTrip() {
   const dayTripExceptionNote = mainDayTripText
     ? ' חריג שני ומאושר, לימי קפיצה בלבד: נסיעת החזרה מיעד הקפיצה מתרחשת אחרי שעת הסיום ונרשמת כשורה אחרונה בטבלה, כפי שפורט בהוראות ימי הקפיצה למעלה. זה תקין ומצופה, ואינו סותר את הכלל - האיסור חל על פעילות בילוי, לא על נסיעת חזרה.'
     : '';
+  const mealPlanBlock = mealPlan ? buildMealPlanText(mealPlan) : '';
+  // v4.71 תיקון: בלי זה התזכורת בסוף הפרומפט מרשה למודל לבחור מסעדות בעצמו, וסותרת את הרשימה
+  // הסגורה שהוקצתה למעלה. זו בדיוק הבעיה המבנית של D1 - הוראה בעמדת recency גוברת על הוראה
+  // שקבורה באמצע ההודעה. כשאין תוכנית ארוחות, הניסוח נשאר כפי שהיה.
+  const mealPlanRecencyNote = mealPlan
+    ? ' - ובכל הארוחות בימים שאינם ימי קפיצה, השתמש אך ורק בתוכנית הארוחות המוקצית מראש שלמעלה, בדיוק כפי שהיא ובאותו סדר, ואל תבחר מסעדות אחרות'
+    : ' עם עד 3 אפשרויות לפי מה שסופק בפועל';
   const topRestaurantsBlock = topRestaurantsTable
     ? '\n\nרשימת "מסעדות מובילות" מסוננת מראש (דירוג גבוה ומספר ביקורות גבוה) - הצג אותה כפי שהיא, בסוף כל המסלול (אחרי כל הימים, יחד עם סעיפי החניה/כרטיסים), כטבלה עם העמודות: שם | כתובת | דירוג (ביקורות) | סוג מטבח (קבע לפי שם/כתובת). אל תסנן, אל תשנה, אל תוסיף ואל תגרע ממנה - היא כבר מחושבת ומאומתת:\n' + topRestaurantsTable
     : '';
@@ -1614,8 +1857,8 @@ async function buildTrip() {
 - אזורים מועדפים: ${fields.areas||'לא צוין'}
 - להחריג לגמרי מהמסלול (הגבלה מחייבת): ${fields.exclude || 'אין'}
 - מלון: ${fields.hotel}
-- הערות: ${fields.notes}${placesContext}${placesNote}${multiRegionText}${mainDayTripText}${topRestaurantsBlock}
-לכל יום: כותרת + טבלת שעות (בתוך חלון השעות בלבד) + המלצות אוכל בוקר/צהריים (בתוך חלון השעות) + סעיף נפרד וקבוע להמלצות ארוחת ערב (הסעיף מופיע תמיד, עם עד 3 אפשרויות לפי מה שסופק בפועל, גם מחוץ לחלון השעות) + טיפ insider + טיפ היום + אפשרות בונוס (בתוך חלון השעות בלבד).
+- הערות: ${fields.notes}${placesContext}${placesNote}${multiRegionText}${mainDayTripText}${mealPlanBlock}${topRestaurantsBlock}
+לכל יום: כותרת + טבלת שעות (בתוך חלון השעות בלבד) + המלצות אוכל בוקר/צהריים (בתוך חלון השעות) + סעיף נפרד וקבוע להמלצות ארוחת ערב (הסעיף מופיע תמיד, גם מחוץ לחלון השעות)${mealPlanRecencyNote} + טיפ insider + טיפ היום + אפשרות בונוס (בתוך חלון השעות בלבד).
 בסוף כל המסלול (אחרי כל הימים): אם סופקה למעלה רשימת "מסעדות מובילות" - הצג אותה כטבלה מרוכזת יחד עם סעיפי החניה/כרטיסים. אם לא סופקה - אל תמציא טבלה כזו בעצמך.
 תזכורת אחרונה וחשובה: הטבלה המתוזמנת וסעיף הבונוס חייבים להסתיים בדיוק בשעה ${he} - שום פעילות בילוי (בר/מועדון/מוזיקה חיה) לא יכולה להיות מתוזמנת אחרי השעה הזו. סעיף ארוחת הערב הוא חריג מאושר - הוא תמיד מופיע, כרשימת המלצות בלבד ולא כפעילות מתוזמנת.${dayTripExceptionNote}`;
 
@@ -2599,7 +2842,8 @@ async function suggestMainDayTrip(tid, isRefresh) {
     // בזה באותו מסלול retry שכבר קיים לבדיקת מרחק (tooFar), לא בונה מנגנון נפרד.
     // v4.69 - השער מחליף את בדיקת ה-isDuplicate המקומית. ההיגיון זהה, רק שהוא משותף
     // לשלוש פונקציות ההצעה ומוסיף שתי עילות פסילה שלא היו: מרחק לא מאומת, והכלת שם.
-    let gate = gateSuggestions(list, { excludeNames: excludeNames });
+    const topicBlocked = await judgeTopicExclusion(list.map(x => x.name), (document.getElementById('exclude') || {}).value || '', apiKey, accessCode);
+    let gate = gateSuggestions(list, { excludeNames: excludeNames, topicBlocked: topicBlocked });
 
     let retried = false;
     const needsReplacement = gate.rejected;
@@ -2616,7 +2860,8 @@ async function suggestMainDayTrip(tid, isRefresh) {
         // v4.69 - A5: ההחלפה הישנה הכניסה את המחליף בלי לבדוק אותו. יעד חורג יכול היה
         // להיות מוחלף ביעד חורג. עכשיו גם המחליפים עוברים בשער, ורק מי שעבר מצטרף.
         const seen = gate.passed.map(s => s.name).concat(excludeNames);
-        const gate2 = gateSuggestions(replacementList, { excludeNames: seen });
+        const topicBlocked2 = await judgeTopicExclusion(replacementList.map(x => x.name), (document.getElementById('exclude') || {}).value || '', apiKey, accessCode);
+        const gate2 = gateSuggestions(replacementList, { excludeNames: seen, topicBlocked: topicBlocked2 });
         gate.passed = gate.passed.concat(gate2.passed);
         gate.rejected = gate.rejected.concat(gate2.rejected);
       } catch (retryErr) {
@@ -2810,7 +3055,9 @@ function buildMultiRegionText() {
 // הבדל מהותי מ"יום טיול כוכב" של טיול נודד: שם הנסיעה נדחסת לתוך חלון השעות; כאן, לפי דרישת
 // המשתמש, שעת הסיום היא סוף הפעילות ביעד ונסיעת החזרה נופלת אחריה - אחרת יעד במרחק שעתיים
 // היה מקבל 5 שעות פעילות בפועל מתוך חלון של 9, כלומר יום קפיצה חלש מיום רגיל.
-function buildMainDayTripText() {
+function buildMainDayTripText(suppliedDests) {
+  const supplied = new Set(suppliedDests || []);
+  const destList = [];
   const toggle = document.getElementById('main-daytrip-toggle');
   if (!toggle || !toggle.checked) return '';
   const rows = document.querySelectorAll('#main-daytrip-rows .maindt-row');
@@ -2833,8 +3080,22 @@ function buildMainDayTripText() {
       ' | נסיעה מרבית לכיוון אחד: כ-' + maxHours + ' שעות';
     if (clarifyVal) line += ' | הבהרה: ' + clarifyVal;
     parts.push(line);
+    if (destVal) destList.push(destVal);
   });
   if (!parts.length) return '';
+  // v4.73 - מנגנון 3: ההגבלה מ-v4.70 חלה מעכשיו רק על יעדים שלא קיבלו מלאי Places בפועל.
+  // יעד שקיבל מלאי מקבל את אותו כלל כמו היעד הראשי: מותר לציין שמות וכתובות, אך ורק מהרשימה.
+  const withInv = [], withoutInv = [];
+  destList.forEach(d => { if (!withInv.includes(d) && !withoutInv.includes(d)) (supplied.has(d) ? withInv : withoutInv).push(d); });
+  let noInventoryClause = '';
+  if (withInv.length) {
+    noInventoryClause += '- ליעדים הבאים סופקה רשימת Google Places ייעודית למעלה: ' + withInv.join(', ') +
+      '. בהם נהג בדיוק כמו ביעד הראשי - השתמש בשמות ובכתובות מהרשימה שלהם בלבד, ואל תמציא מקום שאינו בה. אל תשתמש שם במקומות של היעד הראשי.\n';
+  }
+  if (withoutInv.length) {
+    noInventoryClause += '- ליעדים הבאים לא סופקה רשימת מקומות: ' + withoutInv.join(', ') +
+      '. הגבלה מחייבת שגוברת על כל הנחיה אחרת לגביהם: אסור לציין בהם שם של אתר, מוזיאון, כיכר, שוק, פארק, כנסייה, מסעדה או כל מקום אחר, ואסור לציין כתובת או מספר בית - גם אם אתה בטוח לחלוטין שהם קיימים. בנה אותם ברמת אזורים ורחובות ראשיים בלבד, לדוגמה "11:00-12:30 | מרכז העיר העתיקה | סיור רגלי בכיכר הראשית ובסמטאות". בראש אותו יום כתוב שורה אחת: "⚠️ מקומות ביעד זה לא אומתו מול Google Places - יש לאתר ולאמת כל אתר ספציפי לפני ההגעה."\n';
+  }
   return '\n\nימי קפיצה מהיעד הראשי (חובה לכבד בדיוק):\n' + parts.join('\n') +
     '\n\nהוראות מחייבות לימי קפיצה:\n' +
     '- יום קפיצה הוא נסיעה מהיעד הראשי וחזרה לאותה לינה באותו ערב. אין מעבר לינה, סעיף הלינה נשאר היעד הראשי.\n' +
@@ -2843,8 +3104,7 @@ function buildMainDayTripText() {
     '- הפעילות ביעד הקפיצה מסתיימת בשעת הסיום שצוינה.\n' +
     '- חריגה מכוונת לכלל שעת הסיום, ליום קפיצה בלבד: נסיעת החזרה מתרחשת אחרי שעת הסיום, וזה תקין ומצופה. הוסף אותה כשורה אחרונה בטבלה עם השעות בפועל (לדוגמה: 18:00-20:00 | נסיעה חזרה ליעד הראשי), וציין שעת הגעה משוערת ללינה. האיסור על פעילות בילוי (בר/מועדון/מוזיקה חיה) אחרי שעת הסיום נשאר בתוקף במלואו - החריגה הזו חלה על נסיעת החזרה בלבד.\n' +
     '- בימים שלא צוינו כימי קפיצה, הסיור מתבצע ביעד הראשי עצמו.\n' +
-    '- מקומות ביעד הקפיצה - הגבלה מחייבת שגוברת על כל הנחיה אחרת לגבי ימי הקפיצה: רשימת Google Places שסופקה לך מכסה את היעד הראשי בלבד, ולא את יעדי הקפיצה. לכן ביום קפיצה אסור לך לציין שם של אתר, מוזיאון, כיכר, שוק, פארק, כנסייה או כל מקום אחר ביעד הקפיצה, ואסור לך לציין כתובת או מספר בית שם - גם אם אתה בטוח לחלוטין שהם קיימים. זה חל על כל סוגי המקומות ולא רק על מסעדות.\n' +
-    '- כך כן לבנות יום קפיצה: ברמת אזורים ורחובות ראשיים בלבד, בלי שמות ובלי מספרי בית. לדוגמה: "11:00-12:30 | מרכז העיר העתיקה | סיור רגלי בכיכר הראשית ובסמטאות" ולא "11:00-12:30 | Hala Targowa - Piaskowa 17". בראש אותו יום כתוב שורה אחת: "⚠️ מקומות ביעד זה לא אומתו מול Google Places - יש לאתר ולאמת כל אתר ספציפי לפני ההגעה."';
+    noInventoryClause;
 }
 
 // ===== לוח שנה נפרד לשדות אזור (לא נוגע ב-openCal/selectDate הראשיים, לא מפעיל fetchWeather) =====
@@ -3030,6 +3290,45 @@ function isSameSuggestion(a, b) {
   return false;
 }
 
+// v4.73 - מנגנון 5: שיפוט החרגה נושאית ליעדים מוצעים. משתמשת באותה קריאת Claude ב-temperature 0
+// שכבר עובדת ב-filterExcludedPlaces. התוצאה נשמרת ב-cache לכל הסשן, כך שאותו שם אינו נשלח
+// לשיפוט פעמיים - כלומר השיפוט יוצא מהלולאה, ומהרגע שנקבע ההשוואה היא השוואת מחרוזות בלבד.
+// כשל: מחזירה סט ריק, כלומר לא חוסמת. עדיף להציע יעד שהיה צריך להיחסם מאשר לחסום הכל בגלל
+// כשל רשת. הכשל נרשם ל-Debug.
+window._topicExclusionCache = window._topicExclusionCache || {};
+async function judgeTopicExclusion(names, excludeStr, apiKey, accessCode) {
+  const blocked = new Set();
+  if (!excludeStr || !excludeStr.trim() || !names.length) return blocked;
+  const cache = window._topicExclusionCache;
+  const key = excludeStr.trim();
+  cache[key] = cache[key] || {};
+  const unknown = names.filter(n => !(n in cache[key]));
+  if (unknown.length) {
+    const prompt = `אתה מסנן יעדים. המשתמש ביקש להחריג מהטיול לגמרי: "${key}".
+לפניך רשימת יעדים מוצעים. החזר JSON בלבד, בלי טקסט נוסף, בפורמט: {"blocked": ["שם1", "שם2"]}
+כלול ב-blocked כל יעד ששייך מבחינה נושאית או תוכנית להחרגה, גם אם שמו אינו מכיל את מילת ההחרגה במפורש.
+דוגמה: אם ההחרגה היא "מחנות ריכוז ואתרי שואה", אושוויינצ'ים (Oswiecim) חסומה, כי זו העיר שבה נמצא המחנה.
+דוגמה: אם ההחרגה היא "מרבצי מלח", ויאליצ'קה (Wieliczka) חסומה, כי היא ידועה במכרה המלח שלה.
+אם יעד אינו שייך להחרגה - אל תכלול אותו.
+היעדים: ${unknown.join(', ')}`;
+    try {
+      const data = await callClaudeAPI({
+        model: 'claude-sonnet-4-6', max_tokens: 700, temperature: 0,
+        messages: [{ role: 'user', content: prompt }]
+      }, apiKey, accessCode);
+      const text = data.content?.map(b => b.text || '').join('') || '';
+      const parsed = parseModelJson(text, 'judgeTopicExclusion');
+      const arr = Array.isArray(parsed.blocked) ? parsed.blocked : [];
+      unknown.forEach(n => { cache[key][n] = arr.some(b => isSameSuggestion(n, b)); });
+    } catch (e) {
+      recordDebugError('judgeTopicExclusion', e.message, e.rawResponse);
+      return blocked; // fail-open מכוון: לא חוסמים הכל בגלל כשל רשת
+    }
+  }
+  names.forEach(n => { if (cache[key][n]) blocked.add(n); });
+  return blocked;
+}
+
 // v4.69 - A5 + A6: השער. עד עכשיו הקוד בנה מסננים שמסמנים, לא שערים שחוסמים - הצעה שחרגה
 // מהסף הוצגה עם ⚠️ ובאנר "אלה הטובים ביותר שנמצאו". תיוג אינו מניעה.
 // העיקרון כאן: אין נתון מאומת = לא מוצג.
@@ -3055,9 +3354,14 @@ function buildGateBanner(gate, maxHours) {
 
 function gateSuggestions(list, opts) {
   const excludeNames = (opts && opts.excludeNames) || [];
+  const topicBlocked = (opts && opts.topicBlocked) || new Set();
   const passed = [], rejected = [];
   const anyVerified = list.some(s => s.distanceVerified);
   list.forEach(s => {
+    // v4.73 - מנגנון 5: עילת פסילה רביעית - החרגה נושאית. עד עכשיו השער בדק מרחק, אימות
+    // וחזרות בלבד, וההחרגה נשארה הנחיה רכה בפרומפט. בבדיקה חיה אושוויינצ'ים ווויאליצ'קה
+    // הוצעו כיעד קפיצה למרות שדה ההחרגה.
+    if (topicBlocked.has(s.name)) { rejected.push({ name: s.name, reason: 'נופל בהחרגה שהגדרת' }); return; }
     s.isDuplicate = excludeNames.some(n => isSameSuggestion(s.name, n));
     if (s.isDuplicate) { rejected.push({ name: s.name, reason: 'חזרה על הצעה קודמת' }); return; }
     if (s.distanceVerified && s.tooFar) {
@@ -3181,7 +3485,8 @@ async function suggestRegionCity(idx, isRefresh) {
     await verifyDistances(rawList, mainDest, 210); // חריגה משמעותית מ-3 שעות
     // v4.69 - A6: גם כאן עובר בשער. אין retry בפונקציה הזו, ולכן פסילה מצמצמת את הרשימה
     // ואינה מנסה להחליף - זו התנהגות מכוונת, ועדיפה על הצגת יעד שחורג או לא אומת.
-    const gate = gateSuggestions(rawList, { excludeNames: excludeNames });
+    const topicBlockedR = await judgeTopicExclusion(rawList.map(x => x.name), excludeStr, apiKey, accessCode);
+    const gate = gateSuggestions(rawList, { excludeNames: excludeNames, topicBlocked: topicBlockedR });
     const list = gate.passed;
     window._regionCitySuggestions[idx] = list;
     if (box) {
@@ -3280,7 +3585,8 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
     // v4.61 - אותו תיקון חזרות קשיחות שבוצע ב-suggestMainDayTrip: בדיקה בפועל (לא רק הנחיה)
     // אם השם שחזר מ-Claude מופיע ברשימת "כבר הוצע/נבחר", ומטפלים בזה באותו retry שכבר קיים ל-tooFar.
     // v4.69 - אותו שער משותף כמו ב-suggestMainDayTrip.
-    let gate = gateSuggestions(list, { excludeNames: excludeNames });
+    const topicBlocked = await judgeTopicExclusion(list.map(x => x.name), (document.getElementById('exclude') || {}).value || '', apiKey, accessCode);
+    let gate = gateSuggestions(list, { excludeNames: excludeNames, topicBlocked: topicBlocked });
 
     let retried = false;
     const needsReplacement = gate.rejected;
@@ -3295,7 +3601,8 @@ async function suggestSideTrip(tid, regionIdx, isRefresh) {
         const replacementList = await fetchAiSuggestions(apiKey, accessCode, retryPrompt);
         await verifyDistances(replacementList, baseName, maxMinutesThreshold);
         const seen = gate.passed.map(s => s.name).concat(excludeNames);
-        const gate2 = gateSuggestions(replacementList, { excludeNames: seen });
+        const topicBlocked2 = await judgeTopicExclusion(replacementList.map(x => x.name), (document.getElementById('exclude') || {}).value || '', apiKey, accessCode);
+        const gate2 = gateSuggestions(replacementList, { excludeNames: seen, topicBlocked: topicBlocked2 });
         gate.passed = gate.passed.concat(gate2.passed);
         gate.rejected = gate.rejected.concat(gate2.rejected);
       } catch (retryErr) {
