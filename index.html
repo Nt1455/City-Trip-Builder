@@ -1,3 +1,4 @@
+<!-- City Trip Builder Claude - v4.81 - 11/08/2026 - הסרת מנגנון ההצעה האוטומטי משני המדורים, לפי החלטת המשתמש אחרי סבב מדידה. הרקע: הסבב v4.78-v4.80 תיקן בהצלחה את הפרסר, את העיוורון לסטטוס גוגל ואת מסגור הייצור, והמדידה אף עמדה בתנאי העצירה - שלוש ערים מרצועת 2-2.5 שעות ברשימת הייחוס. אלא שהמדידה עצמה נמצאה שגויה בבסיסה: רשימת הייחוס נבנתה על ידי מודלים בצ אט ולא ממקור מדיד, ולכן היא אותו סוג פלט שהאפליקציה מייצרת - השוואת שליפה מול שליפה. הכשל האמיתי שהתגלה הוא אחר וחמור יותר: השער בדק זמן בלבד, ולכן טיניץ במרחק 25 דקות, אולקוש וואוול שבתוך קרקוב עצמה עברו בציון מושלם, בעוד שלפי שיפוט מקצועי אין בהם יום. אין ב-Google Places ולא ב-Distance Matrix מדד לערך של יעד ליום טיול, והמודל אינו יכול לספק אותו באמינות - ולכן ייצור היעדים הוסר, ולא תוקן בשכבה נוספת. מה הוסר: שלוש עשרה פונקציות (suggestMainDayTrip, suggestSideTrip, suggestRegionCity, שלוש פונקציות ה-apply, fetchAiSuggestions, verifyDistances, judgeTopicExclusion, gateSuggestions, buildGateBanner, isSameSuggestion, normalizeSuggestionName), שלוש פונקציות מדף ההשוואה שנועדו רק לשמור הצעות (saveSuggestionToCompare, renderInlineSavedSuggestions, applySavedInline) ופונקציית ההסרה שלהן שהתייתמה, שישה משתני window גלובליים של מאגרי הצעות, וכן מהטופס: כפתורי המלץ לי ועוד הצעות, הבאנר האדום, שדות ההבהרה ושדה עד X שעות בשלושת סוגי השורות. הטופס מכיל מעכשיו תאריך, יעד ושעות בלבד. מה נוסף: מדידת מרחק וזמן נסיעה אמיתיים מהיעד הראשי לכל יעד משני, דרך אותה getTravelDistance שעבדה 28 מתוך 29 בבדיקה החיה של v4.80. המדידה ממוקמת אחרי fetchIntent בכוונה מפורשת - namesEn כבר זמין באותה נקודה, ולכן הקריאה יוצאת בשם הלועזי ולא בתעתיק עברי בלבד; זה בדיוק הכשל שהחזיר 11 שעות עבור ביץ לעומת שעה ו-58 דקות עבור Biecz, עם סטטוס OK ובלי שום סימן לטעות. התוצאה מוזרקת לפרומפט ומוצגת בתיאור העיר בתוך המסלול הבנוי, עם הוראה מפורשת למודל לא להעריך מרחק בעצמו כשלא סופק. הכלל המנחה: זהו מידע ולא שער - שום יעד אינו נפסל, אינו מתויג באזהרה ואינו נחסם, כי המשתמש בחר אותו. כשל מדידה אינו מוצג בשום צורה בממשק ורק נרשם ללוג Distance Matrix בפאנל Debug, כי מספר שגוי גרוע ממספר חסר. שינוי נלווה: שורה בלי יעד אינה מייצרת עוד הנחיה למודל לבחור יעד בעצמו, בשני המדורים - היא פשוט אינה נכנסת לפרומפט. זה סוגר מאליו את פער ביאלה שאותר ב-v4.78, שבו יעד שנבחר על ידי המודל בזמן בניית המסלול הגיע אחרי שלב Places ולכן קיבל יום שלם בלי נתוני מסעדות. מה לא נגעתי: getTravelDistance, recordDistanceCheck ולוג ה-Debug מ-v4.79, parseModelJson וכל שרשרת הפרסור על תיקוני v4.78 ו-v4.80, fetchPlaces, fetchIntent, filterExcludedPlaces, resolveSearchName, ה-PROBE (נותק משדה השעות שהוסר וקובע 2 שעות), ושדה ההבהרה הכללית של הטיול הנודד שאינו חלק ממנגנון ההצעות. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML); איזון תגיות div 143/143, script 2/2, table 3/3, select 9/9, textarea 3/3, button 52/52; כל onclick/onchange מפנים לפונקציות קיימות (event/window מובנים); 0 בלוקי catch ריקים; 0 הפניות למזהי HTML שהוסרו; סריקת פונקציות יתומות אחרי ההסרה זיהתה אחת שנוצרה מהמחיקה (removeInlineSavedSuggestion) והיא הוסרה, שלוש הנותרות הן callback ומטפלי אירוע שהיו יתומות מראש ולא נגעתי בהן. בדיקה פונקציונלית: ששה תרחישים הורצו על הקוד שחולץ מהקובץ הנמסר עצמו - יעד עם מדידה, יעד שהמדידה שלו נכשלה (חייב להופיע בלי מספר ובלי אזהרה), שורה בלי יעד (חייבת להיעלם ולא להורות למודל לבחור), שתי שורות שאחת מהן ריקה, toggle כבוי, ושורה בלי תאריך - כולם עברו. הקובץ ירד מ-3936 שורות ל-3405. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.80 - 10/08/2026 - שני שינויים באישור מפורש לבצע אותם יחד: שער בשכבה 4, ושלב 3 של הסבב. השניים אורתוגונליים ביחס למדידה - השער מסיר שורות זבל מהבאנר האדום ואינו יכול להוסיף או להוריד ערים אמיתיות מהספירה, ולכן שילובם אינו מזהם את תנאי העצירה שנקבע מראש. (1) שער בשכבה 4: הבדיקה החיה של v4.79 הראתה שהמודל משחית לא רק ערכים אלא את מבנה ה-JSON עצמו - name:קרפץ ואז גרש, פסיק, גרש, reason, מרכאות - כלומר המפתח reason נפתח בגרש ונסגר במרכאות. במקטע כזה אין גבול ערך חוקי, החילוץ נופל לשארית המלאה, וכל התיאור נבלע לתוך השם. זה אינו הכשל של v4.78 (חציית גבול אובייקט) שנשאר פתור - זו השחתה בתוך מקטע יחיד. חומרת התוצאה בפועל: המחרוזת המושחתת נשלחה כיעד ל-Google Distance Matrix וגוגל החזיר עליה 4 שעות 21 דקות, כלומר ערך זבל התקדם בצינור עד קריאת API והוצג למשתמש כהצעה שנפסלה על מרחק. נוספה isCorruptSuggestionName הפוסלת שם המכיל תבנית מפתח JSON (מכסה גם גרשים בלבד), מרכאות כפולות או סוגריים מסולסלים, או אורך מעל 80 תווים - השם החוקי הארוך ביותר שהתקבל בפועל היה 47. פסילה ולא תיקון, לפי עיקרון השערים ולא מסננים. salvageSuggestions מחזירה מעכשיו גם dropped, ו-parseModelJson מוסיפה אותו להודעת ה-Debug. (2) שלב 3 - ניסוח מחדש לרצועות זמן והרחבת המאגר מ-3 ל-10: הראיה המכרעת מהבדיקה החיה היא שבסף 3 שעות הוחזרו אותן שתי ערים של 1:40 ו-1:51 שהוחזרו בסף שעתיים, כלומר שינוי האילוץ לא הזיז את הפלט כלל והסף פעל רק כמסננת בדיעבד. מרשימת 20 הערים שסיפק המשתמש הוצעו 5 בסך הכל, וכל רצועת 2-2.5 שעות (8 ערים) לא הוצעה אפילו פעם אחת. הכותרת הקודמת המלץ על 3 יעדים ליום טיול מפעילה שליפה של מקומות מפורסמים ולא חשיבה גיאוגרפית. הפרומפט החדש פותח במשימה גיאוגרפית, מחלק לשלוש רצועות זמן מחושבות משליש ושני שליש מהסף, דורש מינימום 3 יעדים בכל רצועה, מדגיש שהרצועה הרחוקה היא הקריטית, ואוסר במפורש להגביל לאתרי תיירות מפורסמים תוך בקשה מפורשת לערי מחוז ובירות אזוריות ויעדים מעבר לגבול. בנוסף הוחלפו הוראות תקינות ה-JSON בשלושה כללים ממוספרים: אובייקט אחד בלבד בלי טקסט לפניו או אחריו (מכוון נגד תופעת הנרטיב שנצפתה ב-v4.79, שבה המודל החזיר שלושה בלוקי JSON עם טקסט הסבר ביניהם והשכבה חילצה גם את ההדים כהצעות), שני שדות בלבד בסדר קבוע, ומרכאות כפולות למבנה בלבד. ההוראה הישנה מ-v4.74 שהורתה להשתמש בגרש בודד הוסרה - היא ההסבר הסביר לכך שהמודל השתמש בגרש במיקום מבני. לא נגעתי במאגר של suggestSideTrip ושל suggestRegionCity, בשער, בלוגיקת הפסילה, ב-max_tokens (5000 מספיק ל-10 תיאורים), ולא נוספה תקרת תצוגה - הצעה שעוברת תוצג, כי התלונה הייתה מעט מדי ולא יותר מדי. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML); איזון תגיות div 163/163, script 2/2, table 3/3, select 9/9, textarea 3/3, button 65/65; 0 בלוקי catch ריקים; אומת שתיקוני v4.63-v4.79 לא נדרסו, ובכללם recordDistanceCheck ו-extractSchemaField. בדיקה פונקציונלית: הקוד חולץ מהקובץ הנמסר עצמו ולא מעותק. חמישה תרחישי salvage - שחזור מדויק של הבאג החי מ-v4.79, אותה השחתה בגרשים בלבד, שם מעל 80 תווים, קלט תקין לחלוטין שחייב לעבור, ושלושה בלוקי JSON - בכולם השם המושחת נפסל, השם התקין שלצידו שרד, ו-dropped נספר נכון. תשעה תרחישי isCorruptSuggestionName ישירות, ובהם שלושה שמות חוקיים ארוכים ומורכבים שחייבים לעבור (קשיאנוב וילקי עם סוגריים וטקסט נוסף, אושווינצים עם פסיק וגרש, נובי סונץ עם גרש וסוגריים) - כל התשעה עברו. חישוב הרצועות נבדק על שבעה ערכי סף מ-0.5 עד 4 שעות - כולם מניבים שלוש רצועות עולות ותקינות. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.79 - 10/08/2026 - שלב 2 מתוך 5 בסבב "מאגר מועמדים ליעדי יום קפיצה + שער מרחק". נוספה נראות מלאה לסטטוס Google Distance Matrix. הבעיה: getTravelDistance החזירה null בשלוש נקודות שונות בלי לרשום דבר לשום מקום מלבד console.log, ולכן שלושה כשלים שונים לחלוטין הוצגו למשתמש כמחרוזת אחת - "לא ניתן היה לאמת את זמן הנסיעה ליעד הזה". OVER_QUERY_LIMIT (המכסה נגמרה), NOT_FOUND (השם לא זוהה על ידי גוגל) וכשל טעינה של ספריית google.maps הם שלוש בעיות עם שלושה פתרונות שונים, ולא היה שום אופן להבחין ביניהן. קלודזקו הופיעה בבדיקה החיה של v4.78 בדיוק במצב הזה. השלב הזה מקדים בכוונה את הרחבת המאגר: העלאת נפח הקריאות בלי הבחנה בין כשל מכסה לכשל שם הופכת את המדידה של שלב 3 לבלתי ניתנת לפענוח, ותנאי העצירה שנקבע מראש לסבב תלוי באותה מדידה. ממצא שהתגלה תוך כדי ומנע לוג חסר ערך: recordDebugError כותבת ל-lastDebugInfo.lastError בהשמה ולא בצבירה, כלומר כל קריאה דורסת את הקודמת. אימות מרחק רץ בלולאה על כל המועמדים בלחיצה אחת, ולכן שימוש ב-recordDebugError היה מציג כשל בודד מתוך לחיצה שבה שמונה מתוך עשרה נכשלו - לוג שנראה עובד ומשמיט את רוב הנתונים. לכן נוספה recordDistanceCheck נפרדת, הכותבת לרשימה מצטברת lastDebugInfo.distanceLog עם תקרה של 100 רשומות (שמירת האחרונות). נרשמות גם קריאות תקינות ולא רק כשלים, כי ההבחנה בין "גוגל ענה על עשר ונכשל בשלוש" לבין "גוגל נשאל רק שלוש פעמים" היא בדיוק ההבחנה שנדרשת. ארבע נקודות חוברו: כשל טעינת ספריית Maps (הכשל השקט ביותר, פוסל את כל המועמדים בבת אחת מסיבה משותפת שלא נראית), סטטוס ברמת הבקשה, סטטוס ברמת היעד הבודד, וההצלחה. גם בלוק ה-catch מקבל רישום, בנוסף ל-recordDebugError שנשארה בו ולא הוסרה. buildDebugText מציגה מקטע חדש עם מונה קריאות/תקינות/כשלים - בבלוק if נפרד שאינו תלוי ב-sentAt, כדי שהלוג יופיע גם כשנלחץ "המלץ לי" בלי שנבנה מסלול כלל, וזה המצב הרגיל בבדיקת ההצעות. הלוג מצטבר לאורך הסשן ואינו מתאפס בין לחיצות; חותמת השעה בכל שורה היא מה שמפריד בין לחיצה ללחיצה. לא נגעתי במאגר, בפרומפט, בשער ובלוגיקת הפסילה - אלה שלב 3. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML); איזון תגיות div 163/163, script 2/2, table 3/3, select 9/9, textarea 3/3, button 65/65; כל onclick/onchange מפנים לפונקציות קיימות (event/window מובנים); 0 בלוקי catch ריקים; אומת שתיקוני v4.63-v4.78 לא נדרסו. בדיקה פונקציונלית: 6 תרחישים הורצו על הקוד שחולץ מהקובץ הנמסר עצמו ולא על עותק - לחיצה עם 10 מועמדים ובה 7 תקינים ושלושה סוגי כשל שונים, כשל טעינת Maps על כל המועמדים, מצב ללא לוג כלל, תקרת 100 הרשומות (130 נכנסו, 100 נשמרו, האחרונות), ערכי null/undefined בכל הפרמטרים, ודו-קיום עם lastError קיים כדי לוודא ששני המקטעים מוצגים יחד ואינם דורסים זה את זה - כולם עברו. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.78 - 10/08/2026 - שלב 1 מתוך 5 בסבב "מאגר מועמדים ליעדי יום קפיצה + שער מרחק". תוקנה דליפת גבול אובייקט ב-salvageSuggestions (שכבה 4 של הפרסור). השורש: המימוש מ-v4.74 היה ביטוי רגולרי יחיד שמתח את שני השדות יחד - "name":"(.*?)"..."reason":"(.*?)"} - ושתי קבוצות הלכידה היו חופשיות לחצות גבול אובייקט בזמן backtracking. אם זנב האובייקט הראשון לא תאם, המנוע הרחיב את קבוצת ה-name עד שמצא "reason" של האובייקט הבא. שוחזר בבדיקה ובודד הטריגר המדויק: שני מקרים מפילים - סדר שדות הפוך באובייקט (reason לפני name), ושדה שלישי שהמודל מוסיף בין name ל-reason. מרכאות פנימיות, שהיו החשד הראשוני, אינן מפילות את המימוש הישן כלל, ולכן ההסבר הזה נשלל בבדיקה ולא נכלל בתיקון. הקלט המשוחזר {"reason":"...","name":"ורוצלב"},{"name": "קשיטופוביצה",...} הניב במימוש הישן שם יחיד ומושחת - ורוצלב"},{"name": "קשיטופוביצה - כלומר שני נזקים באירוע אחד: JSON גולמי דלף לשדה name (הסימפטום שדווח), ושתי הצעות התמזגו לאחת. הכיווץ הזה הוא הנזק השני והשקט: המאגר קטן לפני שער המרחק, בלי שאיש רואה. התיקון מפריד את החילוץ לשני שלבים במקום ביטוי אחד - פיצול לפי גבולות אובייקט תחילה, ואז חילוץ כל שדה בתוך המקטע שלו בלבד. חציית גבול הופכת בלתי אפשרית מבנית ולא בזכות ביטוי זהיר יותר. גבול ערך מוגדר כמרכאה שאחריה מגיע סוף מקטע או פסיק ואחריו מפתח JSON חוקי, כלומר מזהה ASCII במרכאות ואחריו נקודתיים - דרישת ה-ASCII היא מה שמונע מטקסט עברי להיראות כמו מפתח ולקטוע ערך באמצע. נוספו שתי פונקציות עזר קטנות: extractSchemaField ו-cleanSchemaValue. שלוש תופעות לוואי מכוונות: סדר השדות כבר אינו קריטי, אובייקט אחרון שנקטע ב-max_tokens עדיין מניב שם במקום להיאבד, והצעה בלי reason כלל נשמרת. מגבלה ידועה ומתועדת בקוד: סוגר מסולסל בתוך טקסט הערך יקטע את הערך באותה נקודה - קטיעה ולא השחתה, ורק במסלול הזה שרץ ממילא אחרי כשל של שלוש שכבות פרסור. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML בשורה 50, ה-id האמיתי היחיד בשורה 314); איזון תגיות div 163/163, script 2/2, table 3/3, select 9/9, textarea 3/3, button 65/65; כל onclick/onchange מפנים לפונקציות קיימות (event/window הם אובייקטים מובנים); 63 בלוקי catch, 0 ריקים; 16 קריאות JSON.parse; סריקת סעיף 11 על כל הקובץ: שלושה מקומות !res.ok (577, 940, 1306) כולם מתעדים ב-recordDebugError, ממצא פתוח יחיד הוא getTravelDistance בשורות 3366 ו-3368 שמחזירה null בלי לרשום את סטטוס גוגל ל-Debug - ידוע, דווח, ומתוכנן כשלב 2; אומת שתיקוני v4.63-v4.77 לא נדרסו (max_tokens=35000, stripLoneSurrogates, ensureCoreCategories, filterExcludedPlaces, resolveSearchName, judgeTopicExclusion, gateSuggestions, repairUnescapedQuotes, distanceVerified, resultCountForCategory); salvageSuggestions נקראת עדיין ממקום יחיד, parseModelJson שורה 3623. בדיקה פונקציונלית: 15 תרחישים הורצו במקביל על המימוש הישן והחדש - ישן 10/15, חדש 15/15 - ובנוסף 7 תרחישים הורצו על הקוד שחולץ מהקובץ הנמסר עצמו ולא על עותק. נכללו: שחזור הדליפה החיה, שדה נוסף בין name ל-reason, מרכאה פנימית לפני פסיק, אובייקט קטוע, סדר שדות הפוך, מרכאות מוברחות תקין, פסיק עוקב, סוגר מסולסל בערך, ושלוש סכימות זרות (filterExcludedPlaces, judgeTopicExclusion, fetchIntent) שחייבות להחזיר null כדי שלא ייווצר פרסור מדומה. בדיקה חיה טרם בוצעה. -->
@@ -541,7 +542,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.80';
+const APP_VERSION = 'v4.81';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -911,12 +912,9 @@ async function probeLocalitySearch() {
     panel.textContent = 'PROBE: יש להזין יעד ראשי בשדה "יעד" לפני הרצת הבדיקה.';
     return;
   }
-  let maxHours = 2;
-  const firstHoursEl = document.querySelector('#main-daytrip-rows input[id^="maindt-maxhours-"]');
-  if (firstHoursEl) {
-    const v = parseFloat(firstHoursEl.value);
-    if (v && !isNaN(v) && v > 0) maxHours = v;
-  }
+  // v4.81 - שדה השעות הוסר מהטופס יחד עם מנגנון ההצעות. ה-PROBE הוא כלי אבחון מבודד
+  // שאינו מחווט לשום פונקציה, ולכן הוא מקבע 2 שעות במקום לקרוא שדה שאינו קיים עוד.
+  const maxHours = 2;
   if (btn) { btn.disabled = true; btn.textContent = 'בודק...'; }
   panel.style.display = 'block';
   const log = [];
@@ -1848,6 +1846,28 @@ async function buildTrip() {
     const namesToTranslate = getRegionNamesForPlaces().concat(getMainDayTripDestinations().map(d => d.dest));
     const intentData = await fetchIntent(fields, apiKey, accessCode, namesToTranslate);
     placesDebug.intentData = intentData;
+    // v4.81 - מרחק וזמן נסיעה אמיתיים מהיעד הראשי לכל יעד משני. מידע בלבד, לא שער:
+    // שום יעד אינו נפסל ואינו מתויג באזהרה - המשתמש בחר את היעד, והמספר נועד להופיע
+    // בתיאור העיר במסלול. משתמש באותה getTravelDistance שעבדה 28 מתוך 29 בבדיקה החיה,
+    // ואחרי fetchIntent בכוונה: namesEn כבר זמין, ולכן המדידה יוצאת בשם הלועזי ולא
+    // בתעתיק עברי בלבד. זה הכשל שהחזיר 11 שעות עבור ביץ' לעומת 1:58 עבור Biecz.
+    window._dayTripDistances = {};
+    try {
+      const originName = resolveSearchName(fields.dest, intentData && intentData.namesEn) || fields.dest;
+      for (const rawName of namesToTranslate) {
+        if (!rawName || window._dayTripDistances[rawName]) continue;
+        const targetName = resolveSearchName(rawName, intentData && intentData.namesEn) || rawName;
+        const d = await getTravelDistance(originName, targetName);
+        // כשל מדידה אינו מוצג למשתמש בשום צורה - השדה פשוט נשאר ריק, והשורה
+        // נרשמת ללוג Distance Matrix בפאנל Debug. מספר שגוי גרוע ממספר חסר.
+        if (d && d.durationText) {
+          window._dayTripDistances[rawName] = (d.distanceText ? d.distanceText + ', ' : '') + d.durationText;
+        }
+      }
+      placesDebug.dayTripDistances = window._dayTripDistances;
+    } catch (eDist) {
+      recordDebugError('dayTripDistances', eDist.message);
+    }
     placesDebug.namesEn = (intentData && intentData.namesEn) ? intentData.namesEn : null;
     const categories = ensureCoreCategories(intentData && intentData.categories, fields.interests);
     placesDebug.categoriesUsed = categories;
@@ -2498,42 +2518,6 @@ function getSavedSuggestions() {
   }
 }
 
-// שמירת הצעה בודדת מ-suggestSideTrip או suggestRegionCity לפנקס ההשוואה
-// btnEl - הכפתור עצמו (מ-onclick="...(this,...)"), לצורך משוב ויזואלי קצר בלי לתלות ב-event גלובלי
-function saveSuggestionToCompare(btnEl, kind, containerId, i) {
-  const list = kind === 'sidetrip' ? window._sideTripSuggestions[containerId] : window._regionCitySuggestions[containerId];
-  if (!list || !list[i]) return;
-  const s = list[i];
-  const tripName = (document.getElementById('destination') || {}).value?.trim() || 'ללא שם יעד';
-  const source = kind === 'sidetrip' ? 'יום קפיצה' : 'עיר/אזור בסיס';
-
-  const entry = {
-    tripName,
-    name: s.name || '',
-    reason: s.reason || '',
-    realDuration: s.realDuration || '',
-    source,
-    kind,
-    containerId,
-    savedAt: new Date().toLocaleDateString('he-IL')
-  };
-
-  const saved = getSavedSuggestions();
-  saved.unshift(entry);
-  if (saved.length > 50) saved.length = 50; // הגנה מפני גדילה בלתי מוגבלת
-  localStorage.setItem('ctb_saved_suggestions', JSON.stringify(saved));
-
-  updateSavedSuggestionsBadge();
-  if (document.getElementById('saved-suggestions-panel').style.display === 'block') renderSavedSuggestionsList();
-  refreshAllInlineSavedBoxes();
-
-  if (btnEl) {
-    const orig = btnEl.textContent;
-    btnEl.textContent = '✓';
-    btnEl.disabled = true;
-    setTimeout(() => { btnEl.textContent = orig; btnEl.disabled = false; }, 1200);
-  }
-}
 
 // מרעננת את כל התיבות המקומיות שקיימות כרגע בעמוד - נקודת-אמת יחידה שנקראת אחרי כל שינוי
 // ב-localStorage (שמירה חדשה או מחיקה), כי unshift/splice מזיזים את כל האינדקסים הקיימים.
@@ -2541,8 +2525,6 @@ function saveSuggestionToCompare(btnEl, kind, containerId, i) {
 // כפתורי הבחירה/הסרה שלהן, ולחיצה עליהם תפגע בפריט הלא נכון. renderInlineSavedSuggestions
 // בודקת בעצמה אם ה-container קיים - row שהוסר מה-DOM לא יגרום לשגיאה.
 function refreshAllInlineSavedBoxes() {
-  for (let ri = 1; ri <= regionRowCount; ri++) renderInlineSavedSuggestions('region', ri);
-  for (let ti = 1; ti <= sideTripRowCount; ti++) renderInlineSavedSuggestions('sidetrip', ti);
 }
 
 function removeSavedSuggestion(index) {
@@ -2561,52 +2543,8 @@ function updateSavedSuggestionsBadge() {
   btn.textContent = count > 0 ? '📌 הצעות שמורות (' + count + ')' : '📌 הצעות שמורות';
 }
 
-// מציגה בתוך תיבת ההצעות של אזור/יום-קפיצה ספציפי (containerId) את ההצעות שנשמרו (📌) עבורו בלבד -
-// כדי שאפשר יהיה לחזור ולבחור מהן בכל רגע, גם אחרי "עוד הצעות" שדורס את הרשימה הזמנית מה-fetch האחרון.
-// קוראת ישירות מ-localStorage (לא מ-window._regionCitySuggestions/_sideTripSuggestions הזמניים).
-function renderInlineSavedSuggestions(kind, containerId) {
-  const holderId = kind === 'sidetrip' ? ('sidetrip-saved-' + containerId) : ('region-name-saved-' + containerId);
-  const holder = document.getElementById(holderId);
-  if (!holder) return; // ה-row הזה לא קיים יותר (הוסר) - לא עושה כלום, לא זורק שגיאה
-  const saved = getSavedSuggestions();
-  const matches = [];
-  saved.forEach((item, originalIndex) => {
-    if (item.kind === kind && String(item.containerId) === String(containerId)) matches.push({ item, originalIndex });
-  });
-  if (!matches.length) { holder.innerHTML = ''; return; }
-  holder.innerHTML =
-    '<div style="font-size:10px;color:var(--muted);margin:6px 0 2px">📌 שמורות עבור התיבה הזו - לחץ כדי לבחור</div>' +
-    matches.map(({item, originalIndex}) =>
-      '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
-        '<button type="button" class="rec-link" style="flex:1;min-width:0;text-align:right;white-space:normal;overflow-wrap:break-word;background:#f5f0e8" onclick="applySavedInline(\'' + kind + '\',' + containerId + ',' + originalIndex + ')">' +
-          '<strong>' + escapeHtmlLocal(item.name) + '</strong>' +
-          (item.realDuration ? ' - ' + escapeHtmlLocal(item.realDuration) + ' (מאומת)' : '') +
-          (item.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(item.reason) + '</div>' : '') +
-        '</button>' +
-        '<button type="button" title="הסר משמורות" style="flex:0 0 auto;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;font-size:14px" onclick="removeInlineSavedSuggestion(\'' + kind + '\',' + containerId + ',' + originalIndex + ')">🗑</button>' +
-      '</div>'
-    ).join('');
-}
 
-// ממלאת את שדה העיר/אזור (או יעד יום-הקפיצה) בשם ההצעה השמורה, בלי לגעת בשאר הרשימה הזמנית
-function applySavedInline(kind, containerId, originalIndex) {
-  const saved = getSavedSuggestions();
-  const entry = saved[originalIndex];
-  if (!entry) return;
-  if (kind === 'sidetrip') {
-    const input = document.getElementById('sidetrip-dest-' + containerId);
-    if (input) input.value = entry.name;
-  } else {
-    const input = document.getElementById('region-name-' + containerId);
-    if (input) input.value = entry.name;
-  }
-}
 
-// מסירה מה-localStorage דרך נקודת-האמת היחידה (removeSavedSuggestion, שכבר מרעננת את כל התיבות),
-// ולא צריכה לרענן שוב בעצמה - נמנעת מכפילות קריאה
-function removeInlineSavedSuggestion(kind, containerId, originalIndex) {
-  removeSavedSuggestion(originalIndex);
-}
 
 function toggleSavedSuggestions() {
   const panel = document.getElementById('saved-suggestions-panel');
@@ -2918,13 +2856,9 @@ function addMainDayTripRow() {
   row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap';
   row.innerHTML =
     '<input type="text" id="maindt-date-' + tid + '" placeholder="DD/MM/YYYY *חובה" readonly style="cursor:pointer;background:#faf9f7;width:120px" onclick="openCalRegion(\'maindt-date-' + tid + '\')" />' +
-    '<input type="text" id="maindt-dest-' + tid + '" placeholder="לדוגמה: אושוויץ, או השאר ריק והמלץ לי" style="flex:1;min-width:140px" />' +
-    '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);white-space:nowrap">עד <input type="number" id="maindt-maxhours-' + tid + '" value="2" min="0.5" max="12" step="0.5" style="width:48px;padding:2px 4px" /> שעות</label>' +
-    '<button type="button" id="maindt-suggest-btn-' + tid + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestMainDayTrip(' + tid + ')">✨ המלץ לי</button>' +
+    '<input type="text" id="maindt-dest-' + tid + '" placeholder="לדוגמה: טרנוב" style="flex:1;min-width:140px" />' +
     '<button type="button" class="btn-remove-region" onclick="removeMainDayTripRow(' + tid + ')">✕</button>' +
-    '<input type="text" id="maindt-clarify-' + tid + '" placeholder="הבהרה נוספת להמלץ לי (לא חובה): לדוגמה \'רק היסטוריה\', \'מתאים לילדים\'" style="width:100%;font-size:12px" />' +
-    '<div id="maindt-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>' +
-    '<div id="maindt-suggestions-' + tid + '" style="width:100%"></div>';
+    '<div id="maindt-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>';
   container.appendChild(row);
 }
 
@@ -2933,161 +2867,7 @@ function removeMainDayTripRow(tid) {
   if (el) el.remove();
 }
 
-async function suggestMainDayTrip(tid, isRefresh) {
-  const errBox = document.getElementById('maindt-err-' + tid);
-  if (errBox) errBox.textContent = '';
-  const apiKey = document.getElementById('api-key').value.trim();
-  const accessCode = document.getElementById('access-code').value.trim();
-  if (!apiKey && !accessCode) { if (errBox) errBox.textContent = 'יש להזין Anthropic API Key או קוד גישה למעלה לפני קבלת המלצות'; return; }
-  const baseName = document.getElementById('destination').value.trim();
-  if (!baseName) { if (errBox) errBox.textContent = 'נא למלא קודם את יעד הטיול הראשי למעלה לפני בקשת המלצה'; return; }
-  const btn = document.getElementById('maindt-suggest-btn-' + tid);
-  const box = document.getElementById('maindt-suggestions-' + tid);
-  if (btn) { btn.disabled = true; btn.textContent = 'טוען...'; }
-  if (box) box.innerHTML = '';
 
-  if (isRefresh) {
-    const prevList = window._mainDayTripSuggestions[tid] || [];
-    window._mainDayTripExcluded[tid] = (window._mainDayTripExcluded[tid] || []).concat(prevList.map(s => s.name));
-  } else {
-    window._mainDayTripExcluded[tid] = [];
-  }
-  // v4.58 - גיוון בין שורות (פריט #2 מבדיקה חיה): לפני התיקון, כל שורת "יום קפיצה" שמרה היסטוריית
-  // "אל תציע שוב" רק לעצמה (window._mainDayTripExcluded[tid]) - שורה 2 לא ידעה מה כבר הוצע/נבחר
-  // בשורה 1, ולכן יכלה להציע בדיוק את אותם יעדים (זקופאנה/אושוויץ/צ'נסטוחובה) שוב. תוקן: אוספים גם
-  // את היעד שכבר נבחר בכל שורה אחרת (אם מולא), וגם את שמות ההצעות שכבר הוצגו בשורות אחרות.
-  const crossRowNames = new Set();
-  document.querySelectorAll('#main-daytrip-rows .maindt-row').forEach(row => {
-    const otherTid = row.id.replace('maindt-row-', '');
-    if (String(otherTid) === String(tid)) return;
-    const otherDestEl = document.getElementById('maindt-dest-' + otherTid);
-    if (otherDestEl && otherDestEl.value.trim()) crossRowNames.add(otherDestEl.value.trim());
-    (window._mainDayTripSuggestions[otherTid] || []).forEach(s => { if (s.name) crossRowNames.add(s.name); });
-  });
-  const excludeNames = (window._mainDayTripExcluded[tid] || []).concat(Array.from(crossRowNames));
-  const excludeClause = excludeNames.length ? ` אל תציע שוב את היעדים הבאים שכבר הוצעו/נבחרו (בשורה הזו או בשורות יום-קפיצה אחרות באותו טיול): ${excludeNames.join(', ')}.` : '';
-
-  // v4.58 - הזרקת שדה "להחריג" (פריט #2 מבדיקה חיה, חמור): עד עכשיו suggestMainDayTrip לא קרא
-  // בכלל את document.getElementById('exclude') - למרות שהמשתמש ציין "אתרי שואה ומחנות" בטופס,
-  // הפונקציה הזו לא ידעה על זה בכלל, ולכן המשיכה להציע אושוויץ שוב ושוב. אותו ניסוח מחייב
-  // (כולל הדוגמה המפורשת) כמו ב-filterExcludedPlaces, כדי לשמור על עקביות בין המנגנונים.
-  const excludeStr = (document.getElementById('exclude') || {}).value || '';
-  const excludeTopicClause = excludeStr.trim()
-    ? ` הגבלה מחייבת, לא העדפה: אסור להציע יעד ששייך מבחינה נושאית/תוכנית לנושא הבא, גם אם שם היעד עצמו לא מכיל את מילת ההחרגה במפורש (לדוגמה: אם ההחרגה היא "מחנות", אסור להציע את אושוויץ, גם שהמילה "מחנה" לא מופיעה בשמו): "${excludeStr.trim()}".`
-    : '';
-
-  const maxHoursInput = document.getElementById('maindt-maxhours-' + tid);
-  let maxHours = maxHoursInput ? parseFloat(maxHoursInput.value) : NaN;
-  if (!maxHours || isNaN(maxHours) || maxHours <= 0) maxHours = 2;
-  // v4.62 - הוסר buffer של 25% שהיה כאן (maxHours*60*1.25). בבדיקה חיה: Wrocław ב-3:05 שעות
-  // נשאר בלי ⚠️ כי המשתמש ביקש "עד 2.5 שעות" והסף המנופח (3:07) בלע את החריגה. עכשיו הסף
-  // מדויק למה שהמשתמש הקליד - גם ל-retry וגם לתיוג ⚠️, בלי לטשטש חריגה אמיתית.
-  const maxMinutesThreshold = Math.round(maxHours * 60);
-
-  const clarifyEl = document.getElementById('maindt-clarify-' + tid);
-  const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
-  const clarifyClause = clarifyText ? ` הערה/העדפה נוספת מהמשתמש שיש להתחשב בה בבחירת ההצעות: "${clarifyText}".` : '';
-
-  // v4.80 - שלב 3: ניסוח מחדש לרצועות זמן. הראיה מהבדיקה החיה: בסף 3 שעות הוחזרו אותן שתי
-  // ערים של 1:40 ו-1:51 שהוחזרו בסף שעתיים - כלומר שינוי האילוץ לא הזיז את הפלט כלל, והסף
-  // פעל רק כמסננת בדיעבד. הכותרת "המלץ על 3 יעדים ליום טיול מ-X" מפעילה שליפה של מקומות
-  // מפורסמים, לא חשיבה גיאוגרפית; מרשימת 20 הערים של המשתמש הוצעו 5, וכל רצועת 2-2.5 שעות
-  // (8 ערים) לא הוצעה אפילו פעם אחת. חלוקה מפורשת לרצועות עם מכסת מינימום בכל אחת מכריחה
-  // את המודל לסרוק לפי מרחק ולא לפי פרסום. אותו שלב בצינור, אותה קריאת API אחת.
-  const bandNear = Math.round(maxHours / 3 * 10) / 10;
-  const bandMid = Math.round(maxHours * 2 / 3 * 10) / 10;
-  const CANDIDATE_COUNT = 10;
-
-  const prompt = `משימה גיאוגרפית: רשום ${CANDIDATE_COUNT} ערים ועיירות אמיתיות שנמצאות במרחק נסיעה של עד ${maxHours} שעות ברכב מ-${baseName}, כך שאפשר להגיע אליהן ולחזור באותו יום.
-
-חלק אותן בין שלוש רצועות זמן נסיעה, ודאג לפחות 3 יעדים בכל רצועה:
-- רצועה קרובה: עד ${bandNear} שעות
-- רצועה בינונית: ${bandNear} עד ${bandMid} שעות
-- רצועה רחוקה: ${bandMid} עד ${maxHours} שעות
-
-הרצועה הרחוקה היא הקריטית. אל תשאיר אותה ריקה ואל תמלא אותה ביעדים קרובים - אם יעד נמצא בשעה וחצי, הוא אינו שייך לרצועה של 2 עד 2.5 שעות.
-
-אל תגביל את עצמך ליעדי התיירות המפורסמים של האזור. כלול גם ערי מחוז, בירות אזוריות ועיירות שאינן יעד תיירותי מוכר, וגם יעדים מעבר לגבול אם הם בטווח הזמן. הקריטריון הוא זמן הנסיעה בפועל, לא מידת הפרסום.${excludeClause}${excludeTopicClause}${clarifyClause}
-
-לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות, אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור.
-
-החזר JSON בלבד בפורמט הזה בדיוק:
-{"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}
-
-שלושה כללים מחייבים לתקינות ה-JSON:
-1. אובייקט JSON אחד בלבד. אסור להחזיר יותר מבלוק אחד, ואסור לכתוב טקסט הסבר לפני או אחרי.
-2. בכל אובייקט שני שדות בלבד ובסדר הזה: name ואחריו reason. אל תוסיף שדות נוספים ואל תציין את הרצועה בתוך ה-JSON.
-3. מפתחות וערכים עטופים במרכאות כפולות בלבד. בתוך הטקסט של name ושל reason אל תשתמש בתו מרכאות כפולות כלל - אם דרוש ציטוט או כינוי, כתוב אותו בלי שום סימן. שורה חדשה בתוך ערך אסורה - כתוב כל ערך בשורה אחת.`;
-
-  try {
-    let list = await fetchAiSuggestions(apiKey, accessCode, prompt);
-    await verifyDistances(list, baseName, maxMinutesThreshold);
-
-    // v4.61 - בדיקת חזרות קשיחה (לא רק הנחיה בפרומפט): עד עכשיו ההגנה מפני חזרות הייתה רק
-    // ההוראה "אל תציע שוב X, Y, Z" בפרומפט - הנחיה רכה שClaude לא תמיד ציית לה (בבדיקה חיה,
-    // כ-90% מהתוצאות חזרו בלחיצה על "עוד הצעות"). תוקן: המערכת בעצמה בודקת אם שם היעד שחזר
-    // מ-Claude מופיע ברשימת "כבר הוצע/נבחר" (השוואה מנורמלת - trim+lowercase) - ואם כן, מטפלת
-    // בזה באותו מסלול retry שכבר קיים לבדיקת מרחק (tooFar), לא בונה מנגנון נפרד.
-    // v4.69 - השער מחליף את בדיקת ה-isDuplicate המקומית. ההיגיון זהה, רק שהוא משותף
-    // לשלוש פונקציות ההצעה ומוסיף שתי עילות פסילה שלא היו: מרחק לא מאומת, והכלת שם.
-    const topicBlocked = await judgeTopicExclusion(list.map(x => x.name), (document.getElementById('exclude') || {}).value || '', apiKey, accessCode);
-    let gate = gateSuggestions(list, { excludeNames: excludeNames, topicBlocked: topicBlocked });
-
-    let retried = false;
-    const needsReplacement = gate.rejected;
-    if (needsReplacement.length > 0 && btn) {
-      retried = true;
-      btn.textContent = 'מנסה שוב עם יעדים שונים...';
-      const replaceDetail = needsReplacement.map(r => r.name + ' (' + r.reason + ')').join('; ');
-      const allNamesSoFar = list.map(s => s.name).concat(excludeNames);
-      const retryPrompt = `המלץ על ${needsReplacement.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו/כבר הוצעו ונפסלו: ${replaceDetail}. אל תציע שוב אף אחד מהשמות הבאים - זו רשימה מחייבת, לא המלצה: ${allNamesSoFar.join(', ')}. אם אין לך יעד קרוב אמיתי שלא ברשימה - מותר להציע יעד מעט פחות מוכר/קלאסי, אבל אסור לחזור על שם מהרשימה.${excludeTopicClause}${clarifyClause} הפעם הצע רק יעדים שונים באמת מהרשימה. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם. החזר JSON בלבד באותו פורמט:
-{"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
-      try {
-        const replacementList = await fetchAiSuggestions(apiKey, accessCode, retryPrompt);
-        await verifyDistances(replacementList, baseName, maxMinutesThreshold);
-        // v4.69 - A5: ההחלפה הישנה הכניסה את המחליף בלי לבדוק אותו. יעד חורג יכול היה
-        // להיות מוחלף ביעד חורג. עכשיו גם המחליפים עוברים בשער, ורק מי שעבר מצטרף.
-        const seen = gate.passed.map(s => s.name).concat(excludeNames);
-        const topicBlocked2 = await judgeTopicExclusion(replacementList.map(x => x.name), (document.getElementById('exclude') || {}).value || '', apiKey, accessCode);
-        const gate2 = gateSuggestions(replacementList, { excludeNames: seen, topicBlocked: topicBlocked2 });
-        gate.passed = gate.passed.concat(gate2.passed);
-        gate.rejected = gate.rejected.concat(gate2.rejected);
-      } catch (retryErr) {
-        console.warn('[suggestMainDayTrip] ניסיון חוזר נכשל, ממשיכים עם התוצאה המקורית:', retryErr);
-        recordDebugError('suggestMainDayTrip-retry', retryErr.message, retryErr.rawResponse);
-      }
-    }
-    list = gate.passed;
-
-    window._mainDayTripSuggestions[tid] = list;
-    if (box) {
-      box.innerHTML = buildGateBanner(gate, maxHours) + list.map((s, i) =>
-        '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
-          '<button type="button" class="rec-link maps" style="flex:1;min-width:0;text-align:right;white-space:normal;overflow-wrap:break-word" onclick="applyMainDayTripSuggestion(' + tid + ',' + i + ')">' +
-            '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
-            (s.realDuration ? ' <span style="font-size:10px;font-weight:400">(' + escapeHtmlLocal(s.realDuration) + ' - מאומת)</span>' : '') +
-            (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
-          '</button>' +
-        '</div>'
-      ).join('') +
-      (list.length ? '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה, ניתן גם לערוך ידנית</div>' : '') +
-      '<button type="button" class="rec-link" style="margin-top:6px;font-size:11px" onclick="suggestMainDayTrip(' + tid + ',true)">🔄 עוד הצעות</button>';
-    }
-  } catch(e) {
-    recordDebugError('suggestMainDayTrip', e.message, e.rawResponse);
-    if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message + ' - ניתן למלא ידנית';
-  }
-  if (btn) { btn.disabled = false; btn.textContent = '✨ המלץ לי'; }
-}
-
-function applyMainDayTripSuggestion(tid, i) {
-  const list = window._mainDayTripSuggestions[tid];
-  if (!list || !list[i]) return;
-  const input = document.getElementById('maindt-dest-' + tid);
-  if (input) input.value = list[i].name;
-  const box = document.getElementById('maindt-suggestions-' + tid);
-  if (box) box.innerHTML = '';
-}
 
 function addRegionRow() {
   regionRowCount++;
@@ -3105,12 +2885,8 @@ function addRegionRow() {
         '<label>עיר / אזור</label>' +
         '<div style="display:flex;gap:6px">' +
           '<input type="text" id="region-name-' + idx + '" placeholder="לדוגמה: טארנוב" style="flex:1" />' +
-          '<button type="button" id="region-name-suggest-btn-' + idx + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestRegionCity(' + idx + ')">✨ המלץ לי</button>' +
         '</div>' +
-        '<input type="text" id="region-clarify-' + idx + '" placeholder="הבהרה נוספת להמלץ לי (לא חובה): לדוגמה \'בדרך בין וורוצלב לקרקוב\', \'קרוב לתחנת רכבת\'" style="margin-top:4px;font-size:12px;width:100%" />' +
         '<div id="region-name-err-' + idx + '" style="font-size:11px;color:#991b1b;margin-top:4px"></div>' +
-        '<div id="region-name-suggestions-' + idx + '" style="margin-top:4px"></div>' +
-        '<div id="region-name-saved-' + idx + '" style="margin-top:4px"></div>' +
       '</div>' +
       '<div class="field">' +
         '<label>תאריכים באזור זה</label>' +
@@ -3165,14 +2941,9 @@ function addSideTripRow(regionIdx) {
   row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap';
   row.innerHTML =
     '<input type="text" id="sidetrip-date-' + tid + '" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7;width:110px" onclick="openCalRegion(\'sidetrip-date-' + tid + '\')" />' +
-    '<input type="text" id="sidetrip-dest-' + tid + '" placeholder="לדוגמה: זקופאנה, או השאר ריק והמלץ לי" style="flex:1;min-width:140px" />' +
-    '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);white-space:nowrap">עד <input type="number" id="sidetrip-maxhours-' + tid + '" value="2" min="0.5" max="12" step="0.5" style="width:48px;padding:2px 4px" /> שעות</label>' +
-    '<button type="button" id="sidetrip-suggest-btn-' + tid + '" class="btn-add-region" style="white-space:nowrap" onclick="suggestSideTrip(' + tid + ',' + regionIdx + ')">✨ המלץ לי</button>' +
+    '<input type="text" id="sidetrip-dest-' + tid + '" placeholder="לדוגמה: זקופאנה" style="flex:1;min-width:140px" />' +
     '<button type="button" class="btn-remove-region" onclick="removeSideTripRow(' + tid + ')">✕</button>' +
-    '<input type="text" id="sidetrip-clarify-' + tid + '" placeholder="הבהרה נוספת להמלץ לי (לא חובה): לדוגמה \'בחזרה מזקופאנה לקרקוב\', \'רק טבע\'" style="width:100%;font-size:12px" />' +
-    '<div id="sidetrip-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>' +
-    '<div id="sidetrip-suggestions-' + tid + '" style="width:100%"></div>' +
-    '<div id="sidetrip-saved-' + tid + '" style="width:100%"></div>';
+    '<div id="sidetrip-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>';
   container.appendChild(row);
 }
 
@@ -3208,10 +2979,11 @@ function buildMultiRegionText() {
         const tid = tr.id.replace('sidetrip-row-', '');
         const sd = (document.getElementById('sidetrip-date-' + tid) || {}).value || '';
         const sdest = (document.getElementById('sidetrip-dest-' + tid) || {}).value || '';
-        if (sd.trim()) {
-          trips.push(sdest.trim()
-            ? sd.trim() + ' → ' + sdest.trim()
-            : sd.trim() + ' → הצע יעד מתאים במרחק נסיעה סביר ליום');
+        // v4.81 - היעד נקבע על ידי המשתמש בלבד. שורה בלי יעד אינה נכנסת לפרומפט,
+        // במקום להורות למודל לבחור יעד בעצמו.
+        if (sd.trim() && sdest.trim()) {
+          const sDist = (window._dayTripDistances && window._dayTripDistances[sdest.trim()]) || '';
+          trips.push(sd.trim() + ' → ' + sdest.trim() + (sDist ? ' (' + sDist + ' מאזור הבסיס)' : ''));
         }
       });
       if (trips.length) {
@@ -3258,17 +3030,14 @@ function buildMainDayTripText(suppliedDests) {
     if (!dateVal) return; // ולידציה: שורה בלי תאריך לא נכנסת לטקסט (buildTrip כבר חוסם מצב כזה קודם)
     const destEl = document.getElementById('maindt-dest-' + tid);
     const destVal = destEl ? destEl.value.trim() : '';
-    const hoursEl = document.getElementById('maindt-maxhours-' + tid);
-    let maxHours = hoursEl ? parseFloat(hoursEl.value) : NaN;
-    if (!maxHours || isNaN(maxHours) || maxHours <= 0) maxHours = 2;
-    const clarifyEl = document.getElementById('maindt-clarify-' + tid);
-    const clarifyVal = clarifyEl ? clarifyEl.value.trim() : '';
-    let line = 'תאריך: ' + dateVal + ' | יעד: ' +
-      (destVal || 'הצע יעד מתאים במרחק נסיעה של עד כ-' + maxHours + ' שעות מהיעד הראשי') +
-      ' | נסיעה מרבית לכיוון אחד: כ-' + maxHours + ' שעות';
-    if (clarifyVal) line += ' | הבהרה: ' + clarifyVal;
+    // v4.81 - היעד נקבע על ידי המשתמש בלבד. שדה השעות וההבהרה הוסרו יחד עם מנגנון ההצעות,
+    // ולכן שורה בלי יעד אינה מייצרת עוד הנחיה למודל לבחור יעד - היא פשוט אינה נכנסת לפרומפט.
+    if (!destVal) return;
+    const distTxt = (window._dayTripDistances && window._dayTripDistances[destVal]) || '';
+    let line = 'תאריך: ' + dateVal + ' | יעד: ' + destVal;
+    if (distTxt) line += ' | מרחק וזמן נסיעה מהיעד הראשי: ' + distTxt;
     parts.push(line);
-    if (destVal) destList.push(destVal);
+    destList.push(destVal);
   });
   if (!parts.length) return '';
   // v4.73 - מנגנון 3: ההגבלה מ-v4.70 חלה מעכשיו רק על יעדים שלא קיבלו מלאי Places בפועל.
@@ -3288,6 +3057,7 @@ function buildMainDayTripText(suppliedDests) {
     '\n\nהוראות מחייבות לימי קפיצה:\n' +
     '- יום קפיצה הוא נסיעה מהיעד הראשי וחזרה לאותה לינה באותו ערב. אין מעבר לינה, סעיף הלינה נשאר היעד הראשי.\n' +
     '- כותרת אותו יום תציין במפורש את יעד הקפיצה.\n' +
+    '- אם צוינו מרחק וזמן נסיעה ליעד, פתח את תיאור היעד באותו יום בשורה אחת המציינת אותם במפורש, לדוגמה: "מרחק מהיעד הראשי: 98 ק"מ, כשעה ו-9 דקות נסיעה". אם לא צוינו - אל תכתוב שורה כזו ואל תעריך מרחק או זמן בעצמך.\n' +
     '- היציאה מהיעד הראשי בשעת ההתחלה שצוינה. נסיעת ההלוך היא השורה הראשונה בטבלת השעות של אותו יום.\n' +
     '- הפעילות ביעד הקפיצה מסתיימת בשעת הסיום שצוינה.\n' +
     '- חריגה מכוונת לכלל שעת הסיום, ליום קפיצה בלבד: נסיעת החזרה מתרחשת אחרי שעת הסיום, וזה תקין ומצופה. הוסף אותה כשורה אחרונה בטבלה עם השעות בפועל (לדוגמה: 18:00-20:00 | נסיעה חזרה ליעד הראשי), וציין שעת הגעה משוערת ללינה. האיסור על פעילות בילוי (בר/מועדון/מוזיקה חיה) אחרי שעת הסיום נשאר בתוקף במלואו - החריגה הזו חלה על נסיעת החזרה בלבד.\n' +
@@ -3396,15 +3166,9 @@ function escapeHtmlLocal(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-window._sideTripSuggestions = {};
-window._regionCitySuggestions = {};
-window._sideTripExcluded = {};
-window._regionCityExcluded = {};
 // v4.56 - namespace נפרד ל"יום קפיצה מהיעד הראשי" (פריט #2/#4 מבדיקת קרקוב), כדי לא להתנגש
 // עם window._sideTripSuggestions/_sideTripExcluded - שני מנגנוני tid עצמאיים (mainDayTripRowCount
 // מול sideTripRowCount) עלולים לייצר אותו מספר tid, ואז לדרוס הצעות של מנגנון אחד עם השני.
-window._mainDayTripSuggestions = {};
-window._mainDayTripExcluded = {};
 
 let distanceMatrixService = null;
 
@@ -3458,41 +3222,7 @@ async function getTravelDistance(origin, destination) {
   }
 }
 
-// מאמתת מרחק אמיתי לכל פריט ברשימת הצעות.
-// v4.69 - A4: עד עכשיו s.tooFar נקבע אך ורק כאשר getTravelDistance החזיר תוצאה. אם הוא נכשל,
-// או אם גוגל לא זיהה את השם (תעתיק עברי שהמודל המציא), s.tooFar נשאר undefined - כלומר falsy -
-// וההצעה נחשבה "בתוך הסף" והוצגה בלי שום סימון. זה fail-open בשער המרחק.
-// תוקן: נוסף s.distanceVerified מפורש. אין נתון = לא מאומת, ולא "בסדר".
-async function verifyDistances(list, origin, maxMinutesThreshold) {
-  await Promise.all(list.map(async (s) => {
-    const d = await getTravelDistance(origin, s.name);
-    if (d && d.durationMinutes != null) {
-      s.realDuration = d.durationText;
-      s.realDurationMinutes = d.durationMinutes;
-      s.tooFar = d.durationMinutes > maxMinutesThreshold;
-      s.distanceVerified = true;
-    } else {
-      s.realDuration = null;
-      s.realDurationMinutes = null;
-      s.tooFar = false;
-      s.distanceVerified = false;
-    }
-  }));
-}
 
-// v4.69 - B5: השוואת שמות מנורמלת עם זיהוי הכלה. הבדיקה הקודמת דרשה שוויון מלא בלבד,
-// ולכן "סאסרה - זקופנה" חמק מול "זקופנה" והוצג כהצעה חדשה. סף של 3 תווים מונע התאמות שווא
-// על שמות קצרים מאוד.
-function normalizeSuggestionName(n) {
-  return String(n || '').trim().toLowerCase().replace(/[\s"'\u2018\u2019\u201C\u201D().,\-]+/g, ' ').trim();
-}
-function isSameSuggestion(a, b) {
-  const x = normalizeSuggestionName(a), y = normalizeSuggestionName(b);
-  if (!x || !y) return false;
-  if (x === y) return true;
-  if (x.length >= 3 && y.length >= 3) return x.indexOf(y) !== -1 || y.indexOf(x) !== -1;
-  return false;
-}
 
 // v4.73 - מנגנון 5: שיפוט החרגה נושאית ליעדים מוצעים. משתמשת באותה קריאת Claude ב-temperature 0
 // שכבר עובדת ב-filterExcludedPlaces. התוצאה נשמרת ב-cache לכל הסשן, כך שאותו שם אינו נשלח
@@ -3500,86 +3230,8 @@ function isSameSuggestion(a, b) {
 // כשל: מחזירה סט ריק, כלומר לא חוסמת. עדיף להציע יעד שהיה צריך להיחסם מאשר לחסום הכל בגלל
 // כשל רשת. הכשל נרשם ל-Debug.
 window._topicExclusionCache = window._topicExclusionCache || {};
-async function judgeTopicExclusion(names, excludeStr, apiKey, accessCode) {
-  const blocked = new Set();
-  if (!excludeStr || !excludeStr.trim() || !names.length) return blocked;
-  const cache = window._topicExclusionCache;
-  const key = excludeStr.trim();
-  cache[key] = cache[key] || {};
-  const unknown = names.filter(n => !(n in cache[key]));
-  if (unknown.length) {
-    const prompt = `אתה מסנן יעדים. המשתמש ביקש להחריג מהטיול לגמרי: "${key}".
-לפניך רשימת יעדים מוצעים. החזר JSON בלבד, בלי טקסט נוסף, בפורמט: {"blocked": ["שם1", "שם2"]}
-כלול ב-blocked כל יעד ששייך מבחינה נושאית או תוכנית להחרגה, גם אם שמו אינו מכיל את מילת ההחרגה במפורש.
-דוגמה: אם ההחרגה היא "מחנות ריכוז ואתרי שואה", אושוויינצ'ים (Oswiecim) חסומה, כי זו העיר שבה נמצא המחנה.
-דוגמה: אם ההחרגה היא "מרבצי מלח", ויאליצ'קה (Wieliczka) חסומה, כי היא ידועה במכרה המלח שלה.
-אם יעד אינו שייך להחרגה - אל תכלול אותו.
-היעדים: ${unknown.join(', ')}`;
-    try {
-      const data = await callClaudeAPI({
-        model: 'claude-sonnet-4-6', max_tokens: 700, temperature: 0,
-        messages: [{ role: 'user', content: prompt }]
-      }, apiKey, accessCode);
-      const text = data.content?.map(b => b.text || '').join('') || '';
-      const parsed = parseModelJson(text, 'judgeTopicExclusion');
-      const arr = Array.isArray(parsed.blocked) ? parsed.blocked : [];
-      unknown.forEach(n => { cache[key][n] = arr.some(b => isSameSuggestion(n, b)); });
-    } catch (e) {
-      recordDebugError('judgeTopicExclusion', e.message, e.rawResponse);
-      return blocked; // fail-open מכוון: לא חוסמים הכל בגלל כשל רשת
-    }
-  }
-  names.forEach(n => { if (cache[key][n]) blocked.add(n); });
-  return blocked;
-}
 
-// v4.69 - A5 + A6: השער. עד עכשיו הקוד בנה מסננים שמסמנים, לא שערים שחוסמים - הצעה שחרגה
-// מהסף הוצגה עם ⚠️ ובאנר "אלה הטובים ביותר שנמצאו". תיוג אינו מניעה.
-// העיקרון כאן: אין נתון מאומת = לא מוצג.
-// שלוש עילות פסילה: חריגה מהסף, מרחק לא מאומת, וחזרה על הצעה קודמת.
-// חריג מכוון אחד: אם אף פריט לא אומת (כלומר שירות המרחקים נפל לגמרי, ולא שם בודד שלא זוהה) -
-// הפריטים מוצגים עם באנר מפורש שהמרחק לא נבדק, במקום מסך ריק שמשאיר את המשתמש בלי כלום.
-// v4.69 - הבאנר מדווח בדיוק מה נפסל ולמה, במקום להסתיר. שקיפות מלאה: המשתמש רואה
-// שהמערכת מצאה יעד וסירבה להציג אותו, ומאיזו סיבה - ולא "פשוט לא נמצאו הצעות".
-function buildGateBanner(gate, maxHours) {
-  let html = '';
-  if (gate.distancesUnavailable) {
-    html += '<div style="font-size:11px;color:#8a6d00;background:#fffbe6;border:1px solid #f0dfa0;border-radius:6px;padding:6px 8px;margin-bottom:6px">⚠️ לא ניתן היה לאמת זמני נסיעה כרגע (שירות המרחקים של Google לא הגיב). ההצעות מוצגות ללא אימות - חובה לבדוק את זמן הנסיעה ידנית לפני שבוחרים.</div>';
-  }
-  if (gate.rejected && gate.rejected.length) {
-    html += '<div style="font-size:11px;color:#c0392b;background:#fdf2f2;border:1px solid #f5c6c6;border-radius:6px;padding:6px 8px;margin-bottom:6px">🚫 ' + gate.rejected.length + ' הצעות נפסלו ולא הוצגו' + (maxHours ? ' (הסף שקבעת: ' + maxHours + ' שעות)' : '') + ':<br>' +
-      gate.rejected.map(r => '• ' + escapeHtmlLocal(r.name) + ' - ' + escapeHtmlLocal(r.reason)).join('<br>') + '</div>';
-  }
-  if (gate.passed && gate.passed.length === 0) {
-    html += '<div style="font-size:11px;color:#c0392b;background:#fdf2f2;border:1px solid #f5c6c6;border-radius:6px;padding:6px 8px;margin-bottom:6px">לא נותרה אף הצעה שעומדת בתנאים. אפשר להרחיב את הסף, ללחוץ "עוד הצעות", או למלא יעד ידנית.</div>';
-  }
-  return html;
-}
 
-function gateSuggestions(list, opts) {
-  const excludeNames = (opts && opts.excludeNames) || [];
-  const topicBlocked = (opts && opts.topicBlocked) || new Set();
-  const passed = [], rejected = [];
-  const anyVerified = list.some(s => s.distanceVerified);
-  list.forEach(s => {
-    // v4.73 - מנגנון 5: עילת פסילה רביעית - החרגה נושאית. עד עכשיו השער בדק מרחק, אימות
-    // וחזרות בלבד, וההחרגה נשארה הנחיה רכה בפרומפט. בבדיקה חיה אושוויינצ'ים ווויאליצ'קה
-    // הוצעו כיעד קפיצה למרות שדה ההחרגה.
-    if (topicBlocked.has(s.name)) { rejected.push({ name: s.name, reason: 'נופל בהחרגה שהגדרת' }); return; }
-    s.isDuplicate = excludeNames.some(n => isSameSuggestion(s.name, n));
-    if (s.isDuplicate) { rejected.push({ name: s.name, reason: 'חזרה על הצעה קודמת' }); return; }
-    if (s.distanceVerified && s.tooFar) {
-      rejected.push({ name: s.name, reason: 'זמן נסיעה בפועל ' + (s.realDuration || 'לא ידוע') + ' - חורג מהסף' });
-      return;
-    }
-    if (!s.distanceVerified && anyVerified) {
-      rejected.push({ name: s.name, reason: 'לא ניתן היה לאמת את זמן הנסיעה ליעד הזה' });
-      return;
-    }
-    passed.push(s);
-  });
-  return { passed: passed, rejected: rejected, distancesUnavailable: !anyVerified && list.length > 0 };
-}
 
 // פונקציית עזר משותפת - קריאה ל-Claude API וחילוץ רשימת הצעות JSON.
 // זהה בשתי הפונקציות למטה, אוחד למקום אחד כדי למנוע כפילות קוד.
@@ -3734,240 +3386,10 @@ function parseModelJson(text, source) {
   }
 }
 
-async function fetchAiSuggestions(apiKey, accessCode, prompt) {
-  const data = await callClaudeAPI({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 5000,
-    temperature: 0.3,
-    messages: [{ role: 'user', content: prompt }]
-  }, apiKey, accessCode);
-  const text = data.content?.map(b => b.text || '').join('') || '';
-  // v4.65 - באג חי: הקוד הקודם הסיר רק גדרות markdown ואז שלח את כל הטקסט שנותר ל-JSON.parse.
-  // אם Claude הוסיף ולו משפט הסבר אחד אחרי ה-JSON - הפרסור קרס עם
-  // "Unexpected non-whitespace character after JSON". קרה בפועל ב"עוד הצעות", שם הפרומפט מכיל
-  // גם את רשימת ההחרגות ולכן המודל נוטה יותר להסביר את עצמו בסוף.
-  // התיקון: חילוץ אובייקט ה-JSON לפי הסוגר המסולסל הראשון והאחרון, במקום הנחה שכל התשובה היא JSON.
-  // נשמרת נפילה לטקסט המלא אם לא נמצאו סוגריים, כדי לא לשבור מקרה תקין קיים.
-  // v4.68 - הפרסור עבר ל-parseModelJson המשותפת. הלוגיקה זהה לחלוטין (תיקוני v4.65 + v4.67),
-  // רק שהיא משרתת עכשיו גם את filterExcludedPlaces ואת fetchIntent.
-  const parsed = parseModelJson(text, 'fetchAiSuggestions');
-  const list = (parsed && parsed.suggestions) || [];
-  if (!list.length) throw new Error('לא התקבלו הצעות תקינות');
-  return list;
-}
 
-async function suggestRegionCity(idx, isRefresh) {
-  const errBox = document.getElementById('region-name-err-' + idx);
-  if (errBox) errBox.textContent = '';
-  const apiKey = document.getElementById('api-key').value.trim();
-  const accessCode = document.getElementById('access-code').value.trim();
-  if (!apiKey && !accessCode) { if (errBox) errBox.textContent = 'יש להזין Anthropic API Key או קוד גישה למעלה לפני קבלת המלצות'; return; }
-  const mainDest = document.getElementById('destination').value.trim();
-  if (!mainDest) { if (errBox) errBox.textContent = 'יש להזין תחילה את היעד הראשי של הסיור למעלה'; return; }
-  const interests = getInterests();
-  const btn = document.getElementById('region-name-suggest-btn-' + idx);
-  const box = document.getElementById('region-name-suggestions-' + idx);
-  if (btn) { btn.disabled = true; btn.textContent = 'טוען...'; }
-  if (box) box.innerHTML = '';
 
-  if (isRefresh) {
-    const prevList = window._regionCitySuggestions[idx] || [];
-    window._regionCityExcluded[idx] = (window._regionCityExcluded[idx] || []).concat(prevList.map(s => s.name));
-  } else {
-    window._regionCityExcluded[idx] = [];
-  }
-  const excludeNames = window._regionCityExcluded[idx];
-  const excludeClause = excludeNames.length ? ` אל תציע שוב את הערים/אזורים הבאים שכבר הוצעו: ${excludeNames.join(', ')}.` : '';
 
-  // v4.69 - A6: הפונקציה הזו מעולם לא קראה את שדה "להחריג לגמרי". v4.58 תיקן את
-  // suggestMainDayTrip, v4.59 את suggestSideTrip, והשלישית נשכחה. אותו ניסוח בדיוק, לעקביות.
-  const excludeStr = (document.getElementById('exclude') || {}).value || '';
-  const excludeTopicClause = excludeStr.trim()
-    ? ` הגבלה מחייבת, לא העדפה: אסור להציע יעד ששייך מבחינה נושאית/תוכנית לנושא הבא, גם אם שם היעד עצמו לא מכיל את מילת ההחרגה במפורש (לדוגמה: אם ההחרגה היא "מחנות", אסור להציע את אושוויץ, גם שהמילה "מחנה" לא מופיעה בשמו): "${excludeStr.trim()}".`
-    : '';
 
-  const numPeopleEl = document.getElementById('num-people');
-  const numPeople = numPeopleEl ? numPeopleEl.value.trim() : '';
-  const groupSizeClause = numPeople ? ` הקבוצה מונה ${numPeople} אנשים - אם היעד המוצע קטן/כפרי ועלול להיות מוגבל בזמינות לינה (מלון אחד) לקבוצה בגודל הזה, ציין זאת במפורש בתיאור.` : '';
-
-  const clarifyEl = document.getElementById('region-clarify-' + idx);
-  const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
-  const clarifyClause = clarifyText ? ` הערה/העדפה נוספת מהמשתמש שיש להתחשב בה בבחירת ההצעות: "${clarifyText}".` : '';
-
-  const globalClarifyEl = document.getElementById('multi-region-clarify');
-  const globalClarifyText = globalClarifyEl ? globalClarifyEl.value.trim() : '';
-  // עיקרון מנחה - בפתיחת הפרומפט (primacy) + תזכורת קצרה בסופו (recency), לא קבור באמצע משפט ארוך
-  const globalConstraintOpen = globalClarifyText ? `עיקרון מנחה שכל הצעה חייבת לשרת בפועל, לא רק להיות תואמת אליו באופן כללי: "${globalClarifyText}".\n\n` : '';
-  const globalConstraintClose = globalClarifyText ? ` חשוב: ודא שכל הצעה משרתת בפועל את העיקרון המנחה שצוין בתחילת ההודעה.` : '';
-
-  const prompt = `${globalConstraintOpen}המלץ על 2-3 ערים/אזורים שונים שמתאימים כבסיס לינה נוסף בסיור, במרחקים שונים זה מזה מ-${mainDest} (בין כשעה לכ-3 שעות נסיעה בערך).${excludeClause}${excludeTopicClause} התאם לתחומי עניין: ${interests}.${clarifyClause} לכל המלצה כתוב תיאור של 2-3 משפטים (לא רק משפט אחד) שכולל: זמן נסיעה משוער מ-${mainDest}, מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), ואווירת בתי קפה/מסעדות/פעילות ערב.${groupSizeClause}${globalConstraintClose} החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
-{"suggestions":[{"name":"שם העיר/אזור","distance":"כ-X שעות נסיעה מ-${mainDest}","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}`;
-
-  try {
-    const rawList = await fetchAiSuggestions(apiKey, accessCode, prompt);
-    await verifyDistances(rawList, mainDest, 210); // חריגה משמעותית מ-3 שעות
-    // v4.69 - A6: גם כאן עובר בשער. אין retry בפונקציה הזו, ולכן פסילה מצמצמת את הרשימה
-    // ואינה מנסה להחליף - זו התנהגות מכוונת, ועדיפה על הצגת יעד שחורג או לא אומת.
-    const topicBlockedR = await judgeTopicExclusion(rawList.map(x => x.name), excludeStr, apiKey, accessCode);
-    const gate = gateSuggestions(rawList, { excludeNames: excludeNames, topicBlocked: topicBlockedR });
-    const list = gate.passed;
-    window._regionCitySuggestions[idx] = list;
-    if (box) {
-      box.innerHTML = buildGateBanner(gate, null) + list.map((s, i) =>
-        '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
-          '<button type="button" class="rec-link maps" style="flex:1;min-width:0;text-align:right;white-space:normal;overflow-wrap:break-word" onclick="applyRegionCitySuggestion(' + idx + ',' + i + ')">' +
-            '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
-            (s.realDuration ? ' - ' + escapeHtmlLocal(s.realDuration) + ' (מאומת)' : '') +
-            (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
-          '</button>' +
-          '<button type="button" title="שמור להשוואה" style="flex:0 0 auto;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;font-size:14px" onclick="saveSuggestionToCompare(this,\'region\',' + idx + ',' + i + ')">📌</button>' +
-        '</div>'
-      ).join('') + '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה</div>' +
-      '<button type="button" class="rec-link" style="margin-top:6px;font-size:11px" onclick="suggestRegionCity(' + idx + ',true)">🔄 עוד הצעות</button>';
-    }
-    renderInlineSavedSuggestions('region', idx);
-  } catch(e) {
-    recordDebugError('suggestRegionCity', e.message, e.rawResponse);
-    if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message;
-  }
-  if (btn) { btn.disabled = false; btn.textContent = '✨ המלץ לי'; }
-}
-
-function applyRegionCitySuggestion(idx, i) {
-  const list = window._regionCitySuggestions[idx];
-  if (!list || !list[i]) return;
-  const input = document.getElementById('region-name-' + idx);
-  if (input) input.value = list[i].name;
-  const box = document.getElementById('region-name-suggestions-' + idx);
-  if (box) box.innerHTML = '';
-}
-
-async function suggestSideTrip(tid, regionIdx, isRefresh) {
-  const errBox = document.getElementById('sidetrip-err-' + tid);
-  if (errBox) errBox.textContent = '';
-  const apiKey = document.getElementById('api-key').value.trim();
-  const accessCode = document.getElementById('access-code').value.trim();
-  if (!apiKey && !accessCode) { if (errBox) errBox.textContent = 'יש להזין Anthropic API Key או קוד גישה למעלה לפני קבלת המלצות'; return; }
-  const nameEl = document.getElementById('region-name-' + regionIdx);
-  const baseName = nameEl ? nameEl.value.trim() : '';
-  if (!baseName) { if (errBox) errBox.textContent = 'נא למלא קודם את שם העיר/אזור למעלה לפני בקשת המלצה'; return; }
-  const btn = document.getElementById('sidetrip-suggest-btn-' + tid);
-  const box = document.getElementById('sidetrip-suggestions-' + tid);
-  if (btn) { btn.disabled = true; btn.textContent = 'טוען...'; }
-  if (box) box.innerHTML = '';
-
-  if (isRefresh) {
-    const prevList = window._sideTripSuggestions[tid] || [];
-    window._sideTripExcluded[tid] = (window._sideTripExcluded[tid] || []).concat(prevList.map(s => s.name));
-  } else {
-    window._sideTripExcluded[tid] = [];
-  }
-  // v4.59 - אותו תיקון גיוון-בין-שורות שבוצע ב-suggestMainDayTrip (v4.58), כאן עבור יום קפיצה
-  // מאזור בטיול נודד: אוספים גם יעדים שכבר נבחרו/הוצעו בשורות sidetrip אחרות (בכל אזור, לא רק
-  // באותו אזור) - בלי זה, שתי שורות יום-קפיצה יכלו להציע בדיוק את אותם יעדים.
-  const crossRowNames = new Set();
-  document.querySelectorAll('.sidetrip-row').forEach(row => {
-    const otherTid = row.id.replace('sidetrip-row-', '');
-    if (String(otherTid) === String(tid)) return;
-    const otherDestEl = document.getElementById('sidetrip-dest-' + otherTid);
-    if (otherDestEl && otherDestEl.value.trim()) crossRowNames.add(otherDestEl.value.trim());
-    (window._sideTripSuggestions[otherTid] || []).forEach(s => { if (s.name) crossRowNames.add(s.name); });
-  });
-  const excludeNames = (window._sideTripExcluded[tid] || []).concat(Array.from(crossRowNames));
-  const excludeClause = excludeNames.length ? ` אל תציע שוב את היעדים הבאים שכבר הוצעו/נבחרו (בשורה הזו או בשורות יום-קפיצה אחרות באותו טיול): ${excludeNames.join(', ')}.` : '';
-
-  // v4.59 - אותו תיקון הזרקת "להחריג" שבוצע ב-suggestMainDayTrip (v4.58) - עד עכשיו suggestSideTrip
-  // גם היא לא קראה בכלל את שדה ה-exclude הראשי, למרות שהיא כן כבר קראה שדה clarify גלובלי נפרד
-  // (multi-region-clarify). שני שדות שונים לגמרי - clarify הוא העדפה, exclude הוא הגבלה מחייבת.
-  const excludeStr = (document.getElementById('exclude') || {}).value || '';
-  const excludeTopicClause = excludeStr.trim()
-    ? ` הגבלה מחייבת, לא העדפה: אסור להציע יעד ששייך מבחינה נושאית/תוכנית לנושא הבא, גם אם שם היעד עצמו לא מכיל את מילת ההחרגה במפורש (לדוגמה: אם ההחרגה היא "מחנות", אסור להציע את אושוויץ, גם שהמילה "מחנה" לא מופיעה בשמו): "${excludeStr.trim()}".`
-    : '';
-
-  const maxHoursInput = document.getElementById('sidetrip-maxhours-' + tid);
-  let maxHours = maxHoursInput ? parseFloat(maxHoursInput.value) : NaN;
-  if (!maxHours || isNaN(maxHours) || maxHours <= 0) maxHours = 2; // נפילה חזרה לברירת מחדל אם השדה ריק/לא תקין
-  const maxMinutesThreshold = Math.round(maxHours * 60); // v4.62 - הוסר buffer 25% שהיה כאן (הסתיר חריגות אמיתיות מהמשתמש, ראה main-daytrip לפירוט מלא)
-
-  const clarifyEl = document.getElementById('sidetrip-clarify-' + tid);
-  const clarifyText = clarifyEl ? clarifyEl.value.trim() : '';
-  const clarifyClause = clarifyText ? ` הערה/העדפה נוספת מהמשתמש שיש להתחשב בה בבחירת ההצעות: "${clarifyText}".` : '';
-  const globalClarifyEl = document.getElementById('multi-region-clarify');
-  const globalClarifyText = globalClarifyEl ? globalClarifyEl.value.trim() : '';
-  // עיקרון מנחה - בפתיחת הפרומפט (primacy) + תזכורת קצרה בסופו (recency), לא קבור באמצע משפט ארוך
-  const globalConstraintOpen = globalClarifyText ? `עיקרון מנחה שכל הצעה חייבת לשרת בפועל, לא רק להיות תואמת אליו באופן כללי: "${globalClarifyText}".\n\n` : '';
-  const globalConstraintClose = globalClarifyText ? ` חשוב: ודא שכל הצעה משרתת בפועל את העיקרון המנחה שצוין בתחילת ההודעה.` : '';
-
-  const prompt = `${globalConstraintOpen}המלץ על 3 יעדים ליום טיול-כוכב (day trip) מ-${baseName} - יעד שאפשר להגיע אליו ולחזור באותו יום, במרחק נסיעה סביר (עד כ-${maxHours} שעות בכל כיוון).${excludeClause}${excludeTopicClause}${clarifyClause} לכל יעד כתוב תיאור קצר של 2-3 משפטים (לא רק משפט אחד) שמתייחס ל: מוקד עניין מרכזי אחד לפחות (רחוב/כיכר ידועים, גלריה, טירה/אתר היסטורי, שוק וכד'), אווירת בתי קפה/מסעדות, ואפשרויות פעילות בערב - ואם היעד קטן/שקט ואין בו הרבה מה לעשות בערב, ציין זאת במפורש בתיאור.${globalConstraintClose} החזר JSON בלבד ללא טקסט נוסף, בפורמט הזה בדיוק:
-{"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים לפי ההנחיות למעלה"}]}
-
-חשוב לתקינות ה-JSON: אסור להשתמש בתו מרכאות כפולות (") בתוך הטקסט של name או reason. אם דרוש ציטוט או כינוי, השתמש בגרש בודד או בלי סימן כלל. שורה חדשה בתוך ערך אסורה גם היא - כתוב הכל בשורה אחת.`;
-
-  try {
-    let list = await fetchAiSuggestions(apiKey, accessCode, prompt);
-    await verifyDistances(list, baseName, maxMinutesThreshold);
-
-    // v4.61 - אותו תיקון חזרות קשיחות שבוצע ב-suggestMainDayTrip: בדיקה בפועל (לא רק הנחיה)
-    // אם השם שחזר מ-Claude מופיע ברשימת "כבר הוצע/נבחר", ומטפלים בזה באותו retry שכבר קיים ל-tooFar.
-    // v4.69 - אותו שער משותף כמו ב-suggestMainDayTrip.
-    const topicBlocked = await judgeTopicExclusion(list.map(x => x.name), (document.getElementById('exclude') || {}).value || '', apiKey, accessCode);
-    let gate = gateSuggestions(list, { excludeNames: excludeNames, topicBlocked: topicBlocked });
-
-    let retried = false;
-    const needsReplacement = gate.rejected;
-    if (needsReplacement.length > 0 && btn) {
-      retried = true;
-      btn.textContent = 'מנסה שוב עם יעדים שונים...';
-      const replaceDetail = needsReplacement.map(r => r.name + ' (' + r.reason + ')').join('; ');
-      const allNamesSoFar = list.map(s => s.name).concat(excludeNames);
-      const retryPrompt = `${globalConstraintOpen}המלץ על ${needsReplacement.length} יעדים חלופיים ליום טיול-כוכב (day trip) מ-${baseName}, במרחק נסיעה אמיתי של עד כ-${maxHours} שעות בכל כיוון בלבד - זו דרישה מחייבת, לא הערכה כללית. ההצעות הבאות כבר נבדקו/כבר הוצעו ונפסלו: ${replaceDetail}. אל תציע שוב אף אחד מהשמות הבאים - זו רשימה מחייבת, לא המלצה: ${allNamesSoFar.join(', ')}. אם אין לך יעד קרוב אמיתי שלא ברשימה - מותר להציע יעד מעט פחות מוכר/קלאסי, אבל אסור לחזור על שם מהרשימה.${excludeTopicClause}${clarifyClause} הפעם הצע רק יעדים שונים באמת מהרשימה. לכל יעד כתוב תיאור של 2-3 משפטים כמו קודם.${globalConstraintClose} החזר JSON בלבד באותו פורמט:
-{"suggestions":[{"name":"שם היעד","reason":"תיאור של 2-3 משפטים"}]}`;
-      try {
-        const replacementList = await fetchAiSuggestions(apiKey, accessCode, retryPrompt);
-        await verifyDistances(replacementList, baseName, maxMinutesThreshold);
-        const seen = gate.passed.map(s => s.name).concat(excludeNames);
-        const topicBlocked2 = await judgeTopicExclusion(replacementList.map(x => x.name), (document.getElementById('exclude') || {}).value || '', apiKey, accessCode);
-        const gate2 = gateSuggestions(replacementList, { excludeNames: seen, topicBlocked: topicBlocked2 });
-        gate.passed = gate.passed.concat(gate2.passed);
-        gate.rejected = gate.rejected.concat(gate2.rejected);
-      } catch (retryErr) {
-        console.warn('[suggestSideTrip] ניסיון חוזר נכשל, ממשיכים עם התוצאה המקורית:', retryErr);
-        recordDebugError('suggestSideTrip-retry', retryErr.message, retryErr.rawResponse);
-      }
-    }
-    list = gate.passed;
-
-    window._sideTripSuggestions[tid] = list;
-    if (box) {
-      box.innerHTML = buildGateBanner(gate, maxHours) + list.map((s, i) =>
-        '<div style="display:flex;align-items:stretch;gap:4px;margin:4px 0;width:100%">' +
-          '<button type="button" class="rec-link maps" style="flex:1;min-width:0;text-align:right;white-space:normal;overflow-wrap:break-word" onclick="applySideTripSuggestion(' + tid + ',' + i + ')">' +
-            '<strong>' + escapeHtmlLocal(s.name) + '</strong>' +
-            (s.realDuration ? ' <span style="font-size:10px;font-weight:400">(' + escapeHtmlLocal(s.realDuration) + ' - מאומת)</span>' : '') +
-            (s.reason ? '<div style="font-size:10px;font-weight:400;margin-top:2px">' + escapeHtmlLocal(s.reason) + '</div>' : '') +
-          '</button>' +
-          '<button type="button" title="שמור להשוואה" style="flex:0 0 auto;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;font-size:14px" onclick="saveSuggestionToCompare(this,\'sidetrip\',' + tid + ',' + i + ')">📌</button>' +
-        '</div>'
-      ).join('') +
-      (list.length ? '<div style="font-size:10px;color:var(--muted);margin-top:4px">לחץ על הצעה כדי למלא אותה בשדה, ניתן גם לערוך ידנית</div>' : '') +
-      '<button type="button" class="rec-link" style="margin-top:6px;font-size:11px" onclick="suggestSideTrip(' + tid + ',' + regionIdx + ',true)">🔄 עוד הצעות</button>';
-    }
-    renderInlineSavedSuggestions('sidetrip', tid);
-  } catch(e) {
-    recordDebugError('suggestSideTrip', e.message, e.rawResponse);
-    if (errBox) errBox.textContent = 'שגיאה בקבלת הצעות: ' + e.message + ' - ניתן למלא ידנית';
-  }
-  if (btn) { btn.disabled = false; btn.textContent = '✨ המלץ לי'; }
-}
-
-function applySideTripSuggestion(tid, i) {
-  const list = window._sideTripSuggestions[tid];
-  if (!list || !list[i]) return;
-  const input = document.getElementById('sidetrip-dest-' + tid);
-  if (input) input.value = list[i].name;
-  const box = document.getElementById('sidetrip-suggestions-' + tid);
-  if (box) box.innerHTML = '';
-}
 
 function searchHotelByArea() {
   var dest = window._recDest || document.getElementById('destination').value.trim();
