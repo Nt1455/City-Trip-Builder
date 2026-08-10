@@ -1,3 +1,4 @@
+<!-- City Trip Builder Claude - v4.82 - 11/08/2026 - שני תיקוני באג ופיצר אחד, כולם נובעים מהבדיקה החיה של v4.81. באג 1, נמצא לפני כתיבת קוד ולא אחריה: השורה lastDebugInfo = { sentAt... } ב-buildTrip יוצרת אובייקט חדש לגמרי, ולכן מחקה את distanceLog שנצבר במהלך הבנייה. זו הסיבה שמקטע בדיקות Distance Matrix לא הופיע בפאנל אחרי בניית מסלול מלאה ב-v4.81, אלא רק אחרי לחיצות בודדות ב-v4.79 וב-v4.80 - הכשל היה סמוי כי הוא מתרחש רק בנתיב הבנייה המלאה. הלוג נשמר למשתנה לפני הדריסה ומוחזר אחריה. באג 2: getTravelDistance זרקה את response.destinationAddresses, השדה שבו גוגל מחזיר את הכתובת שהוא בפועל מצא. השדה היה קיים בתשובה כל הזמן. בלעדיו מדידה על תעתיק עברי שגוי מחזירה סטטוס OK ומספר תקין לחלוטין - עבור עיר אחרת; זה קרה בפועל ב-v4.80, שם ביץ לבד החזיר 11 שעות 16 דקות וביץ (Biecz) החזיר שעה ו-58 דקות, שניהם OK. resolvedName מוחזר מעכשיו וגם נרשם ללוג לצד זמן הנסיעה. הפיצר: תצוגת מרחק וזמן נסיעה בטופס עצמו, ליד שדה היעד, בשורות יום קפיצה ובשורות טיול כוכב של הטיול הנודד. נוספה previewDestinationDistance(kind, tid) המופעלת ב-onblur, כלומר ביציאה מהשדה ולא תוך כדי הקלדה - החלטה מכוונת שמסירה כל ניחוש לגבי תזמון debounce ומייצרת קריאה אחת ודאית לעריכה. מוצג שם היעד שגוגל מצא, מרחק וזמן. שורות אזור לא קיבלו את התצוגה במכוון: אזור הוא בסיס לינה ולא יעד יום, והמרחק מהיעד הראשי אינו מספר בעל משמעות שם. שלוש החלטות עיצוב מהותיות. הראשונה, מידע ולא שער - שום יעד אינו נפסל, אין צבע אזהרה ואין סימן קריאה; יעד ב-5 שעות הוא בחירה לגיטימית של המשתמש והמערכת מודיעה ואינה שופטת. השנייה, הפרט המכריע הוא resolvedName ולא המספר; המספר לבדו יכול להיות שגוי בשקט, והשם שגוגל מצא הוא מה שהופך את הטעות לגלויה למשתמש ברגע ההקלדה במקום אחרי בניית מסלול שלמה. השלישית, הבחנה בין שני סוגי כשל: NOT_FOUND ו-ZERO_RESULTS הם בעיה בשם שהמשתמש יכול לתקן ולכן נאמרים לו במפורש עם הצעה להוסיף שם לועזי, בעוד כשל תשתית (מכסה, רשת, ספריית Maps) אינו בעיה שלו ואין מה לעשות איתו ולכן אינו מוצג כלל ונרשם רק ללוג. ההבחנה נעשית מול הרשומה האחרונה ב-distanceLog שנכתבה זה עתה. מגבלה מתועדת בקוד: בטופס אין עדיין namesEn ולכן המדידה יוצאת בשם כפי שהוקלד, בעוד הבנייה עצמה מתרגמת דרך fetchIntent ולכן מדויקת יותר; אם השתיים נבדלות - הבנייה היא הקובעת. הבדיקה החיה של v4.81 הדגימה זאת: ביאלו ביאסקי, תעתיק לא תקני, תורגם על ידי namesEn ל-Bielsko-Biała והמדידה החזירה 105 קילומטר ושעה ו-37 דקות - נכון. תיאור העיר נשאר במסלול ולא הועבר לטופס, לפי החלטה מפורשת: בטופס אין עדיין נתוני Places, ולכן כל תיאור שם היה חוזר להיות שליפה של המודל מהזיכרון - בדיוק הרכיב שהוסר ב-v4.81. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML); איזון תגיות div 145/145, script 2/2, table 3/3, select 9/9, textarea 3/3, button 52/52; כל onclick/onchange/onblur מפנים לפונקציות קיימות; 0 בלוקי catch ריקים; משתנה ה-CSS --muted אומת כקיים לפני השימוש בו. בדיקה פונקציונלית: תשעה תרחישים הורצו על הקוד שחולץ מהקובץ הנמסר עצמו ולא על עותק - שם שנקלט נכון, גוגל שמצא עיר אחרת (חייב להציג את השם השגוי כדי שהמשתמש יראה), NOT_FOUND (חייב להציע שם לועזי), כשל תשתית (חייב להישאר ריק לחלוטין), יעד ראשי ריק, שדה יעד ריק, תשובה בלי resolvedName (חייבת עדיין להציג מספר), אותו יעד פעמיים (חייבת להישלח קריאה אחת בלבד - נבדק ואומת), ואלמנטים חסרים לגמרי (לא קורס) - כולם עברו. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.81 - 11/08/2026 - הסרת מנגנון ההצעה האוטומטי משני המדורים, לפי החלטת המשתמש אחרי סבב מדידה. הרקע: הסבב v4.78-v4.80 תיקן בהצלחה את הפרסר, את העיוורון לסטטוס גוגל ואת מסגור הייצור, והמדידה אף עמדה בתנאי העצירה - שלוש ערים מרצועת 2-2.5 שעות ברשימת הייחוס. אלא שהמדידה עצמה נמצאה שגויה בבסיסה: רשימת הייחוס נבנתה על ידי מודלים בצ אט ולא ממקור מדיד, ולכן היא אותו סוג פלט שהאפליקציה מייצרת - השוואת שליפה מול שליפה. הכשל האמיתי שהתגלה הוא אחר וחמור יותר: השער בדק זמן בלבד, ולכן טיניץ במרחק 25 דקות, אולקוש וואוול שבתוך קרקוב עצמה עברו בציון מושלם, בעוד שלפי שיפוט מקצועי אין בהם יום. אין ב-Google Places ולא ב-Distance Matrix מדד לערך של יעד ליום טיול, והמודל אינו יכול לספק אותו באמינות - ולכן ייצור היעדים הוסר, ולא תוקן בשכבה נוספת. מה הוסר: שלוש עשרה פונקציות (suggestMainDayTrip, suggestSideTrip, suggestRegionCity, שלוש פונקציות ה-apply, fetchAiSuggestions, verifyDistances, judgeTopicExclusion, gateSuggestions, buildGateBanner, isSameSuggestion, normalizeSuggestionName), שלוש פונקציות מדף ההשוואה שנועדו רק לשמור הצעות (saveSuggestionToCompare, renderInlineSavedSuggestions, applySavedInline) ופונקציית ההסרה שלהן שהתייתמה, שישה משתני window גלובליים של מאגרי הצעות, וכן מהטופס: כפתורי המלץ לי ועוד הצעות, הבאנר האדום, שדות ההבהרה ושדה עד X שעות בשלושת סוגי השורות. הטופס מכיל מעכשיו תאריך, יעד ושעות בלבד. מה נוסף: מדידת מרחק וזמן נסיעה אמיתיים מהיעד הראשי לכל יעד משני, דרך אותה getTravelDistance שעבדה 28 מתוך 29 בבדיקה החיה של v4.80. המדידה ממוקמת אחרי fetchIntent בכוונה מפורשת - namesEn כבר זמין באותה נקודה, ולכן הקריאה יוצאת בשם הלועזי ולא בתעתיק עברי בלבד; זה בדיוק הכשל שהחזיר 11 שעות עבור ביץ לעומת שעה ו-58 דקות עבור Biecz, עם סטטוס OK ובלי שום סימן לטעות. התוצאה מוזרקת לפרומפט ומוצגת בתיאור העיר בתוך המסלול הבנוי, עם הוראה מפורשת למודל לא להעריך מרחק בעצמו כשלא סופק. הכלל המנחה: זהו מידע ולא שער - שום יעד אינו נפסל, אינו מתויג באזהרה ואינו נחסם, כי המשתמש בחר אותו. כשל מדידה אינו מוצג בשום צורה בממשק ורק נרשם ללוג Distance Matrix בפאנל Debug, כי מספר שגוי גרוע ממספר חסר. שינוי נלווה: שורה בלי יעד אינה מייצרת עוד הנחיה למודל לבחור יעד בעצמו, בשני המדורים - היא פשוט אינה נכנסת לפרומפט. זה סוגר מאליו את פער ביאלה שאותר ב-v4.78, שבו יעד שנבחר על ידי המודל בזמן בניית המסלול הגיע אחרי שלב Places ולכן קיבל יום שלם בלי נתוני מסעדות. מה לא נגעתי: getTravelDistance, recordDistanceCheck ולוג ה-Debug מ-v4.79, parseModelJson וכל שרשרת הפרסור על תיקוני v4.78 ו-v4.80, fetchPlaces, fetchIntent, filterExcludedPlaces, resolveSearchName, ה-PROBE (נותק משדה השעות שהוסר וקובע 2 שעות), ושדה ההבהרה הכללית של הטיול הנודד שאינו חלק ממנגנון ההצעות. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML); איזון תגיות div 143/143, script 2/2, table 3/3, select 9/9, textarea 3/3, button 52/52; כל onclick/onchange מפנים לפונקציות קיימות (event/window מובנים); 0 בלוקי catch ריקים; 0 הפניות למזהי HTML שהוסרו; סריקת פונקציות יתומות אחרי ההסרה זיהתה אחת שנוצרה מהמחיקה (removeInlineSavedSuggestion) והיא הוסרה, שלוש הנותרות הן callback ומטפלי אירוע שהיו יתומות מראש ולא נגעתי בהן. בדיקה פונקציונלית: ששה תרחישים הורצו על הקוד שחולץ מהקובץ הנמסר עצמו - יעד עם מדידה, יעד שהמדידה שלו נכשלה (חייב להופיע בלי מספר ובלי אזהרה), שורה בלי יעד (חייבת להיעלם ולא להורות למודל לבחור), שתי שורות שאחת מהן ריקה, toggle כבוי, ושורה בלי תאריך - כולם עברו. הקובץ ירד מ-3936 שורות ל-3405. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.80 - 10/08/2026 - שני שינויים באישור מפורש לבצע אותם יחד: שער בשכבה 4, ושלב 3 של הסבב. השניים אורתוגונליים ביחס למדידה - השער מסיר שורות זבל מהבאנר האדום ואינו יכול להוסיף או להוריד ערים אמיתיות מהספירה, ולכן שילובם אינו מזהם את תנאי העצירה שנקבע מראש. (1) שער בשכבה 4: הבדיקה החיה של v4.79 הראתה שהמודל משחית לא רק ערכים אלא את מבנה ה-JSON עצמו - name:קרפץ ואז גרש, פסיק, גרש, reason, מרכאות - כלומר המפתח reason נפתח בגרש ונסגר במרכאות. במקטע כזה אין גבול ערך חוקי, החילוץ נופל לשארית המלאה, וכל התיאור נבלע לתוך השם. זה אינו הכשל של v4.78 (חציית גבול אובייקט) שנשאר פתור - זו השחתה בתוך מקטע יחיד. חומרת התוצאה בפועל: המחרוזת המושחתת נשלחה כיעד ל-Google Distance Matrix וגוגל החזיר עליה 4 שעות 21 דקות, כלומר ערך זבל התקדם בצינור עד קריאת API והוצג למשתמש כהצעה שנפסלה על מרחק. נוספה isCorruptSuggestionName הפוסלת שם המכיל תבנית מפתח JSON (מכסה גם גרשים בלבד), מרכאות כפולות או סוגריים מסולסלים, או אורך מעל 80 תווים - השם החוקי הארוך ביותר שהתקבל בפועל היה 47. פסילה ולא תיקון, לפי עיקרון השערים ולא מסננים. salvageSuggestions מחזירה מעכשיו גם dropped, ו-parseModelJson מוסיפה אותו להודעת ה-Debug. (2) שלב 3 - ניסוח מחדש לרצועות זמן והרחבת המאגר מ-3 ל-10: הראיה המכרעת מהבדיקה החיה היא שבסף 3 שעות הוחזרו אותן שתי ערים של 1:40 ו-1:51 שהוחזרו בסף שעתיים, כלומר שינוי האילוץ לא הזיז את הפלט כלל והסף פעל רק כמסננת בדיעבד. מרשימת 20 הערים שסיפק המשתמש הוצעו 5 בסך הכל, וכל רצועת 2-2.5 שעות (8 ערים) לא הוצעה אפילו פעם אחת. הכותרת הקודמת המלץ על 3 יעדים ליום טיול מפעילה שליפה של מקומות מפורסמים ולא חשיבה גיאוגרפית. הפרומפט החדש פותח במשימה גיאוגרפית, מחלק לשלוש רצועות זמן מחושבות משליש ושני שליש מהסף, דורש מינימום 3 יעדים בכל רצועה, מדגיש שהרצועה הרחוקה היא הקריטית, ואוסר במפורש להגביל לאתרי תיירות מפורסמים תוך בקשה מפורשת לערי מחוז ובירות אזוריות ויעדים מעבר לגבול. בנוסף הוחלפו הוראות תקינות ה-JSON בשלושה כללים ממוספרים: אובייקט אחד בלבד בלי טקסט לפניו או אחריו (מכוון נגד תופעת הנרטיב שנצפתה ב-v4.79, שבה המודל החזיר שלושה בלוקי JSON עם טקסט הסבר ביניהם והשכבה חילצה גם את ההדים כהצעות), שני שדות בלבד בסדר קבוע, ומרכאות כפולות למבנה בלבד. ההוראה הישנה מ-v4.74 שהורתה להשתמש בגרש בודד הוסרה - היא ההסבר הסביר לכך שהמודל השתמש בגרש במיקום מבני. לא נגעתי במאגר של suggestSideTrip ושל suggestRegionCity, בשער, בלוגיקת הפסילה, ב-max_tokens (5000 מספיק ל-10 תיאורים), ולא נוספה תקרת תצוגה - הצעה שעוברת תוצג, כי התלונה הייתה מעט מדי ולא יותר מדי. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML); איזון תגיות div 163/163, script 2/2, table 3/3, select 9/9, textarea 3/3, button 65/65; 0 בלוקי catch ריקים; אומת שתיקוני v4.63-v4.79 לא נדרסו, ובכללם recordDistanceCheck ו-extractSchemaField. בדיקה פונקציונלית: הקוד חולץ מהקובץ הנמסר עצמו ולא מעותק. חמישה תרחישי salvage - שחזור מדויק של הבאג החי מ-v4.79, אותה השחתה בגרשים בלבד, שם מעל 80 תווים, קלט תקין לחלוטין שחייב לעבור, ושלושה בלוקי JSON - בכולם השם המושחת נפסל, השם התקין שלצידו שרד, ו-dropped נספר נכון. תשעה תרחישי isCorruptSuggestionName ישירות, ובהם שלושה שמות חוקיים ארוכים ומורכבים שחייבים לעבור (קשיאנוב וילקי עם סוגריים וטקסט נוסף, אושווינצים עם פסיק וגרש, נובי סונץ עם גרש וסוגריים) - כל התשעה עברו. חישוב הרצועות נבדק על שבעה ערכי סף מ-0.5 עד 4 שעות - כולם מניבים שלוש רצועות עולות ותקינות. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.79 - 10/08/2026 - שלב 2 מתוך 5 בסבב "מאגר מועמדים ליעדי יום קפיצה + שער מרחק". נוספה נראות מלאה לסטטוס Google Distance Matrix. הבעיה: getTravelDistance החזירה null בשלוש נקודות שונות בלי לרשום דבר לשום מקום מלבד console.log, ולכן שלושה כשלים שונים לחלוטין הוצגו למשתמש כמחרוזת אחת - "לא ניתן היה לאמת את זמן הנסיעה ליעד הזה". OVER_QUERY_LIMIT (המכסה נגמרה), NOT_FOUND (השם לא זוהה על ידי גוגל) וכשל טעינה של ספריית google.maps הם שלוש בעיות עם שלושה פתרונות שונים, ולא היה שום אופן להבחין ביניהן. קלודזקו הופיעה בבדיקה החיה של v4.78 בדיוק במצב הזה. השלב הזה מקדים בכוונה את הרחבת המאגר: העלאת נפח הקריאות בלי הבחנה בין כשל מכסה לכשל שם הופכת את המדידה של שלב 3 לבלתי ניתנת לפענוח, ותנאי העצירה שנקבע מראש לסבב תלוי באותה מדידה. ממצא שהתגלה תוך כדי ומנע לוג חסר ערך: recordDebugError כותבת ל-lastDebugInfo.lastError בהשמה ולא בצבירה, כלומר כל קריאה דורסת את הקודמת. אימות מרחק רץ בלולאה על כל המועמדים בלחיצה אחת, ולכן שימוש ב-recordDebugError היה מציג כשל בודד מתוך לחיצה שבה שמונה מתוך עשרה נכשלו - לוג שנראה עובד ומשמיט את רוב הנתונים. לכן נוספה recordDistanceCheck נפרדת, הכותבת לרשימה מצטברת lastDebugInfo.distanceLog עם תקרה של 100 רשומות (שמירת האחרונות). נרשמות גם קריאות תקינות ולא רק כשלים, כי ההבחנה בין "גוגל ענה על עשר ונכשל בשלוש" לבין "גוגל נשאל רק שלוש פעמים" היא בדיוק ההבחנה שנדרשת. ארבע נקודות חוברו: כשל טעינת ספריית Maps (הכשל השקט ביותר, פוסל את כל המועמדים בבת אחת מסיבה משותפת שלא נראית), סטטוס ברמת הבקשה, סטטוס ברמת היעד הבודד, וההצלחה. גם בלוק ה-catch מקבל רישום, בנוסף ל-recordDebugError שנשארה בו ולא הוסרה. buildDebugText מציגה מקטע חדש עם מונה קריאות/תקינות/כשלים - בבלוק if נפרד שאינו תלוי ב-sentAt, כדי שהלוג יופיע גם כשנלחץ "המלץ לי" בלי שנבנה מסלול כלל, וזה המצב הרגיל בבדיקת ההצעות. הלוג מצטבר לאורך הסשן ואינו מתאפס בין לחיצות; חותמת השעה בכל שורה היא מה שמפריד בין לחיצה ללחיצה. לא נגעתי במאגר, בפרומפט, בשער ובלוגיקת הפסילה - אלה שלב 3. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML); איזון תגיות div 163/163, script 2/2, table 3/3, select 9/9, textarea 3/3, button 65/65; כל onclick/onchange מפנים לפונקציות קיימות (event/window מובנים); 0 בלוקי catch ריקים; אומת שתיקוני v4.63-v4.78 לא נדרסו. בדיקה פונקציונלית: 6 תרחישים הורצו על הקוד שחולץ מהקובץ הנמסר עצמו ולא על עותק - לחיצה עם 10 מועמדים ובה 7 תקינים ושלושה סוגי כשל שונים, כשל טעינת Maps על כל המועמדים, מצב ללא לוג כלל, תקרת 100 הרשומות (130 נכנסו, 100 נשמרו, האחרונות), ערכי null/undefined בכל הפרמטרים, ודו-קיום עם lastError קיים כדי לוודא ששני המקטעים מוצגים יחד ואינם דורסים זה את זה - כולם עברו. בדיקה חיה טרם בוצעה. -->
@@ -542,7 +543,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.81';
+const APP_VERSION = 'v4.82';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -2049,7 +2050,12 @@ async function buildTrip() {
     system,
     messages: [{ role: 'user', content: prompt }]
   };
+  // v4.82 - באג שהתגלה בבדיקה החיה של v4.81: השורה הזו יצרה אובייקט חדש לגמרי ובכך מחקה את
+  // distanceLog שנצבר במהלך הבנייה. לכן מקטע "בדיקות Distance Matrix" לא הופיע בפאנל אחרי
+  // בניית מסלול מלאה, אלא רק אחרי לחיצות בודדות. הלוג נשמר ומוחזר.
+  const preservedDistanceLog = (lastDebugInfo && lastDebugInfo.distanceLog) || null;
   lastDebugInfo = { sentAt: new Date().toLocaleString('he-IL'), places_debug: placesDebug, request: payload, response: null };
+  if (preservedDistanceLog) lastDebugInfo.distanceLog = preservedDistanceLog;
 
   try {
     let data;
@@ -2845,6 +2851,52 @@ function toggleMainDayTrip() {
   }
 }
 
+// v4.82 - תצוגת מרחק בטופס. מטרה יחידה: לתת למשתמש לראות מיד מה גוגל הבין, לפני שהוא
+// משקיע בניית מסלול שלמה. הכלל המנחה זהה לזה של המסלול - מידע ולא שער: שום יעד אינו
+// נפסל, אין צבע אזהרה ואין סימן קריאה. יעד ב-5 שעות הוא בחירה לגיטימית של המשתמש.
+// הפרט המכריע הוא resolvedName. מדידה על תעתיק עברי לבדו יכולה להחזיר סטטוס OK ומספר
+// תקין לחלוטין - עבור עיר אחרת. זה קרה בפועל: ביץ לבד החזיר 11 שעות, ביץ (Biecz) החזיר
+// 1:58, שניהם OK. הצגת השם שגוגל מצא הופכת את הכשל השקט הזה לגלוי.
+// הבחנה מכוונת בין שני סוגי כשל: NOT_FOUND/ZERO_RESULTS הם בעיה בשם שהמשתמש יכול לתקן,
+// ולכן נאמרים לו. כשל תשתית (מכסה, רשת, ספרייה) אינו בעיה שלו ואין מה לעשות איתו,
+// ולכן לא מוצג כלל ונרשם רק ללוג.
+// מגבלה מתועדת: בטופס אין עדיין namesEn, ולכן המדידה יוצאת בשם כפי שהוקלד. הבנייה עצמה
+// מתרגמת דרך fetchIntent ולכן מדויקת יותר. אם השתיים נבדלות - הבנייה היא הקובעת.
+async function previewDestinationDistance(kind, tid) {
+  const destEl = document.getElementById(kind + '-dest-' + tid);
+  const outEl = document.getElementById(kind + '-dist-' + tid);
+  if (!destEl || !outEl) return;
+  const dest = destEl.value.trim();
+  if (!dest) { outEl.textContent = ''; return; }
+  if (outEl.dataset.lastFor === dest) return; // אותו יעד - לא שולחים קריאה נוספת
+  const originEl = document.getElementById('destination');
+  const origin = originEl ? originEl.value.trim() : '';
+  if (!origin) { outEl.textContent = ''; return; }
+  outEl.dataset.lastFor = dest;
+  outEl.textContent = 'בודק...';
+  try {
+    const d = await getTravelDistance(origin, dest);
+    if (d && d.durationText) {
+      const parts = [];
+      if (d.resolvedName) parts.push(d.resolvedName);
+      if (d.distanceText) parts.push(d.distanceText);
+      parts.push(d.durationText);
+      outEl.textContent = parts.join(' · ');
+    } else {
+      // ההבחנה נעשית מול הרשומה האחרונה בלוג, שנכתבה זה עתה על ידי getTravelDistance.
+      const log = (lastDebugInfo && lastDebugInfo.distanceLog) || [];
+      const last = log.length ? log[log.length - 1] : null;
+      const nameFail = last && (last.status === 'NOT_FOUND' || last.status === 'ZERO_RESULTS');
+      outEl.textContent = nameFail
+        ? 'לא זוהה - נסה להוסיף את השם הלועזי, לדוגמה: ' + dest + ' (Biecz)'
+        : '';
+    }
+  } catch (e) {
+    outEl.textContent = '';
+    recordDebugError('previewDestinationDistance (' + kind + '-' + tid + ')', e.message);
+  }
+}
+
 function addMainDayTripRow() {
   const container = document.getElementById('main-daytrip-rows');
   if (!container) return;
@@ -2856,8 +2908,9 @@ function addMainDayTripRow() {
   row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap';
   row.innerHTML =
     '<input type="text" id="maindt-date-' + tid + '" placeholder="DD/MM/YYYY *חובה" readonly style="cursor:pointer;background:#faf9f7;width:120px" onclick="openCalRegion(\'maindt-date-' + tid + '\')" />' +
-    '<input type="text" id="maindt-dest-' + tid + '" placeholder="לדוגמה: טרנוב" style="flex:1;min-width:140px" />' +
+    '<input type="text" id="maindt-dest-' + tid + '" placeholder="לדוגמה: טרנוב" style="flex:1;min-width:140px" onblur="previewDestinationDistance(\'maindt\',' + tid + ')" />' +
     '<button type="button" class="btn-remove-region" onclick="removeMainDayTripRow(' + tid + ')">✕</button>' +
+    '<div id="maindt-dist-' + tid + '" style="width:100%;font-size:12px;color:var(--muted)"></div>' +
     '<div id="maindt-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>';
   container.appendChild(row);
 }
@@ -2941,8 +2994,9 @@ function addSideTripRow(regionIdx) {
   row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap';
   row.innerHTML =
     '<input type="text" id="sidetrip-date-' + tid + '" placeholder="DD/MM/YYYY" readonly style="cursor:pointer;background:#faf9f7;width:110px" onclick="openCalRegion(\'sidetrip-date-' + tid + '\')" />' +
-    '<input type="text" id="sidetrip-dest-' + tid + '" placeholder="לדוגמה: זקופאנה" style="flex:1;min-width:140px" />' +
+    '<input type="text" id="sidetrip-dest-' + tid + '" placeholder="לדוגמה: זקופאנה" style="flex:1;min-width:140px" onblur="previewDestinationDistance(\'sidetrip\',' + tid + ')" />' +
     '<button type="button" class="btn-remove-region" onclick="removeSideTripRow(' + tid + ')">✕</button>' +
+    '<div id="sidetrip-dist-' + tid + '" style="width:100%;font-size:12px;color:var(--muted)"></div>' +
     '<div id="sidetrip-err-' + tid + '" style="width:100%;font-size:11px;color:#991b1b"></div>';
   container.appendChild(row);
 }
@@ -3206,11 +3260,17 @@ async function getTravelDistance(origin, destination) {
           recordDistanceCheck(origin, destination, (el && el.status) || 'NO_ELEMENT', 'סטטוס ברמת היעד');
           resolve(null); return;
         }
-        recordDistanceCheck(origin, destination, 'OK', (el.duration && el.duration.text) || '');
+        // v4.82 - resolvedName הוא השם שגוגל בפועל מצא, מתוך אותה תשובה. הוא היה קיים כל
+        // הזמן ונזרק. בלעדיו מדידה על תעתיק עברי שגוי מחזירה מספר תקין לחלוטין עבור עיר
+        // אחרת - כשל שקט. עם השדה הזה הטעות נראית מיד למשתמש.
+        const resolvedName = (response.destinationAddresses && response.destinationAddresses[0]) || '';
+        recordDistanceCheck(origin, destination, 'OK',
+          ((el.duration && el.duration.text) || '') + (resolvedName ? ' -> ' + resolvedName : ''));
         resolve({
           distanceText: (el.distance && el.distance.text) || '',
           durationText: (el.duration && el.duration.text) || '',
-          durationMinutes: (el.duration && el.duration.value) ? Math.round(el.duration.value / 60) : null
+          durationMinutes: (el.duration && el.duration.value) ? Math.round(el.duration.value / 60) : null,
+          resolvedName: resolvedName
         });
       });
     });
