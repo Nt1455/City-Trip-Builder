@@ -1,3 +1,4 @@
+<!-- City Trip Builder Claude - v4.79 - 10/08/2026 - שלב 2 מתוך 5 בסבב "מאגר מועמדים ליעדי יום קפיצה + שער מרחק". נוספה נראות מלאה לסטטוס Google Distance Matrix. הבעיה: getTravelDistance החזירה null בשלוש נקודות שונות בלי לרשום דבר לשום מקום מלבד console.log, ולכן שלושה כשלים שונים לחלוטין הוצגו למשתמש כמחרוזת אחת - "לא ניתן היה לאמת את זמן הנסיעה ליעד הזה". OVER_QUERY_LIMIT (המכסה נגמרה), NOT_FOUND (השם לא זוהה על ידי גוגל) וכשל טעינה של ספריית google.maps הם שלוש בעיות עם שלושה פתרונות שונים, ולא היה שום אופן להבחין ביניהן. קלודזקו הופיעה בבדיקה החיה של v4.78 בדיוק במצב הזה. השלב הזה מקדים בכוונה את הרחבת המאגר: העלאת נפח הקריאות בלי הבחנה בין כשל מכסה לכשל שם הופכת את המדידה של שלב 3 לבלתי ניתנת לפענוח, ותנאי העצירה שנקבע מראש לסבב תלוי באותה מדידה. ממצא שהתגלה תוך כדי ומנע לוג חסר ערך: recordDebugError כותבת ל-lastDebugInfo.lastError בהשמה ולא בצבירה, כלומר כל קריאה דורסת את הקודמת. אימות מרחק רץ בלולאה על כל המועמדים בלחיצה אחת, ולכן שימוש ב-recordDebugError היה מציג כשל בודד מתוך לחיצה שבה שמונה מתוך עשרה נכשלו - לוג שנראה עובד ומשמיט את רוב הנתונים. לכן נוספה recordDistanceCheck נפרדת, הכותבת לרשימה מצטברת lastDebugInfo.distanceLog עם תקרה של 100 רשומות (שמירת האחרונות). נרשמות גם קריאות תקינות ולא רק כשלים, כי ההבחנה בין "גוגל ענה על עשר ונכשל בשלוש" לבין "גוגל נשאל רק שלוש פעמים" היא בדיוק ההבחנה שנדרשת. ארבע נקודות חוברו: כשל טעינת ספריית Maps (הכשל השקט ביותר, פוסל את כל המועמדים בבת אחת מסיבה משותפת שלא נראית), סטטוס ברמת הבקשה, סטטוס ברמת היעד הבודד, וההצלחה. גם בלוק ה-catch מקבל רישום, בנוסף ל-recordDebugError שנשארה בו ולא הוסרה. buildDebugText מציגה מקטע חדש עם מונה קריאות/תקינות/כשלים - בבלוק if נפרד שאינו תלוי ב-sentAt, כדי שהלוג יופיע גם כשנלחץ "המלץ לי" בלי שנבנה מסלול כלל, וזה המצב הרגיל בבדיקת ההצעות. הלוג מצטבר לאורך הסשן ואינו מתאפס בין לחיצות; חותמת השעה בכל שורה היא מה שמפריד בין לחיצה ללחיצה. לא נגעתי במאגר, בפרומפט, בשער ובלוגיקת הפסילה - אלה שלב 3. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML); איזון תגיות div 163/163, script 2/2, table 3/3, select 9/9, textarea 3/3, button 65/65; כל onclick/onchange מפנים לפונקציות קיימות (event/window מובנים); 0 בלוקי catch ריקים; אומת שתיקוני v4.63-v4.78 לא נדרסו. בדיקה פונקציונלית: 6 תרחישים הורצו על הקוד שחולץ מהקובץ הנמסר עצמו ולא על עותק - לחיצה עם 10 מועמדים ובה 7 תקינים ושלושה סוגי כשל שונים, כשל טעינת Maps על כל המועמדים, מצב ללא לוג כלל, תקרת 100 הרשומות (130 נכנסו, 100 נשמרו, האחרונות), ערכי null/undefined בכל הפרמטרים, ודו-קיום עם lastError קיים כדי לוודא ששני המקטעים מוצגים יחד ואינם דורסים זה את זה - כולם עברו. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.78 - 10/08/2026 - שלב 1 מתוך 5 בסבב "מאגר מועמדים ליעדי יום קפיצה + שער מרחק". תוקנה דליפת גבול אובייקט ב-salvageSuggestions (שכבה 4 של הפרסור). השורש: המימוש מ-v4.74 היה ביטוי רגולרי יחיד שמתח את שני השדות יחד - "name":"(.*?)"..."reason":"(.*?)"} - ושתי קבוצות הלכידה היו חופשיות לחצות גבול אובייקט בזמן backtracking. אם זנב האובייקט הראשון לא תאם, המנוע הרחיב את קבוצת ה-name עד שמצא "reason" של האובייקט הבא. שוחזר בבדיקה ובודד הטריגר המדויק: שני מקרים מפילים - סדר שדות הפוך באובייקט (reason לפני name), ושדה שלישי שהמודל מוסיף בין name ל-reason. מרכאות פנימיות, שהיו החשד הראשוני, אינן מפילות את המימוש הישן כלל, ולכן ההסבר הזה נשלל בבדיקה ולא נכלל בתיקון. הקלט המשוחזר {"reason":"...","name":"ורוצלב"},{"name": "קשיטופוביצה",...} הניב במימוש הישן שם יחיד ומושחת - ורוצלב"},{"name": "קשיטופוביצה - כלומר שני נזקים באירוע אחד: JSON גולמי דלף לשדה name (הסימפטום שדווח), ושתי הצעות התמזגו לאחת. הכיווץ הזה הוא הנזק השני והשקט: המאגר קטן לפני שער המרחק, בלי שאיש רואה. התיקון מפריד את החילוץ לשני שלבים במקום ביטוי אחד - פיצול לפי גבולות אובייקט תחילה, ואז חילוץ כל שדה בתוך המקטע שלו בלבד. חציית גבול הופכת בלתי אפשרית מבנית ולא בזכות ביטוי זהיר יותר. גבול ערך מוגדר כמרכאה שאחריה מגיע סוף מקטע או פסיק ואחריו מפתח JSON חוקי, כלומר מזהה ASCII במרכאות ואחריו נקודתיים - דרישת ה-ASCII היא מה שמונע מטקסט עברי להיראות כמו מפתח ולקטוע ערך באמצע. נוספו שתי פונקציות עזר קטנות: extractSchemaField ו-cleanSchemaValue. שלוש תופעות לוואי מכוונות: סדר השדות כבר אינו קריטי, אובייקט אחרון שנקטע ב-max_tokens עדיין מניב שם במקום להיאבד, והצעה בלי reason כלל נשמרת. מגבלה ידועה ומתועדת בקוד: סוגר מסולסל בתוך טקסט הערך יקטע את הערך באותה נקודה - קטיעה ולא השחתה, ורק במסלול הזה שרץ ממילא אחרי כשל של שלוש שכבות פרסור. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; כפילות id יחידה היא ה-false positive הידוע (num-people בהערת HTML בשורה 50, ה-id האמיתי היחיד בשורה 314); איזון תגיות div 163/163, script 2/2, table 3/3, select 9/9, textarea 3/3, button 65/65; כל onclick/onchange מפנים לפונקציות קיימות (event/window הם אובייקטים מובנים); 63 בלוקי catch, 0 ריקים; 16 קריאות JSON.parse; סריקת סעיף 11 על כל הקובץ: שלושה מקומות !res.ok (577, 940, 1306) כולם מתעדים ב-recordDebugError, ממצא פתוח יחיד הוא getTravelDistance בשורות 3366 ו-3368 שמחזירה null בלי לרשום את סטטוס גוגל ל-Debug - ידוע, דווח, ומתוכנן כשלב 2; אומת שתיקוני v4.63-v4.77 לא נדרסו (max_tokens=35000, stripLoneSurrogates, ensureCoreCategories, filterExcludedPlaces, resolveSearchName, judgeTopicExclusion, gateSuggestions, repairUnescapedQuotes, distanceVerified, resultCountForCategory); salvageSuggestions נקראת עדיין ממקום יחיד, parseModelJson שורה 3623. בדיקה פונקציונלית: 15 תרחישים הורצו במקביל על המימוש הישן והחדש - ישן 10/15, חדש 15/15 - ובנוסף 7 תרחישים הורצו על הקוד שחולץ מהקובץ הנמסר עצמו ולא על עותק. נכללו: שחזור הדליפה החיה, שדה נוסף בין name ל-reason, מרכאה פנימית לפני פסיק, אובייקט קטוע, סדר שדות הפוך, מרכאות מוברחות תקין, פסיק עוקב, סוגר מסולסל בערך, ושלוש סכימות זרות (filterExcludedPlaces, judgeTopicExclusion, fetchIntent) שחייבות להחזיר null כדי שלא ייווצר פרסור מדומה. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.77 - 10/08/2026 - תיקון באג חי שהתגלה בבדיקה הראשונה של v4.76: "The request body is not valid JSON: no low surrogate in string: line 1 column 124543". השורש: ביקורות מ-Google Places מכילות אמוג'י, ואמוג'י מיוצג ב-JavaScript בשני תווים - surrogate pair. חיתוך באורך תווים קבוע יכול ליפול בדיוק בין שני חצאי הזוג ולהשאיר חצי תו יתום; JSON.stringify פולט אותו כפי שהוא, והשרת דוחה את הבקשה כולה. כלומר כשל של הבנייה כולה, לא של מקום בודד. הבאג היה קיים מאז ומעולם - .slice(0,200) הישן חשוף בדיוק אותו דבר - אך היה נדיר: 49 מקומות כפול 3 ביקורות הם כ-150 חיתוכים בלבד. v4.76 העלה את מספר המקומות ל-170 והוסיף נקודת חיתוך שנייה באורך 150, וההסתברות המצטברת הפכה את הפגיעה לוודאית. זו אינה תקלה שנוצרה ב-v4.76 אלא תקלה ישנה שנחשפה על ידיה. נוספה stripLoneSurrogates הסורקת תו-תו ומשמיטה חצאי זוג יתומים בשני הכיוונים - high בלי low, ו-low בלי high - ומיושמת אחרי כל חיתוך, גם בלולאה הראשית וגם בחיפוש ה-fallback. שמות וכתובות לא נגעו במכוון: הם אינם נחתכים כלל, ולכן אינם יכולים לייצר חצי זוג. תיקון במקור ולא בפונקציה המרכזית callClaudeAPI - שם היה מסתיר את הבעיה במקום לפתור אותה, ונוגע בקוד שעובד. QA: node --check עבר על שני הבלוקים; 0 כפילויות פונקציה; 0 כפילויות id; איזון תגיות מלא; 0 בלוקי catch ריקים; אומת ששינויי v4.76 (resultCountForCategory, תקרת 8, הנחיית שלוש הרמות) ושינויי v4.75 (resolveSearchName, namesEn) לא נדרסו. בדיקה פונקציונלית: 22 תרחישים ב-node, ובכללם שחזור מדויק של המחרוזת השבורה שגרמה לשגיאה החיה, שני אורכי החיתוך, עברית ופולנית ללא שינוי, ואימות JSON.parse(JSON.stringify()) מלא - כולם עברו. -->
 <!-- City Trip Builder Claude - v4.76 - 10/08/2026 - סבב 2 מתוך 4. שני שינויים, בהחלטה מפורשת של המשתמש לחרוג מכלל "שינוי אחד בכל פעם", כי שניהם נוגעים באותה שאלה - ממה בנוי מאגר המקומות - ואי אפשר למדוד אחד מהם בלי השני. שינוי א, maxResultCount: היה 5 קבוע לכל קטגוריה, מספר שנקבע פעם אחת ומעולם לא נבחן. המדידה מהבדיקה החיה של v4.75: המאגר הכיל 18 מסעדות מול 42 חריצי ארוחה, ולכן החזרה הראשונה (Hamsa) הופיעה בחריץ 19 - הרגע החוקי הראשון שבו מנגנון v4.71 מורשה לחזור. כלומר המנגנון קיים את הכלל שנכתב לו במדויק, והמאגר היה קטן מדי. Google searchText תומך ב-20 והחיוב הוא לפי בקשה ולא לפי תוצאה, ולכן ההרחבה אינה מוסיפה ולו קריאת API אחת. resultCountForCategory מחזירה 20 לכל קטגוריה למעט lodging ו-parking שנשארות על 5 במכוון. אחרי השינוי: 4 קטגוריות מסעדה כפול 20 מול 42 חריצים, כלומר אין מיצוי מאגר ואין חזרה כלל, ולא רק פחות חזרות. שינוי נלווה נדרש, reviewSnippetsForIndex: בלי דירוג, מעבר מ-5 ל-20 היה מכפיל את הפרומפט פי ארבעה. הסיכון אינו רק עלות אלא איכות - רשימה ארוכה ואחידה מדללת תשומת לב. חמשת הראשונים בכל קטגוריה שומרים 3 קטעי ביקורת של 200 תו כמו קודם, והשאר מקבלים קטע אחד של 150. מדידה על נתוני v4.75 האמיתיים: 49 מקומות וכ-26,000 תווים הופכים לכ-170 מקומות וכ-56,000 תווים, כלומר פי 2.1 ולא פי 4. חיפוש ה-fallback לא נגע ונשאר על 5 - הוא נתיב חירום שרץ רק כשנמצאו פחות משני מקומות, ואין סיבה להרחיב אותו. שינוי ב, הרכב קטגוריות המסעדה (PART A מהמסמך): ההנחיה הקודמת התייחסה ל-steakhouse, bistro ו-street food כשוות ערך למטבח לאומי, ולכן בבדיקה החיה חזרו שלוש קטגוריות בלבד - פולני, סטייק, יהודי-מזרח אירופאי - שלושתן כבדות ודומות, בלי איטלקי ובלי שום מטבח לאומי אחר. ההנחיה שוכתבה לשלוש רמות נפרדות: מטבח לאומי, סגנון קולינרי, ופורמט; נדרשות 4 קטגוריות מסעדה ובתוכן לפחות שלושה מטבחים לאומיים נבדלים, והרביעית חופשית. סגנון ופורמט מותרים במפורש אך אסור לספור אותם כמטבח לאומי. שינוי נלווה נדרש: תקרת הקטגוריות ב-fetchIntent הועלתה מ-6 ל-8. בלעדיה, ארבע קטגוריות מסעדה בתוספת קפה ולינה היו תופסות שישה מקומות מתוך שישה ודוחקות את תחומי העניין של המשתמש החוצה לגמרי - בדיוק התופעה שתוקנה ב-v4.73 בכיוון ההפוך. ensureCoreCategories ממשיכה לחתוך ב-10, כך שהתקרה החדשה נמצאת בתוך הקיים. עלות: עד 2 קריאות Google Places נוספות לבנייה, אפס קריאות Claude נוספות. QA: node --check עבר על שני הבלוקים; 0 כפילויות פונקציה; 0 כפילויות id; איזון תגיות מלא; 0 בלוקי catch ריקים; כל onclick מפנה לפונקציה קיימת; כל getElementById מול id קיים; אומת שתיקוני v4.63-v4.75 לא נדרסו, ובכללם resolveSearchName ו-namesEn מסבב 1. בדיקה פונקציונלית: 21 תרחישים ב-node על שתי הפונקציות החדשות - כולם עברו. בדיקה חיה טרם בוצעה. -->
@@ -539,7 +540,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.78';
+const APP_VERSION = 'v4.79';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -828,6 +829,30 @@ function recordDebugError(source, message, rawResponse) {
   };
 }
 
+// v4.79 - שלב 2: נראות לסטטוס Google Distance Matrix.
+// לא נעשה שימוש ב-recordDebugError בכוונה, ולא מתוך העדפת סגנון. recordDebugError כותבת
+// ל-lastDebugInfo.lastError בהשמה, כלומר כל קריאה דורסת את הקודמת ורק השגיאה האחרונה שורדת.
+// אימות מרחק רץ בלולאה על כל המועמדים בלחיצה אחת; עם רישום דורס, לחיצה שבה שמונה מתוך עשרה
+// כשלו הייתה מציגה כשל בודד - לוג שנראה עובד ומשמיט את רוב הנתונים. לכן רשימה מצטברת.
+// נרשמות גם קריאות תקינות ולא רק כשלים: ההבחנה בין "גוגל ענה על עשר ונכשל בשלוש" לבין
+// "גוגל נשאל רק שלוש פעמים" היא בדיוק ההבחנה שנדרשת כדי לפענח את מדידת שלב 3.
+// הלוג מצטבר לאורך כל הסשן ואינו מתאפס בין לחיצות - חותמת השעה בכל שורה היא מה שמפריד ביניהן.
+const DISTANCE_LOG_MAX = 100;
+function recordDistanceCheck(origin, destination, status, detail) {
+  if (!lastDebugInfo) lastDebugInfo = {};
+  if (!Array.isArray(lastDebugInfo.distanceLog)) lastDebugInfo.distanceLog = [];
+  lastDebugInfo.distanceLog.push({
+    time: new Date().toLocaleTimeString('he-IL'),
+    from: String(origin == null ? '' : origin),
+    to: String(destination == null ? '' : destination),
+    status: String(status == null ? 'UNKNOWN' : status),
+    detail: detail ? String(detail) : ''
+  });
+  if (lastDebugInfo.distanceLog.length > DISTANCE_LOG_MAX) {
+    lastDebugInfo.distanceLog = lastDebugInfo.distanceLog.slice(-DISTANCE_LOG_MAX);
+  }
+}
+
 function buildDebugText() {
   if (!lastDebugInfo) return 'אין נתונים עדיין - בנה מסלול קודם.';
   let out = '';
@@ -846,6 +871,15 @@ function buildDebugText() {
       '--- שגיאה אחרונה (מקור: ' + lastDebugInfo.lastError.source + ', ' + lastDebugInfo.lastError.time + ') ---\n' +
       lastDebugInfo.lastError.message +
       (lastDebugInfo.lastError.rawResponse ? '\n\n--- תשובה גולמית שהתקבלה בשגיאה הזו ---\n' + lastDebugInfo.lastError.rawResponse : '');
+  }
+  if (Array.isArray(lastDebugInfo.distanceLog) && lastDebugInfo.distanceLog.length) {
+    const dl = lastDebugInfo.distanceLog;
+    const okCount = dl.filter(r => r.status === 'OK').length;
+    out += (out ? '\n\n' : '') +
+      '--- בדיקות Distance Matrix (' + dl.length + ' קריאות, ' + okCount + ' תקינות, ' +
+      (dl.length - okCount) + ' כשלו) ---\n' +
+      dl.map(r => r.time + '  ' + r.status + '  ' + r.from + ' -> ' + r.to +
+        (r.detail ? '  [' + r.detail + ']' : '')).join('\n');
   }
   return out || 'אין נתונים עדיין - בנה מסלול קודם.';
 }
@@ -3354,7 +3388,12 @@ let distanceMatrixService = null;
 async function getTravelDistance(origin, destination) {
   try {
     await loadMapsApiForPlaces();
-    if (!window.google || !google.maps || !google.maps.DistanceMatrixService) return null;
+    if (!window.google || !google.maps || !google.maps.DistanceMatrixService) {
+      // v4.79 - כשל טעינת ספריית Maps היה עד עכשיו הכשל השקט ביותר: הוא פוסל את כל
+      // המועמדים בבת אחת, וכולם מוצגים כ"לא ניתן היה לאמת" בלי שום רמז לסיבה המשותפת.
+      recordDistanceCheck(origin, destination, 'MAPS_API_UNAVAILABLE', 'ספריית google.maps לא נטענה');
+      return null;
+    }
     if (!distanceMatrixService) distanceMatrixService = new google.maps.DistanceMatrixService();
     return await new Promise((resolve) => {
       distanceMatrixService.getDistanceMatrix({
@@ -3364,9 +3403,19 @@ async function getTravelDistance(origin, destination) {
         unitSystem: google.maps.UnitSystem.METRIC
       }, (response, status) => {
         console.log('[DistanceMatrix]', origin, '->', destination, status, response);
-        if (status !== 'OK') { resolve(null); return; }
+        if (status !== 'OK') {
+          // סטטוס ברמת הבקשה כולה - כאן מופיע OVER_QUERY_LIMIT, REQUEST_DENIED, INVALID_REQUEST.
+          recordDistanceCheck(origin, destination, status || 'NO_STATUS', 'סטטוס ברמת הבקשה');
+          resolve(null); return;
+        }
         const el = response && response.rows && response.rows[0] && response.rows[0].elements && response.rows[0].elements[0];
-        if (!el || el.status !== 'OK') { resolve(null); return; }
+        if (!el || el.status !== 'OK') {
+          // סטטוס ברמת היעד הבודד - כאן מופיע NOT_FOUND (השם לא זוהה) ו-ZERO_RESULTS (אין מסלול).
+          // ההפרדה מהסטטוס שמעל היא כל העניין: האחד אומר שהמכסה נגמרה, השני שהשם לא טוב.
+          recordDistanceCheck(origin, destination, (el && el.status) || 'NO_ELEMENT', 'סטטוס ברמת היעד');
+          resolve(null); return;
+        }
+        recordDistanceCheck(origin, destination, 'OK', (el.duration && el.duration.text) || '');
         resolve({
           distanceText: (el.distance && el.distance.text) || '',
           durationText: (el.duration && el.duration.text) || '',
@@ -3376,6 +3425,7 @@ async function getTravelDistance(origin, destination) {
     });
   } catch (e) {
     console.warn('[DistanceMatrix] נכשל:', e);
+    recordDistanceCheck(origin, destination, 'EXCEPTION', e.message);
     recordDebugError('getTravelDistance (' + origin + ' -> ' + destination + ')', e.message);
     return null;
   }
