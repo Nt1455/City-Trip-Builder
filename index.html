@@ -1,3 +1,4 @@
+<!-- City Trip Builder Claude - v4.75 - 10/08/2026 - סבב 1 מתוך 4 לפי התוכנית שאושרה. תיקון יחיד: יעדי יום קפיצה ואזורים משניים נשלחו ל-Google Places בשם כפי שהוקלד, בעברית, בעוד היעד הראשי נשלח מאז 30/07/2026 ב-destEn האנגלי. בבדיקה החיה של v4.74 (10/08/2026) היעד קטוביצ'ה החזיר חמש מסעדות איטלקיות באשדוד ובאמונים, ומסעדה פולנית ב-Lake Zurich אילינוי; מתוך שלוש עשרה תוצאות רק שתיים היו בפולין, והמודל עצמו כתב על כך הערה במסלול. זקפונה שרדה במקרה. השורש: שורה 1700 משתמשת ב-destEn, שורות 1750 ו-1791 לא. הפתרון אינו מוסיף אף קריאת API ואינו נוגע במכסה היומית: fetchIntent, שרצה ממילא פעם אחת בכל בנייה, מקבלת פרמטר רביעי חדש extraNames ומחזירה מפת namesEn מהשם כפי שהוקלד לשם הלועזי. resolveSearchName קוראת את המפה, ו-fail-safe מכוון בכל ענף: אין מפה, ערך ריק, fetchIntent שנכשל או שם שהמודל לא זיהה - מוחזר השם הגולמי, כלומר בדיוק התנהגות v4.74. אין מסלול שבו התיקון מחמיר. הנקודה הסבירה ביותר לכישלון שזוהתה מראש ונחסמה: dt.dest משמש גם כמפתח ב-dayTripPlacesData וגם ב-dayTripSuppliedDests, שנבדק מול destList ב-buildMainDayTripText; שינוי השם שם היה מסמן יעד שקיבל מלאי כ"לא אומת". לכן השם הלועזי מועבר אך ורק כארגומנט ל-fetchPlaces, וכל שאר השימושים ללא שינוי - אומת בקוד. שינוי נלווה נדרש: max_tokens ב-fetchIntent הועלה מ-500 ל-900, כי הבדיקה החיה החזירה 12 קטגוריות והתשובה כבר התקרבה לתקרה; JSON חתוך ב-fetchIntent מפיל את כל רשימת הקטגוריות לליבה בלבד. חילוץ נלווה: getRegionNamesForPlaces, אותה לוגיקת DOM שהייתה מוטבעת ב-buildTrip, נדרשת מעכשיו בשני מקומות - הועברה לפונקציה במקום שוכפלה. שקיפות: namesEn, dayTripSearchNames ו-regionSearchNames נרשמים ל-Debug, כך שניתן לראות בדיוק באיזה שם חיפשה המערכת. כשאין יעדי קפיצה ואין אזורים - הפרומפט של fetchIntent זהה בתו לגרסה הקודמת. QA: node --check עבר על שני בלוקי ה-script; 0 כפילויות פונקציה; 0 כפילויות id; איזון תגיות מלא; כל onclick/onchange מפנה לפונקציה קיימת; כל getElementById מול id קיים או prefix דינמי צפוי; 0 בלוקי catch ריקים; כל JSON.parse מוגן; אומת שתיקוני v4.63-v4.74 לא נדרסו. בדיקה פונקציונלית: resolveSearchName ובניית הפרומפט הורצו ב-node על 12 תרחישים. בדיקה חיה טרם בוצעה - ממתין להעלאה. -->
 <!-- City Trip Builder Claude - v4.74 - 09/08/2026 - תיקון שגיאת הפרסור שהתגלתה בבדיקה חיה של v4.73: "שגיאה בקבלת ההצעות: תשובת JSON לא תקינה - Expected ',' or '}' after property value in JSON at position 507". חקירה בשחזור: נבנו שישה סוגי קלט פגום אפשריים - גרש עברי בשם, מרכאות כפולות לא מוברחות בתוך ערך, שורה חדשה בתוך ערך, גרשיים חכמים, טאב בתוך ערך, ו-backslash בודד - והורצו מול JSON.parse. רק אחד מהם מייצר בדיוק את ההודעה שהתקבלה: מרכאות כפולות לא מוברחות בתוך ערך מחרוזת, כלומר המודל כותב תיאור כמו: מכונה "ונציה של הצפון" בזכות המכרה, בלי להבריח את המרכאות הפנימיות. שאר החמישה נשללו: גרש עברי וגרשיים חכמים עוברים או כבר מטופלים, ותווי בקרה כבר מטופלים מ-v4.67, ושניהם מייצרים הודעת שגיאה שונה לחלוטין. פורמט התשובה מבקש name ו-reason, ו-reason הוא תיאור חופשי של 2-3 משפטים - בדיוק המקום שבו מודל נוטה לצטט כינוי של עיר. נוספו שתי שכבות ל-parseModelJson, אחרי שתי הקיימות. שכבה 3, repairUnescapedQuotes: מכונת מצבים שסורקת תו-תו ועוקבת אם היא בתוך מחרוזת; כשנמצאת מרכאה בתוך מחרוזת נבדק מהו התו המשמעותי הבא, ואם הוא פסיק, סוגר מסולסל, סוגר מרובע או נקודתיים - זו מרכאה סוגרת לגיטימית, אחרת זו מרכאה פנימית והיא מוברחת. שכבה 4, salvageSuggestions: חילוץ מודע-סכימה שאינו מנסה לתקן JSON כלל אלא לקרוא את הערכים לפי העוגנים המבניים name ו-reason, ולכן חסין לחלוטין למרכאות פנימיות בכל מיקום. השכבה הרביעית נדרשת בגלל מגבלה ידועה של השלישית: מרכאה פנימית שבאה מיד לפני פסיק, למשל הוא אמר "שלום", ואז הלך - נראית למכונת המצבים כמו מרכאה סוגרת לגיטימית, והיא נכשלת עליה. שתי השכבות מכסות זו את זו, ושתיהן נבדקו על המקרה הקשה הזה במפורש. בנוסף נוספה הנחיית מניעה בשני הפרומפטים של ההצעות, המורה למודל לא להשתמש בתו מרכאות כפולות בתוך name או reason ולא לפצל לשורות - כלומר שכבה אפס, שמנסה למנוע את הבעיה במקור ולא רק לתקן אותה. כל תיקון נרשם ל-Debug עם ציון השכבה שהצליחה והשגיאה המקורית, כך שניתן לדעת אם הבעיה חוזרת וכמה עמוק נדרש לרדת כדי לפתור אותה. QA: node --check עבר; 0 כפילויות פונקציה; 0 כפילויות id; כל onclick מפנה לפונקציה קיימת; 0 בלוקי catch ריקים; אומת שתיקוני v4.63-v4.73 לא נדרסו. בדיקה פונקציונלית: 9 תרחישים הורצו על הקוד שחולץ מהקובץ הנמסר עצמו ולא על עותק - מרכאות פנימיות, המקרה הקשה של מרכאה לפני פסיק, שתי הצעות שאחת מהן שבורה, JSON תקין לחלוטין, טקסט אחרי JSON מ-v4.65, גדרות markdown, שורה חדשה בתוך ערך, שמירה על תקינות excludeNames של filterExcludedPlaces, ווידוא ש-JSON פגום באמת עדיין זורק שגיאה ואינו מוחזר כאילו הצליח - כולם עברו. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.73 - 09/08/2026 - מנגנונים 3, 4 ו-5 מתוך המפרט, במסירה אחת. שלושתם נוגעים במקומות נפרדים בקוד וכשל בכל אחד מהם מתגלה במקום אחר במסך, ולכן ניתן לבודד גם באיגוד. מנגנון 3, מלאי ליעד יום קפיצה: לולאת ה-Places רצה עד עכשיו על region-rows בלבד, ויעדי הקפיצה קיבלו אפס קריאות. בבדיקה חיה של v4.68 זה התבטא בשמות אתרים וכתובות מלאות עם מספרי בית שגוגל מעולם לא סיפק, כלומר הפרה בפועל של הנחיית רק-מגוגל, ואחרי התיקון הטקסטואלי של v4.70 אותם ימים הפכו ריקים עם "יש לאתר ולאמת מראש". נוספה getMainDayTripDestinations המחזירה את יעדי הקפיצה עם התאריך שלהם, ולולאה שרצה עליהם באותו מסלול בדיוק כמו אזור משני - fetchPlaces, filterExcludedPlaces, והזרקה ל-placesContext כבלוק מסומן ליעד ולתאריך. סט הקטגוריות מצומצם במכוון לארבע - מסעדה, קפה, אתרי תיירות - כי יעד קפיצה הוא יום אחד ולא בסיס, ושמונה קטגוריות היו בזבוז קריאות. ההגבלה שנוספה ב-v4.70 הפכה מותנית: יעד שקיבל מלאי מקבל את אותו כלל כמו היעד הראשי ומותר לציין בו שמות וכתובות מהרשימה שלו בלבד, ואילו יעד שלא קיבל מלאי נשאר תחת האיסור המלא כולל שורת האזהרה. תוכנית הארוחות של v4.71 ממשיכה לדלג על ימי קפיצה, וזה נשאר נכון - המאגר שלה מכיל מסעדות של עיר הבסיס, ובימי הקפיצה המודל נדרש לעבוד מול המלאי הייעודי של אותו יעד. מנגנון 4, חניונים: parking מעולם לא נשלח לגוגל, ולכן סעיף החניה תמיד כתב "לא נמצאו חניונים מאומתים" - הקוד כתב את האמת, פשוט אף אחד לא שאל. נוסף לקטגוריות הליבה. מנגנון 5, החרגה נושאית בשער ההצעות: gateSuggestions בדק מרחק, אימות וחזרות בלבד, וההחרגה נשארה הנחיה רכה בפרומפט; בבדיקה חיה אושוויינצ'ים ווויאליצ'קה הוצעו כיעד קפיצה למרות שדה ההחרגה. נוספה judgeTopicExclusion המשתמשת באותה קריאת Claude ב-temperature 0 שכבר עובדת ב-filterExcludedPlaces, עם מטמון לכל הסשן כך שאותו שם אינו נשלח לשיפוט פעמיים - כלומר השיפוט יוצא מהלולאה, ומהרגע שנקבע ההשוואה היא השוואת מחרוזות בלבד. הכשל מכוון להיות fail-open ונרשם ל-Debug: עדיף להציע יעד שהיה צריך להיחסם מאשר לחסום הכל בגלל כשל רשת. העילה החדשה נבדקת ראשונה, לפני חזרות ולפני מרחק, וחוברה לשלוש פונקציות ההצעה וגם למחליפים בסבב ה-retry. פגם שנתפס בסריקת עומק לפני מסירה ולא הגיע לקוד החי: הוספת parking לליבה דחקה תחומי עניין החוצה. אחרי ש-v4.70 העלה את קטגוריות המסעדה מ-2 ל-3-4, הליבה לבדה תופסת שבעה מקומות מתוך תקרה של שמונה, ונשאר מקום אחד בלבד לתחומי העניין של המשתמש - כלומר מוזיאונים, גלריות ומוזיקה היו נדחקים. התקרה הועלתה מ-8 ל-10, במחיר של עד שתי קריאות Google Places נוספות לבנייה. עלות נוספת שיש להכיר: כל לחיצה על "המלץ לי" צורכת מעכשיו קריאת Claude נוספת לשיפוט ההחרגה, ועוד אחת אם מופעל סבב retry - כלומר 2 עד 4 קריאות במקום 1 עד 2. המטמון מצמצם זאת בהמשך הסשן, והפונקציה חוזרת מיד כששדה ההחרגה ריק. QA: node --check עבר; 0 כפילויות פונקציה; 0 כפילויות id; כל onclick מפנה לפונקציה קיימת; 0 בלוקי catch ריקים; אומת ש-apiKey ו-accessCode בהיקף בשלוש פונקציות ההצעה, ש-dayTripSuppliedDests מוצהר לפני השימוש בו, ושתיקוני v4.63-v4.72 לא נדרסו. בדיקה פונקציונלית: 11 תרחישים ב-node לשער עם ההחרגה, ללוגיקת המטמון ולתקרת הקטגוריות - כולם עברו. בדיקה חיה טרם בוצעה. -->
 <!-- City Trip Builder Claude - v4.72 - 09/08/2026 - תיקון כפתור ה-Debug, באג שדווח בבוקר ולא נבדק עד עכשיו. התסמין: לחיצה ראשונה מקפיצה הודעה ונכבית, לחיצה שנייה מבצעת את ההעתקה. שני שורשים. ראשון: קיימים שלושה כפתורי Debug בקובץ, בשורות 470, 490 ו-521, וכולם מפעילים אותו פאנל יחיד; פתיחה דרך כפתור אחד וניסיון העתקה דרך כפתור אחר גרמו לסגירה, כי מבחינת הכפתור השני הפאנל כבר פתוח - וההודעה שקפצה הייתה "נסגר, לא הועתק". שני: הפאנל יושב בשורה 472, צמוד לכפתור הראשון בלבד, ולכן בלחיצה על כפתור שנמצא במקום אחר במסך הוא עלול להיות פתוח אך מגולל הרחק ובלתי נראה, והלחיצה סוגרת משהו שלא רואים. הבעיה העקרונית שמאחורי שניהם: כפתור אחד שמבצע שתי פעולות שונות לפי מצב שהמשתמש אינו רואה. v4.55 מיזג בזמנו את הפתיחה וההעתקה כדי לפתור בלבול בין שני כפתורים צמודים, ובכך יצר בלבול חמור יותר, כי לא ניתן לדעת מראש מה הלחיצה תעשה. התיקון: הלחיצה על Debug הפכה אידמפוטנטית - תמיד פותחת, תמיד מרעננת את התוכן, תמיד מעתיקה ותמיד גוללת אל הפאנל, גם כשהוא כבר פתוח, כך שאותה לחיצה נותנת אותה תוצאה בכל מצב. הסגירה עברה לכפתור ✕ ייעודי בתוך כותרת הפאנל, במקום שבו היא נראית ואינה מפתיעה. מבנה ה-DOM שונה בהתאם: debug-panel הוא כעת div עוטף עם שורת כותרת, והטקסט עצמו עבר ל-pre פנימי בשם debug-body; toggleDebug כותב ל-debug-body אם הוא קיים ונופל חזרה לפאנל עצמו אם לא, כדי לא להישבר על מבנה ישן. הודעת הכשל בהעתקה שונתה ל"לא הועתק - סמן ידנית", כי הפאנל פתוח בכל מקרה וניתן לסמן ולהעתיק ידנית כשהדפדפן חוסם את ה-clipboard. אומת בנוסף שתוכנית הארוחות של v4.71 אכן מגיעה לפאנל: placesDebug מוצב ל-lastDebugInfo.places_debug בשורה 1792 ומודפס במלואו כ-JSON, ולכן mealPlan על השדות skippedDays ו-usage גלוי לבדיקה. QA: node --check עבר; 0 כפילויות פונקציה; 0 כפילויות id; כל onclick מפנה לפונקציה קיימת, כולל closeDebug החדשה; 0 בלוקי catch ריקים; אומת שתיקוני v4.63-v4.71 לא נדרסו. -->
@@ -535,7 +536,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.74';
+const APP_VERSION = 'v4.75';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -1013,7 +1014,23 @@ const MAPS_KEY = 'AIzaSyAPr4VeTsgdLYQF7FXslrRWu6HMYQ-tNKg';
 
 // ===== PLACES API FUNCTIONS =====
 
-async function fetchIntent(fields, apiKey, accessCode) {
+// v4.75 - סבב 1: יעדי יום קפיצה ואזורים משניים נשלחו ל-Google Places בעברית גולמית, בעוד היעד
+// הראשי נשלח תמיד ב-destEn. בבדיקה חיה של v4.74 "קטוביצ'ה" החזירה חמש מסעדות איטלקיות באשדוד
+// ומסעדה פולנית ב-Lake Zurich אילינוי. הפתרון משתמש בקריאת fetchIntent שכבר רצה בכל בנייה,
+// ולכן אינו מוסיף אף קריאת API ואינו נוגע במכסה: אותה קריאה מחזירה מעכשיו גם namesEn, מיפוי
+// מהשם כפי שהוקלד לשם הלועזי. כשאין יעדי קפיצה ואין אזורים - הפרומפט זהה בתו לגרסה הקודמת.
+async function fetchIntent(fields, apiKey, accessCode, extraNames) {
+  const rawExtra = Array.isArray(extraNames) ? extraNames : [];
+  const uniqNames = Array.from(new Set(
+    rawExtra.map(n => String(n == null ? '' : n).trim()).filter(n => n)
+  ));
+  const namesEnField = uniqNames.length
+    ? ',\n  "namesEn": {"<שם כפי שהוקלד>": "<אותו מקום באנגלית או בכתיב לועזי מקומי>"}'
+    : '';
+  const namesEnRule = uniqNames.length
+    ? '\n- namesEn חובה - החזר מפתח לכל אחד מהשמות הבאים, בדיוק כפי שהוא כתוב כאן: ' + uniqNames.join(' | ') +
+      '. הערך הוא שם אותו יישוב באנגלית או בכתיב הלועזי המקומי (לדוגמה: "קטוביצ\'ה" ערכה "Katowice", "זקפונה" ערכה "Zakopane"). אלה יעדי יום קפיצה או אזורים בסביבת היעד הראשי או באותה מדינה - אל תפרש אותם כמקומות בישראל. אם אינך מזהה שם מסוים, החזר עבורו מחרוזת ריקה ""'
+    : '';
   const intentPrompt = `אתה עוזר לתכנון סיורים. בהתבסס על הנתונים הבאים, החזר JSON בלבד (ללא טקסט נוסף) עם קטגוריות לחיפוש ב-Google Places API.
 
 נתונים:
@@ -1029,7 +1046,7 @@ async function fetchIntent(fields, apiKey, accessCode) {
   "destEn": "שם היעד באנגלית/לועזית, לדוגמה Milan או Krakow",
   "categories": [
     {"keyword": "מונח קטגוריה קצר באנגלית, בלי שם היעד", "type": "restaurant|cafe|tourist_attraction|museum|park|market|bar|lodging", "label": "תיאור בעברית"}
-  ]
+  ]${namesEnField}
 }
 
 כללים:
@@ -1041,13 +1058,16 @@ async function fetchIntent(fields, apiKey, accessCode) {
 - אל תכלול אטרקציות לילדים אם לא צוינו ילדים בקבוצה
 - מקסימום 6 קטגוריות
 - keyword באנגלית בלבד, וחייב להיות מונח קטגוריה כללי בלבד (למשל "restaurant", "historic site", "live music venue") - אסור לכלול בו את שם היעד עצמו, הוא יתווסף אוטומטית בשלב החיפוש
-- destEn חובה - שם היעד באנגלית, גם אם היעד הוקלד בעברית (חיוני למניעת בלבול בחיפוש Google Places עם עסקים בשם דומה בישראל)`;
+- destEn חובה - שם היעד באנגלית, גם אם היעד הוקלד בעברית (חיוני למניעת בלבול בחיפוש Google Places עם עסקים בשם דומה בישראל)${namesEnRule}`;
 
   let data;
   try {
+    // v4.75 - הועלה מ-500. בבדיקה החיה של v4.74 הוחזרו 12 קטגוריות, כלומר התשובה כבר התקרבה
+    // לתקרה הקודמת. תוספת namesEn הייתה עלולה לחתוך את ה-JSON, ו-fetchIntent חתוך מפיל את כל
+    // רשימת הקטגוריות לליבה בלבד. תקרה בלבד - אינה מייקרת קריאה שאינה משתמשת בה.
     data = await callClaudeAPI({
       model: 'claude-sonnet-4-6',
-      max_tokens: 500,
+      max_tokens: 900,
       temperature: 0,
       messages: [{ role: 'user', content: intentPrompt }]
     }, apiKey, accessCode);
@@ -1156,6 +1176,38 @@ function loadMapsApiForPlaces() {
     };
     document.head.appendChild(script);
   });
+}
+
+// v4.75 - סבב 1. מתרגמת שם יעד שהוקלד בעברית לשם הלועזי שהוחזר ב-namesEn, לצורך חיפוש Google
+// Places בלבד. fail-safe מכוון: אם אין מיפוי, אם הערך ריק, אם fetchIntent נכשל או אם המודל לא
+// זיהה את השם - מוחזר השם הגולמי, כלומר בדיוק ההתנהגות של v4.74. התיקון אינו יכול להחמיר מצב.
+// חשוב: השם המתורגם משמש אך ורק כארגומנט ל-fetchPlaces. מפתחות ה-Debug, dayTripSuppliedDests
+// והטקסט שנשלח לפרומפט ממשיכים להשתמש בשם כפי שהוקלד - שינוי שם שם היה שובר את ההתאמה מול
+// destList ב-buildMainDayTripText, ויעד שקיבל מלאי היה מסומן בטעות כ"לא אומת".
+function resolveSearchName(rawName, namesEnMap) {
+  const raw = String(rawName == null ? '' : rawName).trim();
+  if (!raw) return raw;
+  if (!namesEnMap || typeof namesEnMap !== 'object') return raw;
+  // hasOwnProperty ולא גישה ישירה: המפה מגיעה מתשובת מודל, והמפתח הוא טקסט שהמשתמש הקליד.
+  // גישה ישירה לשם כמו "toString" או "valueOf" הייתה מחזירה פונקציה מ-Object.prototype,
+  // ומחרוזת קוד המקור שלה הייתה נשלחת כשאילתת חיפוש לגוגל. נתפס בבדיקה פונקציונלית.
+  if (!Object.prototype.hasOwnProperty.call(namesEnMap, raw)) return raw;
+  const val = namesEnMap[raw];
+  if (val === undefined || val === null) return raw;
+  const s = String(val).trim();
+  return s ? s : raw;
+}
+
+// v4.75 - חילוץ נקי: אותה קריאת DOM נדרשה מעכשיו בשני מקומות (לפני fetchIntent, כדי לשלוח את
+// שמות האזורים לתרגום, ובלולאת ה-Places עצמה). הלוגיקה זהה לזו שהייתה מוטבעת ב-buildTrip.
+function getRegionNamesForPlaces() {
+  return Array.from(document.querySelectorAll('#region-rows .region-row'))
+    .map(row => {
+      const ridx = row.id.replace('region-row-', '');
+      const rNameEl = document.getElementById('region-name-' + ridx);
+      return rNameEl ? rNameEl.value.trim() : '';
+    })
+    .filter(n => n);
 }
 
 async function fetchPlaces(dest, categories) {
@@ -1691,8 +1743,12 @@ async function buildTrip() {
   let mealPlan = null;
   const dayTripSuppliedDests = [];
   try {
-    const intentData = await fetchIntent(fields, apiKey, accessCode);
+    // v4.75 - שמות האזורים ויעדי הקפיצה נאספים לפני קריאת ה-intent, כדי שאותה קריאה תחזיר גם
+    // את השמות הלועזיים שלהם. אין כאן קריאת API נוספת.
+    const namesToTranslate = getRegionNamesForPlaces().concat(getMainDayTripDestinations().map(d => d.dest));
+    const intentData = await fetchIntent(fields, apiKey, accessCode, namesToTranslate);
     placesDebug.intentData = intentData;
+    placesDebug.namesEn = (intentData && intentData.namesEn) ? intentData.namesEn : null;
     const categories = ensureCoreCategories(intentData && intentData.categories, fields.interests);
     placesDebug.categoriesUsed = categories;
     placesDebug.status = 'intent_ok';
@@ -1736,18 +1792,16 @@ async function buildTrip() {
     }
 
     // אימות Places API גם לאזורים משניים בסיור מרובה אזורים
-    const regionNamesForPlaces = Array.from(document.querySelectorAll('#region-rows .region-row'))
-      .map(row => {
-        const ridx = row.id.replace('region-row-', '');
-        const rNameEl = document.getElementById('region-name-' + ridx);
-        return rNameEl ? rNameEl.value.trim() : '';
-      })
-      .filter(n => n);
+    const regionNamesForPlaces = getRegionNamesForPlaces();
     if (regionNamesForPlaces.length > 0) {
       placesDebug.regionPlacesData = {};
+      placesDebug.regionSearchNames = {};
       for (const regionName of regionNamesForPlaces) {
         try {
-          const regionPlaces = await fetchPlaces(regionName, categories);
+          // v4.75 - אותו באג כמו ביעדי הקפיצה: עד עכשיו נשלח שם האזור בעברית גולמית.
+          const regionSearchName = resolveSearchName(regionName, intentData && intentData.namesEn);
+          placesDebug.regionSearchNames[regionName] = regionSearchName;
+          const regionPlaces = await fetchPlaces(regionSearchName, categories);
           placesDebug.regionPlacesData[regionName] = regionPlaces;
           let regionPlacesForPrompt = regionPlaces;
           if (fields.exclude && regionPlaces && regionPlaces.length > 0) {
@@ -1786,9 +1840,14 @@ async function buildTrip() {
         ? dayTripCategories
         : [{ keyword: 'restaurant', type: 'restaurant', label: 'מסעדות' },
            { keyword: 'tourist attraction', type: 'tourist_attraction', label: 'אתרי תיירות' }];
+      placesDebug.dayTripSearchNames = {};
       for (const dt of dayTripDests) {
         try {
-          const dtPlaces = await fetchPlaces(dt.dest, catsForDayTrip);
+          // v4.75 - הבאג המרכזי של הסבב הזה. dt.dest הוא הטקסט שהמשתמש הקליד, לרוב בעברית.
+          // מכאן והלאה החיפוש בגוגל מקבל את השם הלועזי; כל שאר השימושים ב-dt.dest ללא שינוי.
+          const dtSearchName = resolveSearchName(dt.dest, intentData && intentData.namesEn);
+          placesDebug.dayTripSearchNames[dt.dest] = dtSearchName;
+          const dtPlaces = await fetchPlaces(dtSearchName, catsForDayTrip);
           placesDebug.dayTripPlacesData[dt.dest] = dtPlaces;
           let dtForPrompt = dtPlaces;
           if (fields.exclude && dtPlaces && dtPlaces.length > 0) {
