@@ -543,7 +543,7 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.82';
+const APP_VERSION = 'v4.86';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
@@ -1577,7 +1577,12 @@ function buildMealPlan(placesDataForPrompt, categories, numDays, skipDays) {
     // יום קפיצה לא מקבל הקצאה: המסעדות במאגר שייכות לעיר הבסיס, והקבוצה אינה שם.
     if (skip.has(d + 1)) { skipped.push(d + 1); continue; }
     const day = { day: d + 1, breakfast: [], lunch: [], dinner: [] };
-    if (activeCafe.length) day.breakfast = slotsFor(activeCafe, d, 3);
+    // v4.84 - פריט 2: 3 היה גורר חזרה כפויה על מסלול 7 ימים (21 חריצים מול מאגר של 20 בתי קפה,
+    // resultCountForCategory - הוא התקרה המרבית שמאפשר Places API searchText, לא ניתן להעלות).
+    // ב-2 חריצים ליום, מסלול בסיס עד 10 ימים לא חוזר על אף בית קפה כלל; מעבר ל-10 ימים חוזרים
+    // הרוטציה הקיימת (takeFrom - איפוס נקי כשמאגר קטגוריה מוצה) ממשיכה לעבוד כרגיל, ללא שינוי.
+    // ארוחות צהריים/ערב (activeRest, שורות הבאות) לא נגעו - נשארות 3 כל אחת.
+    if (activeCafe.length) day.breakfast = slotsFor(activeCafe, d, 2);
     // היסט שונה לצהריים ולערב באותו יום, כדי שאותו מטבח לא ייפול לאותו חריץ בשתי הארוחות
     // ההיסט חייב לצעוד בצעד 1. צעד 2 עם מספר קטגוריות זוגי נועל את הרוטציה על חצי מהקטגוריות
     // בלבד - עם 4 קטגוריות, (d*2)%4 מייצר רק 0 ו-2, וחריץ א' מקבל שתי קטגוריות במקום ארבע.
@@ -1940,7 +1945,11 @@ async function buildTrip() {
               ).join('\n');
           }
         } catch(eRegion) {
+          // v4.85 - יישור רמת הגנה מול eDt הסמוך (יום קפיצה) - שם כבר יש גם רישום ל-placesDebug
+          // וגם קריאת recordDebugError; כאן הייתה רק הראשונה. שני מנגנונים מקבילים על אותה בעיה
+          // צריכים אותה רמת הגנה בדיוק.
           placesDebug.regionPlacesData[regionName] = { error: eRegion.message };
+          recordDebugError('fetchPlaces-region-' + regionName, eRegion.message);
         }
       }
     }
@@ -2134,6 +2143,14 @@ function buildRec() {
   const interests = getInterests();
   const hotel = document.getElementById('hotel').value || '';
   const enc = encodeURIComponent;
+  // v4.85 - פריט: dest/hotel/interests הם שדות טקסט חופשי (המשתמש מקליד), והוזרקו ל-innerHTML
+  // כטקסט תצוגה בלי escapeHtmlLocal - פער עקביות מול התבנית שכבר נאכפת ב-9 מקומות אחרים בקובץ
+  // (fetchWeather מ-v4.43/v4.50). משתני ה-Safe משמשים אך ורק בתוך תוכן תצוגה (<div>...</div>);
+  // בכוונה לא נגעתי בשום מקום שבו dest/hotel/interests נכנסים ל-enc()/foodQ/attrQ/wa.me - אלה
+  // מיועדים לקידוד URL (encodeURIComponent), לא לתצוגת HTML, וערבוב בין השניים היה שובר קישורים.
+  const destSafe = escapeHtmlLocal(dest);
+  const hotelSafe = escapeHtmlLocal(hotel);
+  const interestsSafe = escapeHtmlLocal(interests);
   window._recDest = dest;
   window._recBudgetTag = budget.includes('יוקרה')?'luxury ':budget.includes('נוח')?'boutique ':'';
   const foodQ = (food && food!=='ללא הגבלות') ? food+' restaurant '+dest : 'restaurant '+dest;
@@ -2146,7 +2163,7 @@ function buildRec() {
       <h3>לינה</h3>
       <div class="search-card">
         <div class="search-info">
-          <div class="search-label">${hotel?'מלונות באזור: '+hotel:'מלונות ב-'+dest}</div>
+          <div class="search-label">${hotelSafe?'מלונות באזור: '+hotelSafe:'מלונות ב-'+destSafe}</div>
           <div class="search-sub">${budget||'כל הרמות'}</div>
         </div>
         <div class="search-btns">
@@ -2161,7 +2178,7 @@ function buildRec() {
       <h3>מסעדות</h3>
       <div class="search-card">
         <div class="search-info">
-          <div class="search-label">מסעדות ב-${dest}</div>
+          <div class="search-label">מסעדות ב-${destSafe}</div>
           <div class="search-sub">${food||'כל הסגנונות'}</div>
         </div>
         <div class="search-btns">
@@ -2176,8 +2193,8 @@ function buildRec() {
       <h3>אטרקציות</h3>
       <div class="search-card">
         <div class="search-info">
-          <div class="search-label">אטרקציות ב-${dest}</div>
-          <div class="search-sub">${interests}</div>
+          <div class="search-label">אטרקציות ב-${destSafe}</div>
+          <div class="search-sub">${interestsSafe}</div>
         </div>
         <div class="search-btns">
           <a class="rec-link maps" href="https://www.google.com/maps/search/${enc(attrQ)}" target="_blank">Google Maps</a>
@@ -2338,8 +2355,10 @@ function renderMap(places, dest) {
           label: {text: String(i + 1), color: '#fff', fontWeight: 'bold', fontSize: '11px'},
           title: place
         });
+        // v4.85 - place כולל את שדה היעד (טקסט חופשי) שמצורף ב-extractPlacesFromTable; InfoWindow.content
+        // מתפרש כ-HTML על ידי Google Maps בדיוק כמו innerHTML, ולכן דורש אותו escapeHtmlLocal.
         const infoWindow = new google.maps.InfoWindow({
-          content: '<div style="font-family:Heebo,sans-serif;font-size:13px;direction:rtl;max-width:200px"><b>' + (i+1) + '. ' + place + '</b></div>'
+          content: '<div style="font-family:Heebo,sans-serif;font-size:13px;direction:rtl;max-width:200px"><b>' + (i+1) + '. ' + escapeHtmlLocal(place) + '</b></div>'
         });
         marker.addListener('click', function() { infoWindow.open(map, marker); });
         if (resolved === total) map.fitBounds(bounds);
@@ -2480,7 +2499,7 @@ function renderHistory() {
   list.innerHTML = saved.map((item, i) => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--border)">
       <div>
-        <div style="font-size:14px;font-weight:500">${item.name}</div>
+        <div style="font-size:14px;font-weight:500">${escapeHtmlLocal(item.name)}</div>
         <div style="font-size:11px;color:var(--muted)">${item.date}</div>
       </div>
       <div style="display:flex;gap:6px">
@@ -2712,6 +2731,14 @@ function resetForm() {
   if (multiContainerReset) multiContainerReset.style.display = 'none';
   const regionRowsReset = document.getElementById('region-rows');
   if (regionRowsReset) regionRowsReset.innerHTML = '';
+  // v4.83 - איפוס שדה ההבהרה הכללית של הטיול הנודד. השדה הוא אח של #region-rows בתוך
+  // #multi-region-container, ולכן innerHTML='' על השורות מעולם לא נגע בו, והסתרת המכולה
+  // רק הסתירה אותו מהעין בלי לנקות את ה-value. buildMultiRegionText (נקודת הקריאה היחידה)
+  // מזריקה אותו כ"עיקרון מנחה שכל יום ורכיב במסלול חייב לשרת בפועל" - כלומר הנחיה מחייבת
+  // מהטיול הקודם דלפה לטיול הבא. הדליפה התממשה רק בבניית טיול נודד שני, כי שני שערי
+  // היציאה המוקדמים בראש הפונקציה (toggle כבוי / אפס שורות) חוסמים לפני קריאת השדה.
+  const multiClarifyReset = document.getElementById('multi-region-clarify');
+  if (multiClarifyReset) multiClarifyReset.value = '';
   regionRowCount = 0;
   const mainDtToggleReset = document.getElementById('main-daytrip-toggle');
   if (mainDtToggleReset) { mainDtToggleReset.checked = false; mainDtToggleReset.disabled = false; }
