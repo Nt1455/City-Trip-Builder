@@ -220,18 +220,6 @@ textarea{min-height:68px;resize:vertical}
 <div class="container">
 <header>
   <h1 id="app-title">City Trip Builder Claude</h1>
-  <script>
-    (function(){
-      var c = document.childNodes[0];
-      for(var i=0;i<document.childNodes.length;i++){
-        if(document.childNodes[i].nodeType===8){c=document.childNodes[i];break;}
-      }
-      if(c){
-        var m = c.nodeValue.match(/v(\d+\.\d+)/);
-        if(m) document.getElementById("app-title").textContent = "City Trip Builder Claude v" + m[1];
-      }
-    })();
-  </script>
   <p>מלא את הפרטים - קבל מסלול מפורט לפי שעות</p>
   <button onclick="toggleHistory()" style="margin-top:8px;font-family:'Heebo',sans-serif;font-size:12px;padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer">📂 מסלולים שמורים</button>
   <button onclick="toggleSavedSuggestions()" id="saved-sugg-toggle-btn" style="margin-top:8px;margin-inline-start:8px;font-family:'Heebo',sans-serif;font-size:12px;padding:5px 14px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer">📌 הצעות שמורות</button>
@@ -543,8 +531,9 @@ textarea{min-height:68px;resize:vertical}
 </div>
 <script>
 // מקור אמת יחיד לגרסת האפליקציה - יש לעדכן גם כאן וגם בהערת ה-HTML בשורה 1 בכל שינוי גרסה.
-const APP_VERSION = 'v4.86';
+const APP_VERSION = 'v4.87';
 document.title = 'City Trip Builder Claude ' + APP_VERSION;
+document.getElementById('app-title').textContent = 'City Trip Builder Claude ' + APP_VERSION;
 
 const API = 'https://api.anthropic.com/v1/messages';
 const PROXY_API = 'https://city-trip-proxy.rikmotnativ.workers.dev';
